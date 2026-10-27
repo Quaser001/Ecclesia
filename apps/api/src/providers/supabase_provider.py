@@ -184,7 +184,10 @@ class SupabaseStorageProvider(StorageProvider):
                 file=data,
                 file_options={"content-type": content_type, "upsert": "true"},
             )
-            return client.storage.from_(bucket).get_public_url(path)
+            # Async client: get_public_url is a coroutine and must be awaited.
+            # The bucket is private, so this link does not open on its own;
+            # serve signed URLs before showing photos in the app.
+            return await client.storage.from_(bucket).get_public_url(path)
         except Exception as exc:
             logger.error("Image upload failed (bucket=%s, path=%s): %s", bucket, path, exc)
             raise

@@ -15,6 +15,24 @@ from src.domain.models import (
 
 
 # ---------------------------------------------------------------------------
+# Isolation: never touch the live Supabase project from tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _no_live_supabase(monkeypatch):
+    """`.env` may hold real Supabase keys; tests must use the local providers.
+
+    Without this, every endpoint test that does not override the provider
+    writes profiles, scans and photos into the production database.
+    """
+    from src.config.settings import settings
+
+    monkeypatch.setattr(settings, "SUPABASE_URL", "")
+    monkeypatch.setattr(settings, "SUPABASE_SERVICE_ROLE_KEY", "")
+
+
+# ---------------------------------------------------------------------------
 # Auth fixtures
 # ---------------------------------------------------------------------------
 

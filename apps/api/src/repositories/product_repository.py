@@ -7,13 +7,23 @@ import logging
 import re
 import sqlite3
 import unicodedata
+from pathlib import Path
 from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 from src.domain.models import NutritionInfo, ProductObservation
-from src.providers.local_db_provider import get_db_path
 
 logger = logging.getLogger(__name__)
+
+
+def get_food_db_path() -> str:
+    """Path of the food product database (Open Food Facts subset).
+
+    Kept apart from `data/calfit.db`, the local dev store of profiles and
+    scans, so the container can ship the product data without anyone's
+    health details. This file is committed and copied into the image.
+    """
+    return str(Path(__file__).resolve().parent.parent.parent / "data" / "food.db")
 
 
 class FoodProduct(BaseModel):
@@ -37,7 +47,7 @@ class ProductRepository:
     """Repository for querying normalized food products from local database."""
 
     def __init__(self, db_path: str | None = None) -> None:
-        self._db_path = db_path or get_db_path()
+        self._db_path = db_path or get_food_db_path()
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:

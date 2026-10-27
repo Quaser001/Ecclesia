@@ -8,8 +8,15 @@ __pycache__
 .env.*
 tests
 scripts
-data/eval/photos
+README.md
+
+# Local dev store: real profiles and scan history, plus scan photos. The
+# Dockerfile copies only data/food.db; these lines keep the rest out of the
+# build context as well.
+data/calfit.db
 data/calfit_local.db
+data/uploads
+data/eval
+data/*.py
 *.sqlite
 *.sqlite3
-README.md

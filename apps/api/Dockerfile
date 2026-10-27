@@ -25,9 +25,10 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project
 
-# Now the project itself.
+# Now the project itself. From data/ only the food product database ships;
+# data/calfit.db is the local dev store of real profiles and scans.
 COPY src ./src
-COPY data ./data
+COPY data/food.db ./data/food.db
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 

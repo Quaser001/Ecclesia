@@ -23,6 +23,8 @@ apps/mobile/android/app/.cxx/
 
 # Local SQLite database — holds real scan rows and food photos' metadata
 apps/api/data/*.db
+# The food product database (Open Food Facts subset) ships in the image.
+!apps/api/data/food.db
 apps/api/data/*.sqlite
 apps/api/data/*.sqlite3
 apps/api/data/uploads/

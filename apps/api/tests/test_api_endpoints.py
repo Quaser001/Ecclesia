@@ -102,8 +102,9 @@ async def test_profile_lifecycle(make_device):
 
 
 @pytest.mark.asyncio
-async def test_product_matching_and_alternatives():
-    repo = ProductRepository()
+async def test_product_matching_and_alternatives(tmp_path):
+    # A temporary database: the default one ships in the container image.
+    repo = ProductRepository(str(tmp_path / "food.db"))
     
     # Save candidate noodles
     cand = FoodProduct(

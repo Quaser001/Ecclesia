@@ -1,0 +1,33 @@
+# Files `gcloud builds submit` must NOT upload to Cloud Build.
+#
+# With this file present gcloud ignores .gitignore, so everything sensitive is
+# listed here explicitly. The upload lands in a Cloud Storage bucket, so a
+# secret or a health record that slips through has left the machine even if
+# the Dockerfile never copies it.
+
+.gcloudignore
+.git
+.gitignore
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Local dev store: real profiles (health conditions, allergies), scan history
+data/calfit.db
+data/*.sqlite
+data/*.sqlite3
+data/uploads
+data/eval
+
+# Dev-only scripts and tooling
+data/*.py
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+tests
+scripts

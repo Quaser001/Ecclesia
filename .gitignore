@@ -66,3 +66,6 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Old pre-auth copy of the app, kept locally as a backup (contains a .env)
+/_stale_nested_copy/

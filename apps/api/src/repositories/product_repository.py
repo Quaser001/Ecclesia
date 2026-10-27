@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sqlite3
+import unicodedata
 from typing import Any, Optional
 from pydantic import BaseModel, Field
 
@@ -242,35 +244,24 @@ class ProductRepository:
         brand: Optional[str] = None,
         category: Optional[str] = None,
     ) -> Optional[FoodProduct]:
-        """Find the best matching product from the database given extracted info."""
-        import re
-        query_str = f"{brand or ''} {name or ''} {category or ''}".strip().lower()
-        if not query_str:
-            return None
+        """Find the product the label names, or None when the match is not certain.
 
-        words = [w for w in re.split(r"[^\w]+", query_str) if len(w) >= 3]
-        if not words:
+        A match fills in data the photo did not show, so a wrong one is
+        fabricated data. `category` is accepted for callers but not used:
+        sharing a category word says nothing about which product it is.
+        """
+        if not name:
             return None
+        label_tokens = _tokens(name) | _tokens(brand)
 
+        best_row, best_shared = None, 0
         with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM food_products")
-            rows = cursor.fetchall()
+            for row in conn.execute("SELECT * FROM food_products"):
+                shared = _match_strength(name, brand, row["product_name"], row["brand"], label_tokens)
+                if shared > best_shared:
+                    best_row, best_shared = row, shared
 
-            best_match = None
-            max_matches = 0
-
-            for row in rows:
-                p_text = f"{row['brand'] or ''} {row['product_name']} {row['categories'] or ''}".lower()
-                matches = sum(1 for w in words if w in p_text)
-                if matches > max_matches:
-                    max_matches = matches
-                    best_match = row
-
-            if best_match and max_matches >= 1:
-                return _row_to_product(best_match)
-
-        return None
+        return _row_to_product(best_row) if best_row is not None else None
 
     def find_candidates_by_category(
         self,
@@ -307,6 +298,59 @@ class ProductRepository:
             cursor.execute(query, tuple(params))
             rows = cursor.fetchall()
             return [_row_to_product(r) for r in rows]
+
+
+# Pack sizes and prices ("200ml", "375g", "20rs") and filler words do not
+# identify a product.
+_SIZE_TOKEN = re.compile(r"^\d+(?:\.\d+)?(?:ml|l|g|gm|gms|kg|rs|pcs)?$")
+_FILLER = {"and", "the", "with", "for", "new", "pack", "des", "les", "von", "und"}
+
+
+def _tokens(text: Optional[str]) -> set[str]:
+    """Lower-case, accent-folded identifying words ("Nestlé" == "nestle", "Lay's" == "lays")."""
+    if not text:
+        return set()
+    folded = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
+    folded = folded.replace("'", "")
+    return {
+        w for w in re.split(r"[^a-z0-9]+", folded)
+        if len(w) >= 3 and w not in _FILLER and not _SIZE_TOKEN.match(w)
+    }
+
+
+def _match_strength(
+    name: str,
+    brand: Optional[str],
+    row_name: str,
+    row_brand: Optional[str],
+    label_tokens: set[str],
+) -> int:
+    """Number of identifying words shared, or 0 when the row is not this product.
+
+    - Brands, when both are known, must share a word.
+    - The row's own name, minus its brand, must say something specific, and
+      every one of those words must be on the label. "Good Day Butter
+      Cookies" is not "Good Day Chocochip Cookies"; a row named just
+      "Kurkure" could be any Kurkure.
+    - The label's name must contribute a word beyond its brand ("STING" by
+      Sting names no particular product).
+    - At least two words in common overall: one shared word is not a match.
+    """
+    brand_words = _tokens(brand)
+    row_brand_words = _tokens(row_brand)
+    if brand_words and row_brand_words and not (brand_words & row_brand_words):
+        return 0
+
+    row_specific = _tokens(row_name) - row_brand_words
+    if not row_specific or not row_specific <= label_tokens:
+        return 0
+
+    label_specific = _tokens(name) - brand_words
+    if not (label_specific & row_specific):
+        return 0
+
+    shared = label_tokens & (_tokens(row_name) | row_brand_words)
+    return len(shared) if len(shared) >= 2 else 0
 
 
 def _row_to_product(row: sqlite3.Row) -> FoodProduct:

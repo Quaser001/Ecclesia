@@ -2,12 +2,14 @@
 CalFit LangGraph scan orchestration pipeline.
 
 Implements a controlled, deterministic workflow:
-  analyze_photo → validate_extraction → match_product → retrieve_knowledge
+  analyze_photo → validate_extraction → match_product → check_scoreable
+  → retrieve_knowledge
   → load_profile → score_product → generate_explanation → find_alternatives
   → upload_image → END
 
 With a conditional branch to `assemble_insufficient` whenever extraction
-genuinely cannot produce meaningful product information.
+genuinely cannot produce meaningful product information, or when, after
+matching, there is still nothing for the rules to evaluate.
 
 This pipeline is NOT an autonomous agent loop. LangGraph only handles
 routing and state; the deterministic scoring service remains the sole
@@ -47,6 +49,7 @@ from src.providers.interfaces import GeminiProvider, StorageProvider, SupabasePr
 from src.repositories.product_repository import ProductRepository
 from src.services.alternative_service import AlternativeService
 from src.services.explanation_service import ExplanationService
+from src.services.nutrition_merge import merge_reference_nutrition
 from src.services.scoring_service import ScoringService
 
 logger = logging.getLogger(__name__)
@@ -182,29 +185,8 @@ async def node_match_product(
         return {}
 
     logger.info("Matched product in local DB: %s (code=%s)", matched.product_name, matched.code)
-    curr_nut = product.nutrition
-    match_nut = matched.nutrition
-
-    def _prefer(a: Any, b: Any) -> Any:
-        return a if a is not None else b
-
-    merged_nutrition = NutritionInfo(
-        serving_size_g=_prefer(curr_nut.serving_size_g, match_nut.serving_size_g),
-        calories_kcal=_prefer(curr_nut.calories_kcal, match_nut.calories_kcal),
-        total_fat_g=_prefer(curr_nut.total_fat_g, match_nut.total_fat_g),
-        saturated_fat_g=_prefer(curr_nut.saturated_fat_g, match_nut.saturated_fat_g),
-        trans_fat_g=_prefer(curr_nut.trans_fat_g, match_nut.trans_fat_g),
-        cholesterol_mg=_prefer(curr_nut.cholesterol_mg, match_nut.cholesterol_mg),
-        sodium_mg=_prefer(curr_nut.sodium_mg, match_nut.sodium_mg),
-        total_carbs_g=_prefer(curr_nut.total_carbs_g, match_nut.total_carbs_g),
-        dietary_fiber_g=_prefer(curr_nut.dietary_fiber_g, match_nut.dietary_fiber_g),
-        sugars_g=_prefer(curr_nut.sugars_g, match_nut.sugars_g),
-        added_sugars_g=_prefer(curr_nut.added_sugars_g, match_nut.added_sugars_g),
-        protein_g=_prefer(curr_nut.protein_g, match_nut.protein_g),
-        sodium_confidence=curr_nut.sodium_confidence or match_nut.sodium_confidence,
-        sugar_confidence=curr_nut.sugar_confidence or match_nut.sugar_confidence,
-        fat_confidence=curr_nut.fat_confidence or match_nut.fat_confidence,
-    )
+    # Database rows are per 100 g/ml; convert onto the label's serving basis.
+    merged_nutrition = merge_reference_nutrition(product.nutrition, matched.nutrition)
 
     enriched_product = product.model_copy(
         update={
@@ -217,6 +199,42 @@ async def node_match_product(
         }
     )
     return {"product": enriched_product}
+
+
+# Calories are excluded: a front-of-pack "75 kcal" badge is often the only
+# number on the photo, and no sugar, sodium, fat or allergen rule can use it.
+_NUTRIENT_VALUE_FIELDS = tuple(
+    f for f in NutritionInfo.model_fields
+    if f not in ("serving_size_g", "calories_kcal") and not f.endswith("_confidence")
+)
+
+
+def has_scoreable_data(product: ProductObservation) -> bool:
+    """True if the rules have anything to evaluate.
+
+    The rules only subtract for problems they can see, so a product with no
+    nutrients, ingredients or declared allergens would score 100 on nothing.
+    """
+    nutrition = product.nutrition
+    return bool(
+        product.ingredients
+        or product.allergens_declared
+        or any(getattr(nutrition, f) is not None for f in _NUTRIENT_VALUE_FIELDS)
+    )
+
+
+async def node_check_scoreable(state: ScanState) -> dict[str, Any]:
+    """After matching: refuse to score a product we know nothing about."""
+    if state.product is not None and has_scoreable_data(state.product):
+        return {}
+    return {
+        "insufficient_data": True,
+        "pipeline_message": (
+            "We could read the product's name but not its ingredients or nutrition, "
+            "and it isn't in our product database yet. Take a photo of the back of "
+            "the pack showing the ingredients and nutrition table."
+        ),
+    }
 
 
 async def node_retrieve_knowledge(
@@ -363,6 +381,14 @@ def route_after_validation(
     return "match_product"
 
 
+def route_after_scoreable_check(
+    state: ScanState,
+) -> Literal["retrieve_knowledge", "assemble_insufficient"]:
+    if state.insufficient_data:
+        return "assemble_insufficient"
+    return "retrieve_knowledge"
+
+
 # ---------------------------------------------------------------------------
 # Graph builder
 # ---------------------------------------------------------------------------
@@ -382,6 +408,7 @@ def build_scan_graph(
     graph.add_node("analyze_photo", partial(node_analyze_photo, gemini=gemini))
     graph.add_node("validate_extraction", node_validate_extraction)
     graph.add_node("match_product", partial(node_match_product, product_repo=repo))
+    graph.add_node("check_scoreable", node_check_scoreable)
     graph.add_node("retrieve_knowledge", partial(node_retrieve_knowledge, supabase=supabase))
     graph.add_node("load_profile", partial(node_load_profile, supabase=supabase))
     graph.add_node("score_product", node_score_product)
@@ -403,7 +430,15 @@ def build_scan_graph(
             "assemble_insufficient": "assemble_insufficient",
         },
     )
-    graph.add_edge("match_product", "retrieve_knowledge")
+    graph.add_edge("match_product", "check_scoreable")
+    graph.add_conditional_edges(
+        "check_scoreable",
+        route_after_scoreable_check,
+        {
+            "retrieve_knowledge": "retrieve_knowledge",
+            "assemble_insufficient": "assemble_insufficient",
+        },
+    )
     graph.add_edge("retrieve_knowledge", "load_profile")
     graph.add_edge("load_profile", "score_product")
     graph.add_edge("score_product", "generate_explanation")

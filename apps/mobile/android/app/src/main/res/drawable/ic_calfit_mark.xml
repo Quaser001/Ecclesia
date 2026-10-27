@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  CalFit brand mark — the open "C" with a leaf tick inside.
+  Reads as "food" (the leaf) plus "check" (the tick) plus "C" for the name,
+  without being a literal apple/leaf cliché. Monochrome, vector, resolution-
+  independent, used for both the splash and the adaptive-icon foreground.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Open C (two thirds of a circle), ember stroke, round caps. -->
+    <path
+        android:strokeColor="#F59E3C"
+        android:strokeWidth="9"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M 74 32 A 24 24 0 1 0 74 76" />
+
+    <!-- Verdict-green leaf-tick inside the C. Simple two-stroke mark. -->
+    <path
+        android:strokeColor="#2BA373"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M 46 54 L 54 62 L 68 46" />
+</vector>

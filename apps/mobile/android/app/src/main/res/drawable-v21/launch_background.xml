@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 21+ splash — same as the base one; we never want to inherit the OS
+     colour because it would be white in light mode and clash with the brand. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/calfit_bg_dark" />
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@drawable/ic_calfit_mark" />
+    </item>
+</layer-list>

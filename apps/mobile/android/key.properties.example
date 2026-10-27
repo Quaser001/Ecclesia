@@ -1,0 +1,8 @@
+# Copy to android/key.properties and fill in — the real file is gitignored.
+# The build picks these up automatically. Without them, release builds fall
+# back to debug signing, which Play Store will not accept.
+
+storeFile=/absolute/path/to/calfit-upload.jks
+storePassword=change-me
+keyAlias=upload
+keyPassword=change-me

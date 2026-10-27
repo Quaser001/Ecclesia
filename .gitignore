@@ -1,0 +1,68 @@
+# Environments — secrets never go in git
+.env
+.env.*
+!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Android release signing — these two would let anyone ship as you
+apps/mobile/android/key.properties
+*.jks
+*.keystore
+
+# Machine-specific Flutter/Android paths
+apps/mobile/android/local.properties
+apps/mobile/android/.gradle/
+apps/mobile/android/app/.cxx/
+
+# Built app binaries
+*.apk
+*.aab
+
+# Local SQLite database — holds real scan rows and food photos' metadata
+apps/api/data/*.db
+apps/api/data/*.sqlite
+apps/api/data/*.sqlite3
+apps/api/data/uploads/
+
+# Stale nested duplicate of this whole project. It carries its own .git
+# pointing at github.com/Suhail-0002/CalFit0002 and predates all current work
+# (no CHANGES.md). Excluded so it never lands in this repo. Safe to delete
+# once you've confirmed nothing in it is needed.
+CalFit/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+
+# IDEs
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db

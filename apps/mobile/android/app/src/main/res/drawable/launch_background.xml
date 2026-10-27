@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Native splash. Flutter removes it as soon as the first frame paints, so this
+  is the ~400ms "cold start" moment the user sees. One brand colour, one mark,
+  nothing to distract from the hand-off into the app itself.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/calfit_bg_dark" />
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@drawable/ic_calfit_mark" />
+    </item>
+</layer-list>

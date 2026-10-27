@@ -82,6 +82,23 @@ class SupabaseProvider(ABC):
         """Retrieve scan history for a user."""
         ...
 
+    @abstractmethod
+    async def get_scan(self, user_id: str, scan_id: str) -> dict[str, Any] | None:
+        """One full scan row, or None if it does not exist or is not this user's."""
+        ...
+
+    @abstractmethod
+    async def delete_user_data(self, user_id: str) -> int:
+        """Delete the user's scans, usage counters and profile. Returns scans deleted."""
+        ...
+
+    @abstractmethod
+    async def get_scans_for_insights(
+        self, user_id: str, limit: int = 500
+    ) -> list[dict[str, Any]]:
+        """Recent scans with their score_json, newest first."""
+        ...
+
 
 class StorageProvider(ABC):
     """Interface for file/image storage."""
@@ -89,4 +106,9 @@ class StorageProvider(ABC):
     @abstractmethod
     async def upload_image(self, bucket: str, path: str, data: bytes, content_type: str) -> str:
         """Upload an image and return the public URL."""
+        ...
+
+    @abstractmethod
+    async def delete_folder(self, bucket: str, prefix: str) -> int:
+        """Delete every object under `prefix` in `bucket`. Returns how many."""
         ...

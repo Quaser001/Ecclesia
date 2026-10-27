@@ -6,6 +6,10 @@ from Open Food Facts official search/download route and imports them into CalFit
 
 Usage:
   python scripts/import_food_data.py
+
+Superseded for products by scripts/import_india_foods.py, which builds the
+India-first database with CalFit categories, flavour tags and sanity checks.
+Kept for the knowledge-base seed.
 """
 
 from __future__ import annotations
@@ -93,6 +97,11 @@ def clean_number(val: any) -> float | None:
         return f if f >= 0 else None
     except (ValueError, TypeError):
         return None
+
+
+def _g_to_mg(val: any) -> float | None:
+    g = clean_number(val)
+    return round(g * 1000, 1) if g is not None else None
 
 
 def parse_ingredients_list(text: str | None) -> list[str]:
@@ -187,17 +196,20 @@ def _save_raw_product(repo: ProductRepository, raw: dict) -> bool:
 
     nutriments = raw.get("nutriments") or {}
     nutrition = NutritionInfo(
-        calories_kcal=clean_number(nutriments.get("energy-kcal_100g") or nutriments.get("energy-kcal") or nutriments.get("energy_100g")),
-        total_fat_g=clean_number(nutriments.get("fat_100g") or nutriments.get("fat")),
-        saturated_fat_g=clean_number(nutriments.get("saturated-fat_100g") or nutriments.get("saturated-fat")),
-        trans_fat_g=clean_number(nutriments.get("trans-fat_100g") or nutriments.get("trans-fat")),
-        cholesterol_mg=clean_number(nutriments.get("cholesterol_100g") or nutriments.get("cholesterol")),
-        sodium_mg=clean_number(nutriments.get("sodium_100g") or (float(nutriments.get("salt_100g", 0) or 0) * 400 if nutriments.get("salt_100g") else None)),
-        total_carbs_g=clean_number(nutriments.get("carbohydrates_100g") or nutriments.get("carbohydrates")),
-        dietary_fiber_g=clean_number(nutriments.get("fiber_100g") or nutriments.get("fiber")),
-        sugars_g=clean_number(nutriments.get("sugars_100g") or nutriments.get("sugars")),
+        # Per-100 g values only: unsuffixed keys can be per serving.
+        # Open Food Facts stores sodium and cholesterol in grams; CalFit uses mg.
+        calories_kcal=clean_number(nutriments.get("energy-kcal_100g")),
+        total_fat_g=clean_number(nutriments.get("fat_100g")),
+        saturated_fat_g=clean_number(nutriments.get("saturated-fat_100g")),
+        trans_fat_g=clean_number(nutriments.get("trans-fat_100g")),
+        cholesterol_mg=_g_to_mg(nutriments.get("cholesterol_100g")),
+        sodium_mg=_g_to_mg(nutriments.get("sodium_100g"))
+        or (_g_to_mg(nutriments.get("salt_100g")) / 2.5 if nutriments.get("salt_100g") else None),
+        total_carbs_g=clean_number(nutriments.get("carbohydrates_100g")),
+        dietary_fiber_g=clean_number(nutriments.get("fiber_100g")),
+        sugars_g=clean_number(nutriments.get("sugars_100g")),
         added_sugars_g=clean_number(nutriments.get("added-sugars_100g")),
-        protein_g=clean_number(nutriments.get("proteins_100g") or nutriments.get("proteins")),
+        protein_g=clean_number(nutriments.get("proteins_100g")),
         sodium_confidence=nutriments.get("sodium_100g") is not None or nutriments.get("salt_100g") is not None,
         sugar_confidence=nutriments.get("sugars_100g") is not None,
         fat_confidence=nutriments.get("fat_100g") is not None,

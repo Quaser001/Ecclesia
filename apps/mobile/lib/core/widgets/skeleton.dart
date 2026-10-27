@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
+
 /// A subtle shimmer skeleton for loading states that don't need a spinner.
 /// We use skeletons on the home dashboard and history, and a stepped
 /// status line on the scan screen (see `ScanProgressIndicator`).
@@ -74,12 +76,14 @@ class ScanProgressIndicator extends StatefulWidget {
 }
 
 class _ScanProgressIndicatorState extends State<ScanProgressIndicator> {
-  static const _steps = <String>[
-    'Reading the label',
-    'Checking your profile',
-    'Weighing the findings',
-    'Finding alternatives',
-  ];
+  static const _stepCount = 4;
+
+  static String _step(AppLocalizations l, int i) => switch (i) {
+        0 => l.stepReadingLabel,
+        1 => l.stepCheckingProfile,
+        2 => l.stepWeighing,
+        _ => l.stepAlternatives,
+      };
 
   int _index = 0;
 
@@ -90,7 +94,7 @@ class _ScanProgressIndicatorState extends State<ScanProgressIndicator> {
   }
 
   Future<void> _tick() async {
-    for (var i = 1; i < _steps.length; i++) {
+    for (var i = 1; i < _stepCount; i++) {
       await Future.delayed(const Duration(milliseconds: 1400));
       if (!mounted) return;
       setState(() => _index = i);
@@ -113,7 +117,7 @@ class _ScanProgressIndicatorState extends State<ScanProgressIndicator> {
         );
       },
       child: Text(
-        '${_steps[_index]}…',
+        '${_step(context.l10n, _index)}…',
         key: ValueKey(_index),
         style: theme.textTheme.bodyLarge,
       ),

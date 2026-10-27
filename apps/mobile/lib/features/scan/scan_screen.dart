@@ -6,6 +6,7 @@ import '../../app/app_theme.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/user_message.dart';
 import '../../core/widgets/skeleton.dart';
+import '../../l10n/l10n.dart';
 import '../../services/api_service.dart';
 import 'scan_result_screen.dart';
 
@@ -56,7 +57,7 @@ class _ScanScreenState extends State<ScanScreen> {
       }
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = "We couldn't open that image. Please try another.");
+      setState(() => _error = context.l10n.errorImageOpen);
     }
   }
 
@@ -85,7 +86,7 @@ class _ScanScreenState extends State<ScanScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = UserMessage.fromError(e));
+      setState(() => _error = UserMessage.of(context, e));
     } finally {
       if (mounted) setState(() => _scanning = false);
     }
@@ -96,22 +97,16 @@ class _ScanScreenState extends State<ScanScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('New scan')),
+      appBar: AppBar(title: Text(context.l10n.newScan)),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Point the camera at a food label.',
-              style: AppTheme.display(26,
-                  weight: FontWeight.w500,
-                  color: theme.textTheme.displayMedium?.color,
-                  height: 1.1),
-            ),
+            Text(context.l10n.scanHeadline, style: theme.textTheme.displaySmall),
             const SizedBox(height: 8),
             Text(
-              "We'll tell you if it fits your profile — your conditions, allergies, and goals.",
+              context.l10n.scanBody,
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 24),
@@ -120,20 +115,18 @@ class _ScanScreenState extends State<ScanScreen> {
                 padding: const EdgeInsets.all(14),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: AppColors.critical.withValues(alpha: 0.08),
+                  color: context.colors.tint(context.colors.critical, theme.brightness),
                   borderRadius: BorderRadius.circular(12),
-                  border:
-                      Border.all(color: AppColors.critical.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline, color: AppColors.critical, size: 20),
+                    Icon(Icons.error_outline, color: context.colors.critical, size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         _error!,
-                        style: AppTheme.ui(13,
-                            weight: FontWeight.w500, color: AppColors.critical),
+                        style: AppTheme.ui(14,
+                            weight: FontWeight.w600, color: context.colors.critical),
                       ),
                     ),
                   ],
@@ -146,15 +139,8 @@ class _ScanScreenState extends State<ScanScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _scanning ? null : () => _pickImage(ImageSource.camera),
-                    icon: const Icon(Icons.photo_camera_outlined, size: 18),
-                    label: const Text('Camera'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      foregroundColor: theme.textTheme.titleLarge?.color,
-                      side: BorderSide(color: theme.dividerColor),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                    ),
+                    icon: const Icon(Icons.photo_camera_outlined, size: 20),
+                    label: Text(context.l10n.camera),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -162,40 +148,23 @@ class _ScanScreenState extends State<ScanScreen> {
                   child: OutlinedButton.icon(
                     onPressed:
                         _scanning ? null : () => _pickImage(ImageSource.gallery),
-                    icon: const Icon(Icons.photo_library_outlined, size: 18),
-                    label: const Text('Gallery'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      foregroundColor: theme.textTheme.titleLarge?.color,
-                      side: BorderSide(color: theme.dividerColor),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                    ),
+                    icon: const Icon(Icons.photo_library_outlined, size: 20),
+                    label: Text(context.l10n.gallery),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
             FilledButton(
               onPressed:
                   (_selectedImageBytes == null || _scanning) ? null : _submitScan,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.verdict,
-                foregroundColor: AppColors.bg,
-                disabledBackgroundColor: theme.colorScheme.surfaceContainerHighest,
-                disabledForegroundColor: theme.textTheme.bodyMedium?.color,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape:
-                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
               child: _scanning
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 2),
-                      child: ScanProgressIndicator(),
-                    )
-                  : Text('Scan this product',
-                      style: AppTheme.ui(16, weight: FontWeight.w700)),
+                  ? const ScanProgressIndicator()
+                  : Text(context.l10n.checkThisProduct),
             ),
+            const SizedBox(height: 18),
+            _PhotoTips(),
           ],
         ),
       ),
@@ -213,22 +182,24 @@ class _ScanScreenState extends State<ScanScreen> {
               ? ImageSource.camera
               : ImageSource.gallery),
       child: Container(
-        height: 280,
+        height: 300,
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(18),
+          color: _selectedImageBytes != null
+              ? theme.colorScheme.surface
+              : context.colors.brandSoft.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: _selectedImageBytes != null
                 ? primary.withValues(alpha: 0.6)
-                : theme.dividerColor,
-            width: _selectedImageBytes != null ? 1.5 : 1,
+                : primary.withValues(alpha: 0.25),
+            width: 1.5,
           ),
         ),
         child: _selectedImageBytes != null
             ? Stack(
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(17),
+                    borderRadius: BorderRadius.circular(18.5),
                     child: Image.memory(
                       _selectedImageBytes!,
                       fit: BoxFit.cover,
@@ -244,6 +215,7 @@ class _ScanScreenState extends State<ScanScreen> {
                       borderRadius: BorderRadius.circular(20),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(20),
+                        // Announced to screen readers; the icon has no text.
                         onTap: _scanning
                             ? null
                             : () {
@@ -253,9 +225,10 @@ class _ScanScreenState extends State<ScanScreen> {
                                   _selectedImageName = null;
                                 });
                               },
-                        child: const Padding(
-                          padding: EdgeInsets.all(7),
-                          child: Icon(Icons.close, color: Colors.white, size: 18),
+                        child: Padding(
+                          padding: const EdgeInsets.all(7),
+                          child: Icon(Icons.close, color: Colors.white, size: 18,
+                              semanticLabel: context.l10n.removePhoto),
                         ),
                       ),
                     ),
@@ -266,27 +239,60 @@ class _ScanScreenState extends State<ScanScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 56,
-                    height: 56,
+                    width: 64,
+                    height: 64,
                     decoration: BoxDecoration(
-                      color: primary.withValues(alpha: 0.1),
+                      color: theme.colorScheme.surface,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.photo_camera_outlined, size: 26, color: primary),
+                    child: Icon(Icons.photo_camera_outlined, size: 28, color: primary),
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Tap to take a photo',
+                    context.l10n.tapToTakePhoto,
                     style: theme.textTheme.titleLarge,
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Or pick one from your gallery',
+                    context.l10n.orPickFromGallery,
                     style: theme.textTheme.bodyMedium,
                   ),
                 ],
               ),
       ),
+    );
+  }
+}
+
+/// Three quick tips that make the label readable on the first try.
+class _PhotoTips extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final c = context.colors;
+    final l = context.l10n;
+    final tips = [
+      (Icons.flip_to_back_rounded, l.tipBackOfPack),
+      (Icons.wb_sunny_outlined, l.tipLight),
+      (Icons.crop_free_rounded, l.tipFillFrame),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l.tipsTitle, style: theme.textTheme.titleMedium),
+        const SizedBox(height: 8),
+        for (final (icon, text) in tips)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Row(
+              children: [
+                Icon(icon, size: 18, color: c.brand),
+                const SizedBox(width: 10),
+                Expanded(child: Text(text, style: theme.textTheme.bodyMedium)),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

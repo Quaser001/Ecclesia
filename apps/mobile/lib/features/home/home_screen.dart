@@ -4,35 +4,37 @@ import 'package:flutter/services.dart';
 import '../../app/app_theme.dart';
 import '../../app/theme_controller.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/utils/relative_time.dart';
 import '../../core/utils/user_message.dart';
+import '../../core/widgets/brand_mark.dart';
+import '../../core/widgets/scan_row.dart';
+import '../../core/widgets/score_badge.dart';
 import '../../core/widgets/skeleton.dart';
+import '../../core/widgets/status_view.dart';
 import '../../core/widgets/surface_card.dart';
+import '../../l10n/l10n.dart';
 import '../../models/scan_result.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
+import '../scan/scan_detail_screen.dart';
 
-/// Home screen.
+/// Home: what did I scan last, how am I doing, and what's my profile.
 ///
-/// The job is to answer two questions a returning user has:
-///   1. What did I scan last?
-///   2. What's on my plate for today (profile at a glance)?
-///
-/// We removed the generic "notifications" icon that led nowhere, dropped the
-/// 🌿 emoji and the "Better food choices. A healthier you." tagline, and
-/// stopped labelling the latest scan's score as "Your Health Score" — the
-/// previous copy implied a running health rating the app doesn't actually
-/// compute.
+/// Numbers here are counts and averages of the user's own scans; the app
+/// does not compute a running "health score" and never implies one.
 class HomeScreen extends StatefulWidget {
   final ApiService apiService;
   final String userId;
   final VoidCallback? onNavigateToHistory;
+  final VoidCallback? onNavigateToProfile;
+  final VoidCallback? onStartScan;
 
   const HomeScreen({
     super.key,
     required this.apiService,
     required this.userId,
     this.onNavigateToHistory,
+    this.onNavigateToProfile,
+    this.onStartScan,
   });
 
   @override
@@ -56,7 +58,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _isLoading = true;
       _error = null;
     });
-
     try {
       final results = await Future.wait([
         widget.apiService.getProfile(),
@@ -65,261 +66,320 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() {
         _profile = results[0] as UserProfile;
-        _history = results[1] as List<ScanHistoryItem>;
-        _history.sort((a, b) => b.scannedAt.compareTo(a.scannedAt));
+        _history = (results[1] as List<ScanHistoryItem>)
+          ..sort((a, b) => b.scannedAt.compareTo(a.scannedAt));
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = UserMessage.fromError(e);
+        _error = UserMessage.of(context, e);
         _isLoading = false;
       });
     }
   }
 
+  void _open(ScanHistoryItem item) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ScanDetailScreen(apiService: widget.apiService, scanId: item.scanId),
+      ),
+    );
+  }
+
+  bool get _profileEmpty {
+    final p = _profile;
+    return p != null &&
+        p.healthConditions.isEmpty &&
+        p.healthGoals.isEmpty &&
+        p.allergies.isEmpty &&
+        p.dietaryPreferences.isEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
       body: SafeArea(
-        child: _error != null
-            ? _buildErrorState()
-            : RefreshIndicator(
-                onRefresh: _loadData,
-                color: AppColors.verdict,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
-                  children: [
-                    _buildHeader(context),
-                    const SizedBox(height: 28),
-                    _buildGreeting(context),
-                    const SizedBox(height: 32),
-                    _buildLatestScanCard(context),
-                    if (!_isLoading && _history.isNotEmpty) ...[
-                      const SizedBox(height: 14),
-                      _StatsRow(history: _history),
-                    ],
-                    const SizedBox(height: 28),
-                    _ProfileAtAGlance(profile: _profile, loading: _isLoading),
-                    const SizedBox(height: 28),
-                    _buildRecentScansHeader(context),
-                    const SizedBox(height: 12),
-                    _buildRecentScans(context),
-                  ],
-                ),
-              ),
-      ),
-    );
-  }
-
-  Widget _buildErrorState() {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
+        bottom: false,
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.cloud_off_rounded, size: 44, color: theme.textTheme.bodyMedium?.color),
-            const SizedBox(height: 16),
-            Text("We can't reach your dashboard",
-                style: theme.textTheme.headlineMedium),
-            const SizedBox(height: 6),
-            Text(_error ?? '',
-                textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 20),
-            FilledButton(
-              onPressed: _loadData,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.verdict,
-                foregroundColor: AppColors.bg,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape:
-                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('Try again'),
-            )
+            _Header(),
+            Expanded(
+              child: _error != null
+                  ? StatusView(
+                      icon: Icons.cloud_off_rounded,
+                      title: context.l10n.homeErrorTitle,
+                      message: _error!,
+                      actionLabel: context.l10n.tryAgain,
+                      onAction: _loadData,
+                      isError: true,
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadData,
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+                        children: _content(context),
+                      ),
+                    ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  List<Widget> _content(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
+    return [
+      _Greeting(name: _profile?.name),
+      const SizedBox(height: 20),
+      if (_isLoading)
+        const _LatestSkeleton()
+      else if (_history.isEmpty)
+        _FirstScanCard(onStartScan: widget.onStartScan)
+      else ...[
+        _LatestScanCard(item: _history.first, onTap: () => _open(_history.first)),
+        const SizedBox(height: 12),
+        _StatsRow(history: _history),
+      ],
+      if (!_isLoading && _profileEmpty) ...[
+        const SizedBox(height: 12),
+        _SetUpProfileCard(onTap: widget.onNavigateToProfile),
+      ],
+      const SizedBox(height: 28),
+      _ProfileAtAGlance(
+        profile: _profile,
+        loading: _isLoading,
+        onEdit: widget.onNavigateToProfile,
+      ),
+      if (!_isLoading && _history.length > 1) ...[
+        const SizedBox(height: 28),
         Row(
           children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF6CF0B4), Color(0xFF1FB57A)],
-                ),
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.verdict.withValues(alpha: 0.35),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                'C',
-                style: AppTheme.display(18,
-                    weight: FontWeight.w600, color: AppColors.bg),
-              ),
+            Expanded(child: Text(context.l10n.recentScans, style: theme.textTheme.headlineMedium)),
+            TextButton(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                widget.onNavigateToHistory?.call();
+              },
+              child: Text(context.l10n.seeAll),
             ),
-            const SizedBox(width: 10),
-            Text('CalFit',
-                style: AppTheme.ui(16,
-                    weight: FontWeight.w700,
-                    color: theme.textTheme.titleLarge?.color)),
           ],
         ),
-        IconButton(
-          onPressed: () {
-            HapticFeedback.selectionClick();
-            ThemeController.toggleTheme();
-          },
-          icon: ValueListenableBuilder<ThemeMode>(
+        const SizedBox(height: 8),
+        for (final item in _history.skip(1).take(3)) ...[
+          ScanRow(
+            score: item.score,
+            productName: item.productName,
+            subtitle: '${item.brand ?? context.l10n.unknownBrand} · '
+                '${context.l10n.relativeTime(item.scannedAt)}',
+            onTap: () => _open(item),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ],
+    ];
+  }
+}
+
+class _Header extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
+      child: Row(
+        children: [
+          const BrandLockup(),
+          const Spacer(),
+          ValueListenableBuilder<ThemeMode>(
             valueListenable: ThemeController.themeMode,
-            builder: (context, mode, _) => Icon(
-              mode == ThemeMode.dark
+            builder: (context, mode, _) => IconButton(
+              tooltip: mode == ThemeMode.dark
+                  ? context.l10n.switchToLight
+                  : context.l10n.switchToDark,
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                ThemeController.toggleTheme();
+              },
+              icon: Icon(mode == ThemeMode.dark
                   ? Icons.light_mode_outlined
-                  : Icons.dark_mode_outlined,
-              color: theme.textTheme.titleLarge?.color,
-              size: 22,
+                  : Icons.dark_mode_outlined),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
+}
 
-  String _timeBasedGreeting() {
+class _Greeting extends StatelessWidget {
+  final String? name;
+  const _Greeting({required this.name});
+
+  String _timeBasedGreeting(AppLocalizations l) {
     final hour = DateTime.now().hour;
-    if (hour < 5) return 'Still up';
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    if (hour < 21) return 'Good evening';
-    return 'Good night';
+    if (hour < 5) return l.greetingStillUp;
+    if (hour < 12) return l.greetingMorning;
+    if (hour < 17) return l.greetingAfternoon;
+    if (hour < 21) return l.greetingEvening;
+    return l.greetingNight;
   }
 
-  Widget _buildGreeting(BuildContext context) {
-    final name = _profile?.name;
-    final displayName = (name == null || name.isEmpty) ? null : name;
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
+    final hasName = name != null && name!.trim().isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _timeBasedGreeting(),
-          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+          hasName ? '${_timeBasedGreeting(context.l10n)},' : _timeBasedGreeting(context.l10n),
+          style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 2),
-        Text(
-          displayName ?? 'Welcome back',
-          style: theme.textTheme.displayMedium,
-        ),
+        Text(hasName ? name!.trim() : context.l10n.homeTitleNoName,
+            style: theme.textTheme.displayMedium),
       ],
     );
   }
+}
 
-  Widget _buildLatestScanCard(BuildContext context) {
-    if (_isLoading) {
-      return SurfaceCard(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            const Skeleton(width: 72, height: 72, borderRadius: 36),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Skeleton(width: 90, height: 12),
-                  SizedBox(height: 10),
-                  Skeleton(width: 180, height: 20),
-                  SizedBox(height: 8),
-                  Skeleton(width: 120, height: 12),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+class _LatestScanCard extends StatelessWidget {
+  final ScanHistoryItem item;
+  final VoidCallback onTap;
+  const _LatestScanCard({required this.item, required this.onTap});
 
-    if (_history.isEmpty) {
-      final theme = Theme.of(context);
-      return SurfaceCard(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('No scans yet',
-                style: AppTheme.display(22,
-                    weight: FontWeight.w500,
-                    color: theme.textTheme.displayMedium?.color)),
-            const SizedBox(height: 6),
-            Text(
-              'Tap the scan button at the bottom. '
-              'Point the camera at any food label and we\'ll tell you if it fits your profile.',
-              style: theme.textTheme.bodyMedium,
-            ),
-          ],
-        ),
-      );
-    }
-
-    final latest = _history.first;
-    final color = AppColors.scoreColor(latest.score);
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
+    final color = context.colors.score(item.score);
     return SurfaceCard(
       accent: color,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       onTap: () {
         HapticFeedback.selectionClick();
-        widget.onNavigateToHistory?.call();
+        onTap();
       },
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _MiniScoreDot(score: latest.score),
-          const SizedBox(width: 20),
+          ScoreBadge(score: item.score, size: 68),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Latest scan · ${formatRelativeTime(latest.scannedAt)}',
+                Text(context.l10n.latestScan(context.l10n.relativeTime(item.scannedAt)),
                     style: theme.textTheme.labelMedium),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
-                  latest.productName ?? 'Unnamed product',
-                  style: AppTheme.display(22,
-                      weight: FontWeight.w500,
-                      color: theme.textTheme.displayMedium?.color,
-                      height: 1.1),
+                  item.productName ?? context.l10n.unnamedProduct,
+                  style: AppTheme.display(21, color: theme.colorScheme.onSurface, height: 1.15),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  latest.suitability.displayName,
-                  style: AppTheme.ui(13,
-                      weight: FontWeight.w600, color: color),
-                ),
+                Text(context.l10n.suitabilityLabel(item.suitability),
+                    style: AppTheme.ui(14, weight: FontWeight.w700, color: color)),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded, color: theme.colorScheme.onSurfaceVariant),
+        ],
+      ),
+    );
+  }
+}
+
+class _FirstScanCard extends StatelessWidget {
+  final VoidCallback? onStartScan;
+  const _FirstScanCard({required this.onStartScan});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final c = context.colors;
+    return SurfaceCard(
+      background: c.brandSoft,
+      borderColor: Colors.transparent,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.qr_code_scanner_rounded, color: c.brand, size: 30),
+          const SizedBox(height: 12),
+          Text(context.l10n.firstScanTitle, style: theme.textTheme.displaySmall),
+          const SizedBox(height: 6),
+          Text(
+            context.l10n.firstScanBody,
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface),
+          ),
+          if (onStartScan != null) ...[
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onStartScan,
+              icon: const Icon(Icons.photo_camera_outlined),
+              label: Text(context.l10n.scanAProduct),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SetUpProfileCard extends StatelessWidget {
+  final VoidCallback? onTap;
+  const _SetUpProfileCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final c = context.colors;
+    return SurfaceCard(
+      accent: c.accent,
+      padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),
+      onTap: onTap,
+      child: Row(
+        children: [
+          Icon(Icons.tune_rounded, color: c.accent),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(context.l10n.personaliseTitle, style: theme.textTheme.titleMedium),
+                Text(context.l10n.personaliseBody, style: theme.textTheme.bodySmall),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded, color: theme.colorScheme.onSurfaceVariant),
+        ],
+      ),
+    );
+  }
+}
+
+class _LatestSkeleton extends StatelessWidget {
+  const _LatestSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SurfaceCard(
+      padding: EdgeInsets.all(18),
+      child: Row(
+        children: [
+          Skeleton(width: 68, height: 68, borderRadius: 20),
+          SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Skeleton(width: 110, height: 12),
+                SizedBox(height: 10),
+                Skeleton(width: 180, height: 20),
+                SizedBox(height: 8),
+                Skeleton(width: 90, height: 12),
               ],
             ),
           ),
@@ -327,130 +387,26 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  Widget _buildRecentScansHeader(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text('Recent scans', style: theme.textTheme.headlineMedium),
-        if (_history.length > 3)
-          TextButton(
-            onPressed: () {
-              HapticFeedback.selectionClick();
-              widget.onNavigateToHistory?.call();
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: theme.colorScheme.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-            ),
-            child: const Text('See all'),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildRecentScans(BuildContext context) {
-    if (_isLoading) {
-      return Column(
-        children: List.generate(
-          2,
-          (_) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: SurfaceCard(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: const [
-                  Skeleton(width: 44, height: 44, borderRadius: 10),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Skeleton(width: 160, height: 14),
-                        SizedBox(height: 8),
-                        Skeleton(width: 90, height: 12),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    if (_history.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final theme = Theme.of(context);
-    final items = _history.take(3).toList();
-
-    return Column(
-      children: [
-        for (final item in items) ...[
-          SurfaceCard(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-            onTap: () {
-              HapticFeedback.selectionClick();
-              widget.onNavigateToHistory?.call();
-            },
-            child: Row(
-              children: [
-                _ScoreBadge(score: item.score),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.productName ?? 'Unnamed product',
-                        style: theme.textTheme.titleMedium,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${item.brand ?? "Unknown brand"} · ${formatRelativeTime(item.scannedAt)}',
-                        style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.north_east_rounded,
-                    size: 16, color: theme.textTheme.bodyMedium?.color),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-        ]
-      ],
-    );
-  }
 }
 
-/// Three numbers derived from the user's own scan history — no invented
-/// metrics: how many scans, their average score, and the best one.
+/// Three numbers from the user's own history: scans, average, best.
 class _StatsRow extends StatelessWidget {
   final List<ScanHistoryItem> history;
   const _StatsRow({required this.history});
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final scores = history.map((h) => h.score).toList();
     final avg = (scores.reduce((a, b) => a + b) / scores.length).round();
     final best = scores.reduce((a, b) => a > b ? a : b);
     return Row(
       children: [
-        Expanded(child: _Stat(label: 'Scans', value: '${history.length}', color: AppColors.verdict)),
+        Expanded(child: _Stat(label: context.l10n.statScans, value: '${history.length}', color: c.brand)),
         const SizedBox(width: 10),
-        Expanded(child: _Stat(label: 'Avg score', value: '$avg', color: AppColors.scoreColor(avg))),
+        Expanded(child: _Stat(label: context.l10n.statAverage, value: '$avg', color: c.score(avg))),
         const SizedBox(width: 10),
-        Expanded(child: _Stat(label: 'Best', value: '$best', color: AppColors.scoreColor(best))),
+        Expanded(child: _Stat(label: context.l10n.statBest, value: '$best', color: c.score(best))),
       ],
     );
   }
@@ -467,11 +423,10 @@ class _Stat extends StatelessWidget {
     final theme = Theme.of(context);
     return SurfaceCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      borderRadius: 16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(value, style: AppTheme.display(26, weight: FontWeight.w600, color: color)),
+          Text(value, style: AppTheme.display(26, weight: FontWeight.w700, color: color)),
           const SizedBox(height: 2),
           Text(label, style: theme.textTheme.labelMedium),
         ],
@@ -480,139 +435,82 @@ class _Stat extends StatelessWidget {
   }
 }
 
-/// Compact "coloured dot with number inside" badge used in the recent scans list.
-class _ScoreBadge extends StatelessWidget {
-  final int score;
-  const _ScoreBadge({required this.score});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = AppColors.scoreColor(score);
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        '$score',
-        style: AppTheme.display(16, weight: FontWeight.w600, color: color),
-      ),
-    );
-  }
-}
-
-/// Bigger coloured disc for the "latest scan" hero.
-class _MiniScoreDot extends StatelessWidget {
-  final int score;
-  const _MiniScoreDot({required this.score});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = AppColors.scoreColor(score);
-    return Container(
-      width: 72,
-      height: 72,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        shape: BoxShape.circle,
-        border: Border.all(color: color.withValues(alpha: 0.4), width: 1.5),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        '$score',
-        style: AppTheme.display(26, weight: FontWeight.w600, color: color),
-      ),
-    );
-  }
-}
-
-/// A quiet row of chips summarising the user's profile ("Hypertension",
-/// "Vegetarian", "Peanut allergy") — the thing that makes CalFit personal.
+/// The profile in a few chips — the thing that makes CalFit personal.
 class _ProfileAtAGlance extends StatelessWidget {
   final UserProfile? profile;
   final bool loading;
+  final VoidCallback? onEdit;
 
-  const _ProfileAtAGlance({required this.profile, required this.loading});
+  const _ProfileAtAGlance({required this.profile, required this.loading, this.onEdit});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final chips = <_Chip>[];
-
-    if (profile != null) {
-      for (final c in profile!.healthConditions.take(2)) {
-        chips.add(_Chip(label: _humanize(c), kind: _ChipKind.condition));
+    final c = context.colors;
+    final l = context.l10n;
+    final chips = <(String, Color, IconData)>[];
+    final p = profile;
+    if (p != null) {
+      for (final a in p.allergies) {
+        final name = a.isEmpty ? a : '${a[0].toUpperCase()}${a.substring(1)}';
+        chips.add((l.allergyChip(name), c.critical, Icons.warning_amber_rounded));
       }
-      for (final g in profile!.healthGoals.take(2)) {
-        chips.add(_Chip(label: _humanize(g), kind: _ChipKind.goal));
+      for (final x in p.healthConditions) {
+        chips.add((l.conditionLabel(x), c.accent, Icons.monitor_heart_outlined));
       }
-      for (final a in profile!.allergies.take(2)) {
-        chips.add(_Chip(label: '$a allergy', kind: _ChipKind.allergy));
+      for (final d in p.dietaryPreferences) {
+        chips.add((l.dietLabel(d), c.good, Icons.restaurant_outlined));
+      }
+      for (final g in p.healthGoals) {
+        chips.add((l.goalLabel(g), c.brand, Icons.flag_outlined));
       }
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Your profile', style: theme.textTheme.headlineMedium),
-        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: Text(l.scoringForYou, style: theme.textTheme.headlineMedium)),
+            if (onEdit != null && !loading)
+              TextButton(onPressed: onEdit, child: Text(l.edit)),
+          ],
+        ),
+        const SizedBox(height: 8),
         if (loading)
-          Row(
-            children: const [
-              Skeleton(width: 90, height: 28, borderRadius: 999),
+          const Row(
+            children: [
+              Skeleton(width: 96, height: 32, borderRadius: 999),
               SizedBox(width: 8),
-              Skeleton(width: 120, height: 28, borderRadius: 999),
+              Skeleton(width: 120, height: 32, borderRadius: 999),
             ],
           )
         else if (chips.isEmpty)
-          Text(
-            'Add conditions, goals, or allergies in Profile so scans know what fits you.',
-            style: theme.textTheme.bodyMedium,
-          )
+          Text(l.scoringEmpty, style: theme.textTheme.bodyMedium)
         else
-          Wrap(spacing: 8, runSpacing: 8, children: chips),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final (label, tone, icon) in chips)
+                Container(
+                  padding: const EdgeInsets.fromLTRB(10, 7, 12, 7),
+                  decoration: BoxDecoration(
+                    color: c.tint(tone, theme.brightness),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 15, color: tone),
+                      const SizedBox(width: 6),
+                      Text(label, style: AppTheme.ui(13, weight: FontWeight.w600, color: tone)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
       ],
-    );
-  }
-
-  String _humanize(String raw) {
-    return raw
-        .split('_')
-        .map((p) => p.isEmpty ? p : '${p[0].toUpperCase()}${p.substring(1)}')
-        .join(' ');
-  }
-}
-
-enum _ChipKind { condition, goal, allergy }
-
-class _Chip extends StatelessWidget {
-  final String label;
-  final _ChipKind kind;
-
-  const _Chip({required this.label, required this.kind});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final accent = switch (kind) {
-      _ChipKind.condition => AppColors.ember,
-      _ChipKind.goal => theme.colorScheme.primary,
-      _ChipKind.allergy => AppColors.critical,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: accent.withValues(alpha: 0.3)),
-      ),
-      child: Text(label,
-          style: AppTheme.ui(12,
-              weight: FontWeight.w600, color: accent)),
     );
   }
 }

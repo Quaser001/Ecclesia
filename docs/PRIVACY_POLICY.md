@@ -1,6 +1,6 @@
 # CalFit Privacy Policy
 
-**Effective:** 2026-10-26
+**Effective:** 2026-10-28 (draft — not yet reviewed by a lawyer)
 **Applies to:** CalFit mobile app (Android) and the CalFit API.
 **Contact:** _(fill in before Play Store submission — a working email the user can reach, e.g. privacy@calfit.app)_
 
@@ -12,28 +12,29 @@ CalFit reads the label on a packaged food, grades how well it fits the health pr
 
 ## 2. What we collect
 
-### 2.1 On your device, never sent to us
+### 2.1 Your profile (stored on our server)
 
-- The health profile you choose: conditions (e.g. diabetes, hypertension, anaemia), allergies, dietary preferences, goals, sensitivities (e.g. "avoid caffeine").
-- Your device identifier for the app (see 2.2).
-- Your acknowledgement of the "not medical advice" notice.
+- The health profile you choose: conditions (e.g. diabetes, hypertension, anaemia), allergies, dietary preferences, goals, sensitivities (e.g. "avoid caffeine"), and the name you give.
+- Optional body details: height, weight, target weight, year of birth, sex and activity level. We calculate your BMI from height and weight; we do not store the BMI itself.
 
-Health conditions and allergies are **sensitive personal data** under the DPDP Act. We store them locally on your device and send them to our server only as part of a scan request, so the scoring engine can personalise the result. They are never used for advertising, never sold, never shared with third parties for marketing.
+We store your profile on our server, linked to your anonymous identifier (see 2.2), so every scan can be scored against it and you see the same profile each time you open the app. Health conditions, allergies and body details are **sensitive personal data** under the DPDP Act. They are never used for advertising, never sold, never shared with third parties for marketing.
 
-### 2.2 Anonymous device identifier
+On your device we keep only your sign-in token, your app settings (theme, text size, language) and your acknowledgement of the "not medical advice" notice.
 
-On first launch, the app generates a random UUID and saves it on the device. We send it with each API request so your scan history and daily scan cap are attached to you. The UUID is not your name, email, phone number, or any government ID. Uninstalling the app or clearing its data wipes it.
+### 2.2 Anonymous identity
+
+On first launch, our server issues the app a random identifier and a signed token, which the app keeps on the device and sends with each request. Your profile, scan history and daily scan cap are attached to that identifier. It is not your name, email, phone number, or any government ID. Uninstalling the app or clearing its data removes the token from the device; your data stays on our server until you delete it (see 5 and 8), and without the token it can no longer be reached from the app.
 
 ### 2.3 Each scan
 
 When you scan a product, we receive:
 
 - The photo of the label.
-- The health profile fields relevant to scoring that product.
-- Your anonymous device identifier.
-- A timestamp.
+- Your anonymous identifier and a timestamp.
 
-We send the photo to Google's Gemini API so Gemini can transcribe what is printed on the label. Gemini receives the photo but not your health profile. The transcribed label is scored on our server by deterministic rules — a doctor-reviewable list of thresholds — not by an AI model. See the "Processing" section for the detail.
+We send the photo to Google's Gemini API so Gemini can transcribe what is printed on the label. The transcribed label is scored on our server by deterministic rules — a reviewable list of thresholds — not by an AI model. We then send Gemini the label details, the score and findings, and your profile's conditions, allergies, dietary preferences and goals, so it can write a short plain-language explanation; that explanation is checked against the findings before you see it. Your name and body details are not sent to Gemini. We keep the scan (photo, label details, score, findings and explanation) so you can see it in your history.
+
+Product information shown as alternatives comes from Open Food Facts (openfoodfacts.org), an open database of food products. It contains no personal data, and nothing about you is sent to Open Food Facts.
 
 ### 2.4 Prescription reading (optional)
 
@@ -52,7 +53,7 @@ If you choose "Prescription" in your profile, you can photograph a prescription 
 - Advertising identifiers.
 - Precise location.
 - Contacts, calendar, SMS, call logs, browser history.
-- Any health data that is not the profile you set yourself.
+- Any health data that is not the profile and body details you set yourself.
 
 ## 3. Why we process this data (DPDP §5, §6)
 
@@ -63,22 +64,21 @@ If you choose "Prescription" in your profile, you can photograph a prescription 
 
 ## 4. Processing — who touches what
 
-- **CalFit server (Google Cloud Run, Mumbai `asia-south1`).** Receives your request, applies the scoring rules, returns the result, keeps the scan record (so you can see your history).
-- **Google Gemini (Google AI).** Receives the photo and returns a transcription of what the label says. Google processes it under the Gemini API terms. We use a paid tier (see 6).
-- **Supabase (database and object storage).** Holds the scan record and the uploaded photo.
+- **CalFit server (Google Cloud Run, Mumbai `asia-south1`, when launched).** Receives your request, applies the scoring rules, returns the result.
+- **Google Gemini (Google AI).** Receives the label photo and returns a transcription; receives the label details, findings and the profile fields listed in 2.3 to write the explanation. Google processes it under the Gemini API terms. Before public launch we will use only the paid tier, under which Google does not use your data to improve its products.
+- **Supabase (database and object storage, Singapore).** Holds your profile, your scan records and the uploaded photos.
 
 Each of these is a **data processor** under the DPDP Act. CalFit is the **data fiduciary**: we decide what happens with your data. We keep the list of processors small on purpose and will update this document before adding one.
 
 ## 5. Retention
 
-- **Health profile:** on your device until you change or clear it. On our server, only for the duration of a request.
-- **Scan history and photo:** 90 days from the scan date, then deleted. You can wipe your history earlier by clearing the app data on your device (the next release will add a one-tap "delete my data" button; see 9).
+- **Profile, body details, scan history and photos:** kept until you delete them. Use **Settings → Delete my data** in the app to remove your profile, every scan and every photo from our servers immediately. An automatic retention limit will be added before public launch and stated here.
 - **Logs:** 30 days.
 
 ## 6. International transfers
 
-- Our server lives in **India (Mumbai, `asia-south1`)**.
-- Gemini may process your photo in Google data centres outside India under Google's terms. We will update this policy if we switch providers.
+- Your profile, scans and photos are stored with Supabase in **Singapore**. The CalFit server will run in India (Mumbai, `asia-south1`).
+- Gemini may process your photo and the data in 2.3 in Google data centres outside India under Google's terms. We will update this policy if we switch providers or regions.
 
 ## 7. Security
 
@@ -93,7 +93,7 @@ You can at any time:
 
 - **Access** the data we hold about you.
 - **Correct** or **update** it.
-- **Erase** it.
+- **Erase** it — in the app under **Settings → Delete my data**, or by writing to us.
 - **Withdraw consent** for any purpose.
 - **Grieve** — raise a complaint with us or escalate to the Data Protection Board of India.
 

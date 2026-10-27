@@ -8,6 +8,7 @@ import 'package:http_parser/http_parser.dart';
 
 import '../models/prescription_suggestions.dart';
 import '../models/scan_result.dart';
+import '../models/insights.dart';
 import '../models/user_profile.dart';
 import 'auth_token_store.dart';
 
@@ -44,11 +45,15 @@ class ApiConfig {
 }
 
 /// A thin, typed exception the UI can show without leaking stack details.
-class ApiException implements Exception {
-  final String message;
-  final int? statusCode;
+/// What went wrong, so the app can show a message in the user's language.
+enum ApiErrorKind { network, timeout, badRequest, unauthorized, notFound, rateLimited, server, other }
 
-  ApiException(this.message, {this.statusCode});
+class ApiException implements Exception {
+  final String message; // English, for logs only
+  final int? statusCode;
+  final ApiErrorKind kind;
+
+  ApiException(this.message, {this.statusCode, this.kind = ApiErrorKind.other});
 
   @override
   String toString() => message;
@@ -141,13 +146,7 @@ class ApiService {
           .put(
             _uri('/api/v1/profile'),
             headers: {...h, 'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'name': profile.name,
-              'health_conditions': profile.healthConditions,
-              'allergies': profile.allergies,
-              'dietary_preferences': profile.dietaryPreferences,
-              'health_goals': profile.healthGoals,
-            }),
+            body: jsonEncode(profile.toRequestJson()),
           )
           .timeout(ApiConfig.lightTimeout));
       if (res.statusCode == 200) {
@@ -241,6 +240,49 @@ class ApiService {
     });
   }
 
+  /// Deletes the user's profile, scans, photos and usage on the server.
+  /// The local sign-in token is dropped too, so the next request starts a
+  /// fresh, empty identity.
+  Future<void> deleteMyData() async {
+    await _run(() async {
+      // Not through _authed: on a 401 that would register a brand-new
+      // identity and "delete" its empty account, while the real data stays.
+      final token = await tokenStore.read();
+      if (token == null) return; // never registered: nothing on the server
+      final res = await client
+          .delete(_uri('/api/v1/profile'), headers: {'Authorization': 'Bearer $token'})
+          .timeout(ApiConfig.lightTimeout);
+      if (res.statusCode != 200) throw _fromResponse('delete your data', res);
+    });
+    await tokenStore.clear();
+  }
+
+  /// One past scan in full (findings, nutrition, explanation).
+  Future<ScanResult> getScan(String scanId) async {
+    return _run(() async {
+      final res = await _authed((h) => client
+          .get(_uri('/api/v1/scans/${Uri.encodeComponent(scanId)}'), headers: h)
+          .timeout(ApiConfig.lightTimeout));
+      if (res.statusCode == 200) {
+        return ScanResult.fromJson(jsonDecode(res.body));
+      }
+      throw _fromResponse('open this scan', res);
+    });
+  }
+
+  /// Trends computed by the backend from the user's own scans.
+  Future<Insights> getInsights() async {
+    return _run(() async {
+      final res = await _authed((h) => client
+          .get(_uri('/api/v1/insights'), headers: h)
+          .timeout(ApiConfig.lightTimeout));
+      if (res.statusCode == 200) {
+        return Insights.fromJson(jsonDecode(res.body));
+      }
+      throw _fromResponse('load your insights', res);
+    });
+  }
+
   // ---- helpers ----
 
   /// Wraps a network call and converts platform exceptions into [ApiException].
@@ -250,12 +292,10 @@ class ApiService {
     } on ApiException {
       rethrow;
     } on TimeoutException {
-      throw ApiException(
-          "That took too long. Check your connection and try again.");
+      throw ApiException('Request timed out.', kind: ApiErrorKind.timeout);
     } on SocketException catch (e) {
       debugPrint('Network error: $e');
-      throw ApiException(
-          "Can't reach the CalFit server. Check your internet and try again.");
+      throw ApiException("Can't reach the server.", kind: ApiErrorKind.network);
     } on FormatException catch (e) {
       // Type only: FormatException text includes a snippet of the response,
       // which for some endpoints is health data.
@@ -279,25 +319,15 @@ class ApiService {
 
   ApiException _fromResponse(String action, http.Response res) {
     debugPrint('API ${res.statusCode} on $action: ${res.body}');
-    if (res.statusCode == 400) {
-      return ApiException(
-          "We couldn't $action — the request looks invalid.",
-          statusCode: res.statusCode);
-    }
-    if (res.statusCode == 401 || res.statusCode == 403) {
-      return ApiException("You're not authorized for this action.",
-          statusCode: res.statusCode);
-    }
-    if (res.statusCode == 404) {
-      return ApiException("We couldn't find what you're looking for.",
-          statusCode: res.statusCode);
-    }
-    if (res.statusCode >= 500) {
-      return ApiException(
-          "The CalFit server is having a bad moment. Please try again shortly.",
-          statusCode: res.statusCode);
-    }
-    return ApiException("We couldn't $action right now.",
-        statusCode: res.statusCode);
+    final code = res.statusCode;
+    final kind = switch (code) {
+      400 || 413 || 422 => ApiErrorKind.badRequest,
+      401 || 403 => ApiErrorKind.unauthorized,
+      404 => ApiErrorKind.notFound,
+      429 => ApiErrorKind.rateLimited,
+      >= 500 => ApiErrorKind.server,
+      _ => ApiErrorKind.other,
+    };
+    return ApiException("Couldn't $action (HTTP $code).", statusCode: code, kind: kind);
   }
 }

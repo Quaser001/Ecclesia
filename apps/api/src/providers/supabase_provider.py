@@ -9,10 +9,12 @@ from typing import Any
 from supabase import AsyncClient, acreate_client
 
 from src.domain.models import (
+    ActivityLevel,
     DietaryPreference,
     HealthCondition,
     HealthGoal,
     KnowledgeEntry,
+    Sex,
     UserProfile,
 )
 from src.providers.interfaces import StorageProvider, SupabaseProvider
@@ -92,6 +94,12 @@ class SupabaseDBProvider(SupabaseProvider):
             "dietary_preferences": [d.value for d in profile.dietary_preferences],
             "health_goals": [g.value for g in profile.health_goals],
             "avoid_caffeine": profile.avoid_caffeine,
+            "height_cm": profile.height_cm,
+            "weight_kg": profile.weight_kg,
+            "target_weight_kg": profile.target_weight_kg,
+            "birth_year": profile.birth_year,
+            "sex": profile.sex.value if profile.sex else None,
+            "activity_level": profile.activity_level.value if profile.activity_level else None,
             "updated_at": now,
         }
         try:
@@ -160,6 +168,53 @@ class SupabaseDBProvider(SupabaseProvider):
             logger.error("Get scan history failed: %s", exc)
             raise
 
+    async def get_scan(self, user_id: str, scan_id: str) -> dict[str, Any] | None:
+        client = await self._get_client()
+        try:
+            response = (
+                await client.table("scans")
+                .select("*")
+                .eq("scan_id", scan_id)
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+            )
+            return response.data[0] if response.data else None
+        except Exception as exc:
+            logger.error("Get scan failed: %s", type(exc).__name__)
+            raise
+
+    async def delete_user_data(self, user_id: str) -> int:
+        client = await self._get_client()
+        try:
+            scans = await client.table("scans").delete().eq("user_id", user_id).execute()
+            # Scan counter and the prescription counter (keyed "rx:<user_id>").
+            await client.table("scan_usage").delete().in_(
+                "user_id", [user_id, f"rx:{user_id}"]).execute()
+            await client.table("profiles").delete().eq("user_id", user_id).execute()
+            return len(scans.data or [])
+        except Exception as exc:
+            logger.error("Delete user data failed: %s", type(exc).__name__)
+            raise
+
+    async def get_scans_for_insights(
+        self, user_id: str, limit: int = 500
+    ) -> list[dict[str, Any]]:
+        client = await self._get_client()
+        try:
+            response = (
+                await client.table("scans")
+                .select("scan_id, scanned_at, product_name, brand, score, suitability, score_json, product_json")
+                .eq("user_id", user_id)
+                .order("scanned_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            return response.data or []
+        except Exception as exc:
+            logger.error("Get scans for insights failed: %s", type(exc).__name__)
+            raise
+
 
 class SupabaseStorageProvider(StorageProvider):
     """Supabase Storage provider for image uploads."""
@@ -192,6 +247,25 @@ class SupabaseStorageProvider(StorageProvider):
             logger.error("Image upload failed (bucket=%s, path=%s): %s", bucket, path, exc)
             raise
 
+    async def delete_folder(self, bucket: str, prefix: str) -> int:
+        if not prefix.strip("/") or ".." in prefix:
+            raise ValueError("Refusing to delete outside one folder of the bucket.")
+        client = await self._get_client()
+        store = client.storage.from_(bucket)
+        removed = 0
+        # Bounded: if a remove ever silently deletes nothing, the same page
+        # would come back forever. 200 passes covers 20,000 photos.
+        for _ in range(200):
+            objects = await store.list(prefix.rstrip("/"), {"limit": 100})
+            paths = [f"{prefix.rstrip('/')}/{o['name']}" for o in objects or [] if o.get("name")]
+            if not paths:
+                return removed
+            deleted = await store.remove(paths)
+            if not deleted:
+                raise RuntimeError("Storage reported nothing removed; stopping to avoid a loop.")
+            removed += len(deleted)
+        raise RuntimeError("Too many photos to delete in one request.")
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -216,6 +290,16 @@ def _row_to_profile(row: dict) -> UserProfile:
             if g in HealthGoal._value2member_map_
         ],
         avoid_caffeine=bool(row.get("avoid_caffeine", False)),
+        height_cm=row.get("height_cm"),
+        weight_kg=row.get("weight_kg"),
+        target_weight_kg=row.get("target_weight_kg"),
+        birth_year=row.get("birth_year"),
+        sex=Sex(row["sex"]) if row.get("sex") in Sex._value2member_map_ else None,
+        activity_level=(
+            ActivityLevel(row["activity_level"])
+            if row.get("activity_level") in ActivityLevel._value2member_map_
+            else None
+        ),
         created_at=row.get("created_at"),
         updated_at=row.get("updated_at"),
     )

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/app_theme.dart';
+import '../../l10n/l10n.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/surface_card.dart';
 import '../../models/prescription_suggestions.dart';
@@ -55,9 +56,9 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Review'),
+        title: Text(context.l10n.reviewTitle),
         leading: IconButton(
-          tooltip: 'Close',
+          tooltip: context.l10n.close,
           icon: const Icon(Icons.close_rounded),
           onPressed: () => Navigator.pop(context),
         ),
@@ -70,13 +71,9 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                 child: FilledButton(
                   onPressed: _count == 0 ? null : _confirm,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.verdict,
-                    foregroundColor: AppColors.bg,
-                  ),
                   child: Text(_count == 0
-                      ? 'Select what to add'
-                      : 'Add selected ($_count)'),
+                      ? context.l10n.selectWhatToAdd
+                      : context.l10n.addSelected(_count)),
                 ),
               ),
             ),
@@ -93,7 +90,7 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
             Icon(Icons.search_off_rounded,
                 size: 44, color: theme.textTheme.bodyMedium?.color),
             const SizedBox(height: 16),
-            Text(s.message ?? "We couldn't find anything to add from this photo.",
+            Text(s.message ?? context.l10n.nothingToAdd,
                 textAlign: TextAlign.center, style: theme.textTheme.bodyLarge),
             if (s.unrecognised.isNotEmpty) ...[
               const SizedBox(height: 16),
@@ -102,7 +99,7 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
             const SizedBox(height: 20),
             OutlinedButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Done'),
+              child: Text(context.l10n.done),
             ),
           ],
         ),
@@ -115,12 +112,12 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       children: [
         Text(
-          'Tick what applies to you. Nothing is added until you confirm.',
+          context.l10n.tickWhatApplies,
           style: theme.textTheme.bodyMedium,
         ),
         const SizedBox(height: 16),
         if (s.conditions.isNotEmpty) ...[
-          Text('Conditions', style: theme.textTheme.titleLarge),
+          Text(context.l10n.sectionConditions, style: theme.textTheme.titleLarge),
           const SizedBox(height: 8),
           SurfaceCard(
             padding: const EdgeInsets.symmetric(vertical: 4),
@@ -130,16 +127,15 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
                   CheckboxListTile(
                     value: _conditions.contains(c.condition),
                     onChanged: (v) => _toggle(_conditions, c.condition, v),
-                    activeColor: AppColors.verdict,
-                    checkColor: AppColors.bg,
-                    title: Text(_humanize(c.condition)),
+                    activeColor: theme.colorScheme.primary,
+                    checkColor: theme.colorScheme.onPrimary,
+                    title: Text(context.l10n.conditionLabel(c.condition)),
                     subtitle: Text(
                       c.inferred
-                          ? 'Inferred from a medicine (${c.sourceText}). Check this applies to you.'
-                          : 'Stated on the prescription',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontSize: 12.5,
-                        color: c.inferred ? AppColors.ember : null,
+                          ? context.l10n.inferredFromMedicine(c.sourceText)
+                          : context.l10n.statedOnPrescription,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: c.inferred ? context.colors.warning : null,
                       ),
                     ),
                   ),
@@ -149,7 +145,7 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
           const SizedBox(height: 20),
         ],
         if (s.allergies.isNotEmpty) ...[
-          Text('Allergies', style: theme.textTheme.titleLarge),
+          Text(context.l10n.sectionAllergies, style: theme.textTheme.titleLarge),
           const SizedBox(height: 8),
           SurfaceCard(
             padding: const EdgeInsets.symmetric(vertical: 4),
@@ -159,12 +155,11 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
                   CheckboxListTile(
                     value: _allergies.contains(a.name),
                     onChanged: (v) => _toggle(_allergies, a.name, v),
-                    activeColor: AppColors.verdict,
-                    checkColor: AppColors.bg,
+                    activeColor: theme.colorScheme.primary,
+                    checkColor: theme.colorScheme.onPrimary,
                     title: Text(_humanize(a.name)),
-                    subtitle: Text('Stated on the prescription',
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(fontSize: 12.5)),
+                    subtitle: Text(context.l10n.statedOnPrescription,
+                        style: theme.textTheme.bodySmall),
                   ),
               ],
             ),
@@ -180,7 +175,7 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Read but not added',
+        Text(context.l10n.readNotAdded,
             style: AppTheme.ui(12,
                 weight: FontWeight.w700, color: theme.textTheme.bodyMedium?.color)),
         const SizedBox(height: 6),

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
-/// A quiet, considered surface — not a glass card.
+import '../../app/app_theme.dart';
+import '../constants/app_colors.dart';
+
+/// The one card used across the app: a flat surface with a hairline border.
 ///
-/// A flat elevated surface with a 1px border, a faint top-left highlight for
-/// depth, and a soft shadow in light mode. Content stays legible in both
-/// themes and *actually* elevated things (score, verdict) carry more weight.
+/// No gradients and no glow. In light mode it gets a very soft shadow so
+/// white cards separate from the off-white page; in dark mode the border
+/// does that job. An [accent] tints the card and its border for moments that
+/// carry meaning (the latest scan's verdict), and nothing else.
 class SurfaceCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -12,15 +16,13 @@ class SurfaceCard extends StatelessWidget {
   final VoidCallback? onTap;
   final Color? background;
   final Color? borderColor;
-
-  /// Optional accent: tints the card with a gentle gradient and border.
   final Color? accent;
 
   const SurfaceCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(16.0),
-    this.borderRadius = 18.0,
+    this.borderRadius = AppTheme.radius,
     this.onTap,
     this.background,
     this.borderColor,
@@ -30,35 +32,30 @@ class SurfaceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final c = context.colors;
     final dark = theme.brightness == Brightness.dark;
-    final base = background ?? theme.colorScheme.surface;
     final radius = BorderRadius.circular(borderRadius);
 
-    final Color top;
-    if (accent != null) {
-      top = Color.alphaBlend(accent!.withValues(alpha: dark ? 0.16 : 0.12), base);
-    } else {
-      top = Color.alphaBlend(Colors.white.withValues(alpha: dark ? 0.05 : 0.0), base);
-    }
-    final border = borderColor ??
-        (accent != null ? accent!.withValues(alpha: 0.32) : theme.dividerColor);
+    final Color fill = background ??
+        (accent != null
+            ? Color.alphaBlend(c.tint(accent!, theme.brightness),
+                theme.colorScheme.surface)
+            : theme.colorScheme.surface);
+    final Color border = borderColor ??
+        (accent != null ? accent!.withValues(alpha: 0.35) : c.divider);
 
     return DecoratedBox(
       decoration: BoxDecoration(
+        color: fill,
         borderRadius: radius,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [top, base],
-        ),
-        border: Border.all(color: border, width: 1),
+        border: Border.all(color: border),
         boxShadow: dark
             ? null
             : const [
                 BoxShadow(
-                  color: Color(0x14102A22),
-                  blurRadius: 18,
-                  offset: Offset(0, 6),
+                  color: Color(0x0D2B2117),
+                  blurRadius: 12,
+                  offset: Offset(0, 3),
                 ),
               ],
       ),

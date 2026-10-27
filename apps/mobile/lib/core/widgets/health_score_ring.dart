@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
 import '../../app/app_theme.dart';
+import '../../l10n/l10n.dart';
 
 /// The hero moment of a scan: the score reveals from 0 to its final value
 /// over ~900ms with an eased curve. Serif numerals (Fraunces) make the
@@ -26,9 +27,8 @@ class HealthScoreRing extends StatelessWidget {
   Widget build(BuildContext context) {
     final target = score.clamp(0, 100).toDouble();
     final theme = Theme.of(context);
-    final trackColor = theme.brightness == Brightness.dark
-        ? AppColors.elevated
-        : AppColors.lightElevated;
+    final palette = context.colors;
+    final trackColor = palette.elevated;
 
     return TweenAnimationBuilder<double>(
       duration: animate ? const Duration(milliseconds: 900) : Duration.zero,
@@ -36,7 +36,7 @@ class HealthScoreRing extends StatelessWidget {
       tween: Tween(begin: 0, end: target),
       builder: (context, value, _) {
         final current = value.round();
-        final color = AppColors.scoreColor(current);
+        final color = palette.score(current);
         return SizedBox(
           width: size,
           height: size,
@@ -63,9 +63,9 @@ class HealthScoreRing extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'out of 100',
+                    context.l10n.outOf100,
                     style: AppTheme.ui(
-                      size * 0.075,
+                      (size * 0.075).clamp(12.0, 16.0),
                       weight: FontWeight.w500,
                       color: theme.textTheme.bodyMedium?.color,
                     ),

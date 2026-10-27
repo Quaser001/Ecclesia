@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Optional
 from pydantic import BaseModel, Field
 
+from src.domain.food_taxonomy import classify_text, flavours_of
 from src.domain.models import NutritionInfo, ProductObservation
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,11 @@ class FoodProduct(BaseModel):
     image_url: Optional[str] = None
     source: str = "open_food_facts"
     data_confidence: float = 1.0
+    # CalFit's own category key (see src/domain/food_taxonomy.py) and flavour
+    # tags; filled from the name and categories when not given.
+    calfit_category: Optional[str] = None
+    flavours: list[str] = Field(default_factory=list)
+    imported_at: Optional[str] = None  # ISO date the record was fetched
 
 
 class ProductRepository:
@@ -88,115 +94,21 @@ class ProductRepository:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_name ON food_products(product_name)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_brand ON food_products(brand)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_categories ON food_products(categories)")
+            # Additive columns: older files gain them without losing rows.
+            for column in ("calfit_category TEXT", "flavours TEXT", "imported_at TEXT"):
+                try:
+                    cursor.execute(f"ALTER TABLE food_products ADD COLUMN {column}")
+                except sqlite3.OperationalError:
+                    pass
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_products_calfit_category "
+                "ON food_products(calfit_category)"
+            )
             conn.commit()
 
-        self._seed_default_products()
-
-    def _seed_default_products(self) -> None:
-        if self.count() > 0:
-            return
-
-        seed_products = [
-            FoodProduct(
-                code="0073296000010",
-                product_name="Plain Non-Fat Greek Yogurt",
-                brand="Chobani",
-                categories=["yogurt", "dairy", "breakfast"],
-                ingredients_text="Cultured nonfat milk, live active cultures",
-                ingredients=["cultured nonfat milk", "live active cultures"],
-                nutrition=NutritionInfo(
-                    calories_kcal=90, total_fat_g=0, saturated_fat_g=0, trans_fat_g=0,
-                    sodium_mg=55, total_carbs_g=6, sugars_g=4, protein_g=16
-                ),
-                source="open_food_facts",
-            ),
-            FoodProduct(
-                code="073296000020",
-                product_name="Unsweetened Oat Milk",
-                brand="Oatly",
-                categories=["plant milk", "dairy-free", "beverages"],
-                ingredients_text="Oat base, water, oats, dipotassium phosphate",
-                ingredients=["water", "oats", "dipotassium phosphate"],
-                nutrition=NutritionInfo(
-                    calories_kcal=90, total_fat_g=5, saturated_fat_g=0.5, trans_fat_g=0,
-                    sodium_mg=100, total_carbs_g=9, sugars_g=2, protein_g=3
-                ),
-                source="open_food_facts",
-            ),
-            FoodProduct(
-                code="001862710001",
-                product_name="Low Sodium Organic Vegetable Soup",
-                brand="Amy's",
-                categories=["soup", "instant noodles", "canned food", "noodles"],
-                ingredients_text="Organic tomatoes, organic carrots, organic green beans, organic onions, sea salt",
-                ingredients=["organic tomatoes", "organic carrots", "organic green beans", "organic onions", "sea salt"],
-                nutrition=NutritionInfo(
-                    calories_kcal=140, total_fat_g=3, saturated_fat_g=0.5, trans_fat_g=0,
-                    sodium_mg=290, total_carbs_g=22, sugars_g=3, protein_g=4
-                ),
-                source="open_food_facts",
-            ),
-            FoodProduct(
-                code="004122000010",
-                product_name="Whole Grain Sea Salt Almond Flour Crackers",
-                brand="Simple Mills",
-                categories=["biscuits", "snacks", "crackers"],
-                ingredients_text="Nut and seed flour blend (almonds, sunflower seeds, flax seeds), tapioca starch, sea salt",
-                ingredients=["almonds", "sunflower seeds", "flax seeds", "tapioca starch", "sea salt"],
-                nutrition=NutritionInfo(
-                    calories_kcal=150, total_fat_g=8, saturated_fat_g=0.5, trans_fat_g=0,
-                    sodium_mg=180, total_carbs_g=17, sugars_g=1, protein_g=3
-                ),
-                source="open_food_facts",
-            ),
-            FoodProduct(
-                code="007680800010",
-                product_name="100% Whole Grain Spaghetti",
-                brand="Barilla",
-                categories=["pasta", "pantry"],
-                ingredients_text="Whole durum wheat flour",
-                ingredients=["whole durum wheat flour"],
-                nutrition=NutritionInfo(
-                    calories_kcal=200, total_fat_g=1.5, saturated_fat_g=0, trans_fat_g=0,
-                    sodium_mg=0, total_carbs_g=39, sugars_g=2, protein_g=8
-                ),
-                source="open_food_facts",
-            ),
-            FoodProduct(
-                code="890141400010",
-                product_name="Kuch Kuch All-In-One Namkeen",
-                brand="Bikaji",
-                categories=["snacks", "namkeen", "biscuits"],
-                ingredients_text="Gram flour, palmolein oil, peanuts, rice flakes, tapioca starch, salt, red chili, spices",
-                ingredients=["gram flour", "palmolein oil", "peanuts", "rice flakes", "tapioca starch", "salt", "red chili powder", "spices"],
-                nutrition=NutritionInfo(
-                    calories_kcal=540, total_fat_g=34, saturated_fat_g=15, trans_fat_g=0,
-                    sodium_mg=750, total_carbs_g=48, sugars_g=6, protein_g=10
-                ),
-                allergens=["peanuts"],
-                source="open_food_facts",
-            ),
-            FoodProduct(
-                code="890106300010",
-                product_name="Good Day Cashew Butter Biscuits",
-                brand="Britannia",
-                categories=["biscuits", "snacks", "cookies"],
-                ingredients_text="Refined wheat flour (maida), sugar, vegetable oil, cashew nuts, invert sugar syrup",
-                ingredients=["refined wheat flour (maida)", "sugar", "vegetable oil", "cashew nuts", "invert sugar syrup"],
-                nutrition=NutritionInfo(
-                    calories_kcal=490, total_fat_g=21, saturated_fat_g=10, trans_fat_g=0,
-                    sodium_mg=150, total_carbs_g=68, sugars_g=23.5, protein_g=7
-                ),
-                allergens=["wheat", "nuts"],
-                source="open_food_facts",
-            ),
-        ]
-
-        for prod in seed_products:
-            self.save_product(prod)
-        logger.info("Seeded %d default food products into local DB", len(seed_products))
-
     def save_product(self, p: FoodProduct) -> None:
+        category = p.calfit_category or classify_text(" ".join(p.categories), p.product_name)
+        flavours = p.flavours or flavours_of(p.product_name)
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -205,8 +117,9 @@ class ProductRepository:
                     ingredients, serving_size, allergens, image_url,
                     calories_kcal, total_fat_g, saturated_fat_g, trans_fat_g,
                     cholesterol_mg, sodium_mg, total_carbs_g, dietary_fiber_g,
-                    sugars_g, added_sugars_g, protein_g, source, data_confidence
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    sugars_g, added_sugars_g, protein_g, source, data_confidence,
+                    calfit_category, flavours, imported_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 p.code,
                 p.product_name,
@@ -230,6 +143,9 @@ class ProductRepository:
                 p.nutrition.protein_g,
                 p.source,
                 p.data_confidence,
+                category,
+                json.dumps(flavours),
+                p.imported_at,
             ))
             conn.commit()
 
@@ -272,6 +188,17 @@ class ProductRepository:
                     best_row, best_shared = row, shared
 
         return _row_to_product(best_row) if best_row is not None else None
+
+    def find_by_calfit_category(
+        self, calfit_category: str, limit: int = 300
+    ) -> list[FoodProduct]:
+        """Every product in one CalFit category (see food_taxonomy)."""
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM food_products WHERE calfit_category = ? LIMIT ?",
+                (calfit_category, limit),
+            ).fetchall()
+        return [_row_to_product(r) for r in rows]
 
     def find_candidates_by_category(
         self,
@@ -404,4 +331,15 @@ def _row_to_product(row: sqlite3.Row) -> FoodProduct:
         image_url=row["image_url"],
         source=row["source"] or "open_food_facts",
         data_confidence=float(row["data_confidence"] or 1.0),
+        calfit_category=_optional(row, "calfit_category"),
+        flavours=_parse_list(_optional(row, "flavours")),
+        imported_at=_optional(row, "imported_at"),
     )
+
+
+def _optional(row: sqlite3.Row, column: str) -> Any:
+    """A column that older database files may not have."""
+    try:
+        return row[column]
+    except (IndexError, KeyError):
+        return None

@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/app_theme.dart';
 import '../constants/app_colors.dart';
+import '../../l10n/l10n.dart';
 
 /// Shared "not medical advice" copy for CalFit.
 ///
@@ -45,15 +46,15 @@ class MedicalDisclaimer {
       barrierDismissible: false,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text(onboardingTitle),
-          content: const Text(onboardingBody),
+          title: Text(ctx.l10n.disclaimerTitle),
+          content: Text(ctx.l10n.disclaimerBody),
           actions: [
             TextButton(
               onPressed: () async {
                 await markAcknowledged();
                 if (ctx.mounted) Navigator.of(ctx).pop();
               },
-              child: const Text('Got it'),
+              child: Text(ctx.l10n.gotIt),
             ),
           ],
         );
@@ -76,16 +77,12 @@ class MedicalDisclaimerFooter extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.info_outline,
-            size: 14,
-            color: AppColors.scoreColor(60).withValues(alpha: 0.9),
-          ),
+          Icon(Icons.info_outline, size: 16, color: context.colors.muted),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              MedicalDisclaimer.shortLine,
-              style: AppTheme.ui(11, color: theme.textTheme.bodySmall?.color),
+              context.l10n.disclaimerShort,
+              style: AppTheme.ui(12.5, color: theme.textTheme.bodySmall?.color),
             ),
           ),
         ],

@@ -10,15 +10,27 @@ from pathlib import Path
 from typing import Any
 
 from src.domain.models import (
+    ActivityLevel,
     DietaryPreference,
     HealthCondition,
     HealthGoal,
     KnowledgeEntry,
+    Sex,
     UserProfile,
 )
 from src.providers.interfaces import StorageProvider, SupabaseProvider
 
 logger = logging.getLogger(__name__)
+
+
+_BODY_COLUMNS = (
+    ("height_cm", "REAL"),
+    ("weight_kg", "REAL"),
+    ("target_weight_kg", "REAL"),
+    ("birth_year", "INTEGER"),
+    ("sex", "TEXT"),
+    ("activity_level", "TEXT"),
+)
 
 
 def get_db_path() -> str:
@@ -67,6 +79,12 @@ class LocalDBProvider(SupabaseProvider):
                 )
             except sqlite3.OperationalError:
                 pass
+            # Body details (all optional), added the same additive way.
+            for column, kind in _BODY_COLUMNS:
+                try:
+                    cursor.execute(f"ALTER TABLE profiles ADD COLUMN {column} {kind}")
+                except sqlite3.OperationalError:
+                    pass
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS scan_usage (
                     user_id TEXT NOT NULL,
@@ -158,8 +176,9 @@ class LocalDBProvider(SupabaseProvider):
                 INSERT INTO profiles (
                     user_id, name, health_conditions, allergies,
                     dietary_preferences, health_goals, avoid_caffeine,
+                    height_cm, weight_kg, target_weight_kg, birth_year, sex, activity_level,
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(user_id) DO UPDATE SET
                     name=excluded.name,
                     health_conditions=excluded.health_conditions,
@@ -167,6 +186,12 @@ class LocalDBProvider(SupabaseProvider):
                     dietary_preferences=excluded.dietary_preferences,
                     health_goals=excluded.health_goals,
                     avoid_caffeine=excluded.avoid_caffeine,
+                    height_cm=excluded.height_cm,
+                    weight_kg=excluded.weight_kg,
+                    target_weight_kg=excluded.target_weight_kg,
+                    birth_year=excluded.birth_year,
+                    sex=excluded.sex,
+                    activity_level=excluded.activity_level,
                     updated_at=excluded.updated_at
             """, (
                 profile.user_id,
@@ -176,6 +201,12 @@ class LocalDBProvider(SupabaseProvider):
                 json.dumps([d.value for d in profile.dietary_preferences]),
                 json.dumps([g.value for g in profile.health_goals]),
                 1 if profile.avoid_caffeine else 0,
+                profile.height_cm,
+                profile.weight_kg,
+                profile.target_weight_kg,
+                profile.birth_year,
+                profile.sex.value if profile.sex else None,
+                profile.activity_level.value if profile.activity_level else None,
                 profile.created_at.isoformat() if profile.created_at else now,
                 now,
             ))
@@ -256,6 +287,39 @@ class LocalDBProvider(SupabaseProvider):
             rows = cursor.fetchall()
             return [dict(r) for r in rows]
 
+    async def get_scan(self, user_id: str, scan_id: str) -> dict[str, Any] | None:
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM scans WHERE scan_id = ? AND user_id = ?",
+                (scan_id, user_id),
+            ).fetchone()
+            return dict(row) if row else None
+
+    async def delete_user_data(self, user_id: str) -> int:
+        with self._get_connection() as conn:
+            deleted = conn.execute("DELETE FROM scans WHERE user_id = ?", (user_id,)).rowcount
+            # Scan counter and the prescription counter (keyed "rx:<user_id>").
+            conn.execute("DELETE FROM scan_usage WHERE user_id IN (?, ?)", (user_id, f"rx:{user_id}"))
+            conn.execute("DELETE FROM profiles WHERE user_id = ?", (user_id,))
+            conn.commit()
+        return deleted
+
+    async def get_scans_for_insights(
+        self, user_id: str, limit: int = 500
+    ) -> list[dict[str, Any]]:
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT scan_id, scanned_at, product_name, brand, score, suitability, score_json, product_json
+                FROM scans
+                WHERE user_id = ?
+                ORDER BY scanned_at DESC
+                LIMIT ?
+                """,
+                (user_id, limit),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
 
 class LocalStorageProvider(StorageProvider):
     """Local file-based storage provider for images."""
@@ -281,6 +345,24 @@ class LocalStorageProvider(StorageProvider):
             f.write(data)
         return f"/uploads/{bucket}/{path}"
 
+    async def delete_folder(self, bucket: str, prefix: str) -> int:
+        base = self._base_dir.resolve()
+        bucket_dir = (base / bucket).resolve()
+        folder = (bucket_dir / prefix).resolve()
+        if folder == bucket_dir or not folder.is_relative_to(bucket_dir):
+            raise ValueError("Refusing to delete outside one folder of the bucket.")
+        if not folder.is_dir():
+            return 0
+        removed = 0
+        for f in sorted(folder.rglob("*"), reverse=True):
+            if f.is_file():
+                f.unlink()
+                removed += 1
+            elif f.is_dir():
+                f.rmdir()
+        folder.rmdir()
+        return removed
+
 
 def _row_to_profile(row: sqlite3.Row) -> UserProfile:
     def _parse_list(val: Any) -> list:
@@ -304,6 +386,15 @@ def _row_to_profile(row: sqlite3.Row) -> UserProfile:
     except (IndexError, KeyError):
         avoid_caffeine = False
 
+    def _col(name: str) -> Any:
+        try:
+            return row[name]
+        except (IndexError, KeyError):
+            return None
+
+    sex = _col("sex")
+    activity = _col("activity_level")
+
     return UserProfile(
         user_id=row["user_id"],
         name=row["name"],
@@ -321,6 +412,14 @@ def _row_to_profile(row: sqlite3.Row) -> UserProfile:
             if g in HealthGoal._value2member_map_
         ],
         avoid_caffeine=avoid_caffeine,
+        height_cm=_col("height_cm"),
+        weight_kg=_col("weight_kg"),
+        target_weight_kg=_col("target_weight_kg"),
+        birth_year=_col("birth_year"),
+        sex=Sex(sex) if sex in Sex._value2member_map_ else None,
+        activity_level=(
+            ActivityLevel(activity) if activity in ActivityLevel._value2member_map_ else None
+        ),
         created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else None,
         updated_at=datetime.fromisoformat(row["updated_at"]) if row["updated_at"] else None,
     )

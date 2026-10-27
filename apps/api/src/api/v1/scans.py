@@ -2,14 +2,22 @@
 
 from __future__ import annotations
 
+import json
 import logging
+from typing import Any
 
 from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile
 
 from src.config.auth import CurrentUserDep
 from src.config.dependencies import GeminiDep, ScanLimiterDep, StorageDep, SupabaseDep
 from src.config.settings import settings
-from src.domain.models import ScanHistoryItem, ScanResponse, SuitabilityStatus
+from src.domain.models import (
+    ProductObservation,
+    ScanHistoryItem,
+    ScanResponse,
+    ScoreResult,
+    SuitabilityStatus,
+)
 from src.orchestration.scan_graph import ScanOrchestrator
 from src.services.rate_limit import RateLimitExceeded
 
@@ -120,3 +128,40 @@ async def get_scan_history(
         except Exception as exc:
             logger.warning("Skipping malformed scan history row: %s", exc)
     return items
+
+
+def _as_json(value: Any) -> Any:
+    """JSON columns come back as text from some providers and dicts from others."""
+    return json.loads(value) if isinstance(value, str) else value
+
+
+# Declared after /history so "history" is never captured as a scan id.
+@router.get("/{scan_id}", response_model=ScanResponse, summary="Get one past scan")
+async def get_scan(
+    scan_id: str,
+    user_id: CurrentUserDep,
+    supabase: SupabaseDep = None,
+) -> ScanResponse:
+    """The full stored result of one of the caller's scans.
+
+    A scan that does not exist and a scan that belongs to someone else both
+    return 404, so ids cannot be probed. Alternatives are not stored with a
+    scan, so the list is empty.
+    """
+    row = await supabase.get_scan(user_id, scan_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Scan not found.")
+    try:
+        return ScanResponse(
+            scan_id=row["scan_id"],
+            user_id=row["user_id"],
+            scanned_at=row["scanned_at"],
+            product=ProductObservation.model_validate(_as_json(row.get("product_json")) or {}),
+            score_result=ScoreResult.model_validate(_as_json(row["score_json"])),
+            explanation=row.get("explanation") or "",
+            alternatives=[],
+            image_url=row.get("image_url"),
+        )
+    except (ValueError, KeyError, TypeError) as exc:
+        logger.error("Stored scan %s could not be read: %s", scan_id, type(exc).__name__)
+        raise HTTPException(status_code=500, detail="This scan could not be loaded.")

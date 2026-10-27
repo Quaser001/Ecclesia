@@ -222,6 +222,7 @@ class AlternativeItem {
   final String reason;
   final String? criteria;
   final bool verified;
+  final String? imageUrl; // product photo from Open Food Facts, when known
 
   AlternativeItem({
     required this.type,
@@ -230,6 +231,7 @@ class AlternativeItem {
     required this.reason,
     this.criteria,
     required this.verified,
+    this.imageUrl,
   });
 
   factory AlternativeItem.fromJson(Map<String, dynamic> json) {
@@ -240,6 +242,7 @@ class AlternativeItem {
       reason: json['reason'] ?? '',
       criteria: json['criteria'],
       verified: json['verified'] ?? false,
+      imageUrl: json['image_url'] as String?,
     );
   }
 }

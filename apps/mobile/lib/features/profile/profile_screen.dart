@@ -8,16 +8,21 @@ import 'package:image_picker/image_picker.dart';
 import '../../app/app_theme.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/user_message.dart';
+import '../../core/widgets/status_view.dart';
 import '../../core/widgets/surface_card.dart';
+import '../../l10n/l10n.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
+import '../settings/settings_screen.dart';
+import 'body_details_sheet.dart';
 import 'prescription_card.dart';
 import 'prescription_consent.dart';
 import 'prescription_merge.dart';
 import 'prescription_review_screen.dart';
 
 /// Every condition the backend knows, so anything added (including from a
-/// prescription) can also be seen and removed here.
+/// prescription) can also be seen and removed here. Labels come from the
+/// app's translations; the English values here are for tests and logs.
 const Map<String, String> kConditionOptions = {
   'diabetes_type_1': 'Type 1 Diabetes',
   'diabetes_type_2': 'Type 2 Diabetes',
@@ -33,11 +38,18 @@ const Map<String, String> kConditionOptions = {
   'anaemia': 'Anaemia',
 };
 
-/// Profile screen.
-///
-/// Four sections — Goals, Conditions, Diet, Allergies — each editable by tap.
-/// Snackbar confirmations use interface voice: "Saved" instead of
-/// "Profile updated".
+const _dietKeys = [
+  'vegetarian', 'vegan', 'gluten_free', 'dairy_free', 'halal', 'kosher',
+  'low_carb', 'keto', 'paleo',
+];
+
+const _goalKeys = [
+  'weight_loss', 'muscle_gain', 'maintain_weight', 'improve_energy',
+  'improve_digestion', 'reduce_inflammation', 'manage_blood_sugar', 'heart_health',
+];
+
+/// Profile: who you are, your body details, and the four things scoring uses
+/// (goals, conditions, diet, allergies). Settings sit behind the gear icon.
 class ProfileScreen extends StatefulWidget {
   final ApiService apiService;
   final String userId;
@@ -58,31 +70,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _error;
   bool _readingPrescription = false;
   final ImagePicker _picker = ImagePicker();
-
-  Map<String, String> get _conditionOptions => kConditionOptions;
-
-  final Map<String, String> _dietaryOptions = const {
-    'vegetarian': 'Vegetarian',
-    'vegan': 'Vegan',
-    'gluten_free': 'Gluten-free',
-    'dairy_free': 'Dairy-free',
-    'halal': 'Halal',
-    'kosher': 'Kosher',
-    'low_carb': 'Low carb',
-    'keto': 'Keto',
-    'paleo': 'Paleo',
-  };
-
-  final Map<String, String> _goalOptions = const {
-    'weight_loss': 'Weight loss',
-    'muscle_gain': 'Muscle gain',
-    'maintain_weight': 'Maintain weight',
-    'improve_energy': 'More energy',
-    'improve_digestion': 'Better digestion',
-    'reduce_inflammation': 'Less inflammation',
-    'manage_blood_sugar': 'Manage blood sugar',
-    'heart_health': 'Heart health',
-  };
 
   @override
   void initState() {
@@ -105,10 +92,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = UserMessage.fromError(e);
+        _error = UserMessage.of(context, e);
         _isLoading = false;
       });
     }
+  }
+
+  void _openSettings() {
+    HapticFeedback.selectionClick();
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => SettingsScreen(apiService: widget.apiService)),
+    ).then((_) {
+      // Data may have been deleted in Settings; show the fresh state.
+      if (mounted) _loadProfile();
+    });
   }
 
   /// Consent → capture → read → review → (only if confirmed) save.
@@ -121,22 +119,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (profile == null) return;
     if (!await PrescriptionConsent.ensure(context)) return;
     if (!mounted) return;
+    final l = context.l10n;
 
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
-      showDragHandle: true,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Take a photo'),
+              title: Text(l.takePhoto),
               onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from gallery'),
+              title: Text(l.chooseFromGallery),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
           ],
@@ -147,8 +145,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     XFile? file;
     try {
-      file = await _picker.pickImage(
-          source: source, maxWidth: 2000, imageQuality: 85);
+      file = await _picker.pickImage(source: source, maxWidth: 2000, imageQuality: 85);
       if (file == null) return;
       final bytes = await file.readAsBytes();
       setState(() => _readingPrescription = true);
@@ -177,8 +174,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(UserMessage.fromError(e))));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(UserMessage.of(context, e))));
     } finally {
       if (mounted) setState(() => _readingPrescription = false);
       if (file != null && !kIsWeb) {
@@ -202,45 +199,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
       HapticFeedback.lightImpact();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('Saved'),
+        content: Text(context.l10n.saved),
         duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ));
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = UserMessage.fromError(e);
+        _error = UserMessage.of(context, e);
         _isLoading = false;
       });
     }
   }
 
+  Future<void> _editBody() async {
+    final profile = _profile;
+    if (profile == null) return;
+    final updated = await showBodyDetailsSheet(context, profile);
+    if (updated != null && mounted) await _updateProfileField(updated);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = context.l10n;
+    final c = context.colors;
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        title: Text(l.profileTitle),
+        actions: [
+          IconButton(
+            tooltip: l.settingsTooltip,
+            onPressed: _openSettings,
+            icon: const Icon(Icons.settings_outlined),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.verdict))
+          ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? _buildError(theme)
+              ? StatusView(
+                  icon: Icons.cloud_off_rounded,
+                  title: l.profileErrorTitle,
+                  message: _error!,
+                  actionLabel: l.tryAgain,
+                  onAction: _loadProfile,
+                  isError: true,
+                )
               : ListView(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
                   children: [
                     _buildIdentity(context),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 14),
+                    _BodyCard(profile: _profile!, onEdit: _editBody),
+                    const SizedBox(height: 14),
                     _buildSection(
                       context,
-                      title: 'Goals',
+                      title: l.sectionGoals,
                       icon: Icons.flag_rounded,
-                      accent: AppColors.verdict,
-                      caption: 'What are you working toward?',
+                      accent: c.brand,
+                      caption: l.goalsCaption,
                       items: _profile?.healthGoals ?? const [],
+                      label: l.goalLabel,
                       onEdit: () async {
                         final result = await _showMultiSelectDialog(
-                            'Goals', _goalOptions, _profile?.healthGoals ?? const []);
+                            l.sectionGoals, _goalKeys, l.goalLabel,
+                            _profile?.healthGoals ?? const []);
                         if (result != null && _profile != null) {
                           _updateProfileField(_profile!.copyWith(healthGoals: result));
                         }
@@ -249,68 +273,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 14),
                     _buildSection(
                       context,
-                      title: 'Conditions',
+                      title: l.sectionConditions,
                       icon: Icons.monitor_heart_rounded,
-                      accent: AppColors.ember,
-                      caption: 'We lower scores for products that aggravate these.',
+                      accent: c.accent,
+                      caption: l.conditionsCaption,
                       items: _profile?.healthConditions ?? const [],
+                      label: l.conditionLabel,
                       onEdit: () async {
                         final result = await _showMultiSelectDialog(
-                            'Conditions',
-                            _conditionOptions,
-                            _profile?.healthConditions ?? const []);
+                            l.sectionConditions, kConditionOptions.keys.toList(),
+                            l.conditionLabel, _profile?.healthConditions ?? const []);
                         if (result != null && _profile != null) {
-                          _updateProfileField(
-                              _profile!.copyWith(healthConditions: result));
+                          _updateProfileField(_profile!.copyWith(healthConditions: result));
                         }
                       },
                     ),
                     const SizedBox(height: 14),
                     _buildSection(
                       context,
-                      title: 'Diet',
+                      title: l.sectionDiet,
                       icon: Icons.restaurant_menu_rounded,
-                      accent: const Color(0xFFBEE86E),
-                      caption: 'We flag products that break these.',
+                      accent: c.good,
+                      caption: l.dietCaption,
                       items: _profile?.dietaryPreferences ?? const [],
+                      label: l.dietLabel,
                       onEdit: () async {
                         final result = await _showMultiSelectDialog(
-                            'Diet',
-                            _dietaryOptions,
+                            l.sectionDiet, _dietKeys, l.dietLabel,
                             _profile?.dietaryPreferences ?? const []);
                         if (result != null && _profile != null) {
-                          _updateProfileField(
-                              _profile!.copyWith(dietaryPreferences: result));
+                          _updateProfileField(_profile!.copyWith(dietaryPreferences: result));
                         }
                       },
                     ),
                     const SizedBox(height: 14),
                     _buildSection(
                       context,
-                      title: 'Allergies',
+                      title: l.sectionAllergies,
                       icon: Icons.warning_amber_rounded,
-                      accent: AppColors.critical,
-                      caption: 'Anything in these ingredients means we warn you.',
+                      accent: c.critical,
+                      caption: l.allergiesCaption,
                       items: _profile?.allergies ?? const [],
+                      label: (a) => a.isEmpty ? a : '${a[0].toUpperCase()}${a.substring(1)}',
                       onEdit: () async {
-                        final result = await _showAllergiesDialog(
-                            _profile?.allergies ?? const []);
+                        final result = await _showAllergiesDialog(_profile?.allergies ?? const []);
                         if (result != null && _profile != null) {
                           _updateProfileField(_profile!.copyWith(allergies: result));
                         }
                       },
                     ),
                     const SizedBox(height: 14),
-                    PrescriptionCard(
-                      busy: _readingPrescription,
-                      onTap: _scanPrescription,
-                    ),
+                    PrescriptionCard(busy: _readingPrescription, onTap: _scanPrescription),
+                    const SizedBox(height: 8),
+                    Text(l.disclaimerShort,
+                        textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
                   ],
                 ),
     );
   }
 
-  /// How many of the four profile sections have something in them.
+  /// How many of the four scoring sections have something in them.
   int get _filledSections {
     final p = _profile;
     if (p == null) return 0;
@@ -324,12 +346,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildIdentity(BuildContext context) {
     final theme = Theme.of(context);
+    final l = context.l10n;
+    final c = context.colors;
     final name = _profile?.name ?? '';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'C';
     final filled = _filledSections;
 
     return SurfaceCard(
-      accent: AppColors.verdict,
       padding: const EdgeInsets.fromLTRB(18, 18, 8, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -339,52 +362,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Container(
                 width: 62,
                 height: 62,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF6CF0B4), Color(0xFF1FB57A)],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.verdict.withValues(alpha: 0.35),
-                      blurRadius: 16,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: c.brandSoft),
                 alignment: Alignment.center,
                 child: Text(initial,
-                    style: AppTheme.display(28,
-                        weight: FontWeight.w600, color: AppColors.bg)),
+                    style: AppTheme.display(28, weight: FontWeight.w700, color: c.brand)),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name.isEmpty ? 'Add your name' : name,
+                    Text(name.isEmpty ? l.addYourName : name,
                         style: theme.textTheme.displaySmall,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 2),
-                    // The anonymous device ID is not meaningful to the user;
-                    // show a friendly subtitle instead of the raw id.
                     Text(
-                      name.isEmpty
-                          ? 'Tap the pencil to introduce yourself'
-                          : 'Signed in anonymously on this device',
-                      style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12),
+                      name.isEmpty ? l.introduceYourself : l.signedInAnonymously,
+                      style: theme.textTheme.bodySmall,
                     ),
                   ],
                 ),
               ),
               IconButton(
                 onPressed: _showEditNameDialog,
-                tooltip: 'Edit name',
-                icon: Icon(Icons.edit_outlined,
-                    color: theme.colorScheme.primary, size: 20),
+                tooltip: l.editName,
+                icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary, size: 20),
               ),
             ],
           ),
@@ -397,30 +400,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Profile setup', style: theme.textTheme.labelMedium),
-                    Text('$filled of 4',
-                        style: AppTheme.ui(12,
-                            weight: FontWeight.w700,
-                            color: theme.colorScheme.primary)),
+                    Text(l.profileSetup, style: theme.textTheme.labelMedium),
+                    Text(l.filledOf(filled, 4),
+                        style: AppTheme.ui(13,
+                            weight: FontWeight.w700, color: theme.colorScheme.primary)),
                   ],
                 ),
                 const SizedBox(height: 8),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    value: filled / 4,
-                    minHeight: 6,
-                    color: theme.colorScheme.primary,
-                    backgroundColor:
-                        theme.colorScheme.primary.withValues(alpha: 0.14),
-                  ),
+                  child: LinearProgressIndicator(value: filled / 4, minHeight: 6),
                 ),
                 if (filled < 4) ...[
                   const SizedBox(height: 8),
-                  Text(
-                    'The more you add, the more accurate your scores get.',
-                    style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12),
-                  ),
+                  Text(l.moreAccurate, style: theme.textTheme.bodySmall),
                 ],
               ],
             ),
@@ -436,7 +429,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required IconData icon,
     required Color accent,
     required String caption,
-    required List<dynamic> items,
+    required List<String> items,
+    required String Function(String) label,
     required VoidCallback onEdit,
   }) {
     final theme = Theme.of(context);
@@ -452,7 +446,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.14),
+                  color: context.colors.tint(accent, theme.brightness),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: accent, size: 20),
@@ -464,12 +458,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Text(title, style: theme.textTheme.titleLarge),
                     const SizedBox(height: 2),
-                    Text(caption,
-                        style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12.5)),
+                    Text(caption, style: theme.textTheme.bodySmall),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, color: theme.textTheme.bodyMedium?.color),
+              Icon(Icons.chevron_right_rounded, color: theme.colorScheme.onSurfaceVariant),
             ],
           ),
           const SizedBox(height: 14),
@@ -478,15 +471,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: accent.withValues(alpha: 0.45)),
+                border: Border.all(color: accent.withValues(alpha: 0.5)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.add_rounded, size: 16, color: accent),
                   const SizedBox(width: 4),
-                  Text('Add',
-                      style: AppTheme.ui(12, weight: FontWeight.w700, color: accent)),
+                  Text(context.l10n.add,
+                      style: AppTheme.ui(13, weight: FontWeight.w700, color: accent)),
                 ],
               ),
             )
@@ -497,17 +490,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 for (final item in items)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.12),
+                      color: context.colors.tint(accent, theme.brightness),
                       borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: accent.withValues(alpha: 0.3)),
                     ),
-                    child: Text(
-                      _humanize(item.toString()),
-                      style: AppTheme.ui(12, weight: FontWeight.w600, color: accent),
-                    ),
+                    child: Text(label(item),
+                        style: AppTheme.ui(13, weight: FontWeight.w600, color: accent)),
                   ),
               ],
             ),
@@ -516,151 +505,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  String _humanize(String raw) {
-    return raw
-        .split('_')
-        .map((p) => p.isEmpty ? p : '${p[0].toUpperCase()}${p.substring(1)}')
-        .join(' ');
-  }
-
-  Widget _buildError(ThemeData theme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.cloud_off_rounded,
-                size: 44, color: theme.textTheme.bodyMedium?.color),
-            const SizedBox(height: 16),
-            Text(_error ?? 'Something went wrong', style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _loadProfile,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.verdict,
-                foregroundColor: AppColors.bg,
-              ),
-              child: const Text('Retry'),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
   void _showEditNameDialog() {
     final nameController = TextEditingController(text: _profile?.name);
-    final theme = Theme.of(context);
+    final l = context.l10n;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: theme.colorScheme.surface,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Your name', style: theme.textTheme.titleLarge),
+        title: Text(l.yourName),
         content: TextField(
           controller: nameController,
           autofocus: true,
-          style: theme.textTheme.bodyLarge,
-          decoration: InputDecoration(
-            hintText: 'What should we call you?',
-            hintStyle: theme.textTheme.bodyMedium,
-            border: UnderlineInputBorder(
-                borderSide: BorderSide(color: theme.dividerColor)),
-            focusedBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: AppColors.verdict)),
-          ),
+          textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(hintText: l.nameHint),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel',
-                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
           FilledButton(
             onPressed: () {
               final newName = nameController.text.trim();
               Navigator.pop(context);
-              if (newName.isNotEmpty &&
-                  newName != _profile?.name &&
-                  _profile != null) {
+              if (newName.isNotEmpty && newName != _profile?.name && _profile != null) {
                 _updateProfileField(_profile!.copyWith(name: newName));
               }
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.verdict,
-              foregroundColor: AppColors.bg,
-            ),
-            child: const Text('Save'),
+            child: Text(l.save),
           ),
         ],
       ),
     );
   }
 
-  Future<List<String>?> _showMultiSelectDialog(
-      String title, Map<String, String> options, List<dynamic> initial) {
-    final selected =
-        Set<String>.from(initial.map((e) => e.toString()));
+  Future<List<String>?> _showMultiSelectDialog(String title, List<String> keys,
+      String Function(String) label, List<String> initial) {
+    final selected = Set<String>.from(initial);
     final theme = Theme.of(context);
+    final l = context.l10n;
 
     return showDialog<List<String>>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: theme.colorScheme.surface,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(title, style: theme.textTheme.titleLarge),
+          title: Text(title),
           content: SingleChildScrollView(
             child: Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: options.entries.map((e) {
-                final isSelected = selected.contains(e.key);
+              children: keys.map((key) {
+                final isSelected = selected.contains(key);
                 return FilterChip(
-                  label: Text(e.value),
+                  label: Text(label(key)),
                   selected: isSelected,
                   onSelected: (val) => setDialogState(() {
                     HapticFeedback.selectionClick();
-                    val ? selected.add(e.key) : selected.remove(e.key);
+                    val ? selected.add(key) : selected.remove(key);
                   }),
-                  selectedColor: AppColors.verdict.withValues(alpha: 0.18),
-                  checkmarkColor: AppColors.verdict,
-                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(999),
-                    side: BorderSide(
-                      color: isSelected
-                          ? AppColors.verdict
-                          : theme.dividerColor,
-                    ),
+                  side: BorderSide(
+                    color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
                   ),
-                  labelStyle: AppTheme.ui(13,
-                      weight:
-                          isSelected ? FontWeight.w700 : FontWeight.w500,
+                  labelStyle: AppTheme.ui(14,
+                      weight: isSelected ? FontWeight.w700 : FontWeight.w500,
                       color: isSelected
-                          ? AppColors.verdict
-                          : theme.textTheme.titleLarge?.color),
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurface),
                 );
               }).toList(),
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cancel',
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w600)),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
             FilledButton(
               onPressed: () => Navigator.pop(context, selected.toList()),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.verdict,
-                foregroundColor: AppColors.bg,
-              ),
-              child: const Text('Save'),
+              child: Text(l.save),
             ),
           ],
         ),
@@ -668,20 +583,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<List<String>?> _showAllergiesDialog(List<dynamic> initial) {
-    final allergies =
-        List<String>.from(initial.map((e) => e.toString()));
+  Future<List<String>?> _showAllergiesDialog(List<String> initial) {
+    final allergies = List<String>.from(initial);
     final controller = TextEditingController();
     final theme = Theme.of(context);
+    final l = context.l10n;
+
+    void addFrom(String raw, void Function(void Function()) setDialogState) {
+      final text = raw.trim().toLowerCase();
+      if (text.isNotEmpty && !allergies.contains(text)) {
+        setDialogState(() {
+          allergies.add(text);
+          controller.clear();
+        });
+      }
+    }
 
     return showDialog<List<String>>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: theme.colorScheme.surface,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('Allergies', style: theme.textTheme.titleLarge),
+          title: Text(l.sectionAllergies),
           content: SizedBox(
             width: double.maxFinite,
             child: Column(
@@ -693,44 +615,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Expanded(
                       child: TextField(
                         controller: controller,
-                        style: theme.textTheme.bodyLarge,
-                        decoration: InputDecoration(
-                          hintText: 'e.g. peanut, soy',
-                          hintStyle: theme.textTheme.bodyMedium,
-                          border: UnderlineInputBorder(
-                              borderSide:
-                                  BorderSide(color: theme.dividerColor)),
-                          focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: AppColors.verdict)),
-                        ),
-                        onSubmitted: (val) {
-                          final text = val.trim().toLowerCase();
-                          if (text.isNotEmpty && !allergies.contains(text)) {
-                            setDialogState(() {
-                              allergies.add(text);
-                              controller.clear();
-                            });
-                          }
-                        },
+                        decoration: InputDecoration(hintText: l.allergiesHint),
+                        onSubmitted: (val) => addFrom(val, setDialogState),
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.add, color: AppColors.verdict),
-                      onPressed: () {
-                        final text = controller.text.trim().toLowerCase();
-                        if (text.isNotEmpty && !allergies.contains(text)) {
-                          setDialogState(() {
-                            allergies.add(text);
-                            controller.clear();
-                          });
-                        }
-                      },
+                      icon: Icon(Icons.add_circle_rounded, color: theme.colorScheme.primary),
+                      tooltip: l.addAllergy,
+                      onPressed: () => addFrom(controller.text, setDialogState),
                     ),
                   ],
                 ),
                 const SizedBox(height: 14),
                 if (allergies.isEmpty)
-                  Text('No allergies added.', style: theme.textTheme.bodyMedium)
+                  Text(l.noAllergies, style: theme.textTheme.bodyMedium)
                 else
                   Wrap(
                     spacing: 8,
@@ -738,13 +636,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: allergies
                         .map((a) => Chip(
                               label: Text(a, style: theme.textTheme.bodyLarge),
-                              backgroundColor:
-                                  theme.colorScheme.surfaceContainerHighest,
-                              deleteIcon: const Icon(Icons.close,
-                                  size: 16, color: AppColors.critical),
-                              side: BorderSide(color: theme.dividerColor),
-                              onDeleted: () =>
-                                  setDialogState(() => allergies.remove(a)),
+                              deleteIcon:
+                                  Icon(Icons.close, size: 16, color: context.colors.critical),
+                              onDeleted: () => setDialogState(() => allergies.remove(a)),
                             ))
                         .toList(),
                   ),
@@ -752,22 +646,129 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cancel',
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w600)),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
             FilledButton(
               onPressed: () => Navigator.pop(context, allergies),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.verdict,
-                foregroundColor: AppColors.bg,
-              ),
-              child: const Text('Save'),
+              child: Text(l.save),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Height, weight, BMI (with its band), age, sex, activity and target weight.
+class _BodyCard extends StatelessWidget {
+  final UserProfile profile;
+  final VoidCallback onEdit;
+  const _BodyCard({required this.profile, required this.onEdit});
+
+  static String _num(double v) => v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l = context.l10n;
+    final c = context.colors;
+    final p = profile;
+    final bandColor = switch (p.bmiCategory) {
+      'normal' => c.excellent,
+      'overweight' => c.fair,
+      'obese' => c.poor,
+      'underweight' => c.warning,
+      _ => c.muted,
+    };
+
+    Widget fact(String label, String? value) => Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: theme.textTheme.labelMedium),
+              const SizedBox(height: 2),
+              Text(value ?? '—', style: theme.textTheme.titleMedium),
+            ],
+          ),
+        );
+
+    return SurfaceCard(
+      padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+      onTap: onEdit,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: c.tint(c.accent, theme.brightness),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.accessibility_new_rounded, color: c.accent, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l.bodyTitle, style: theme.textTheme.titleLarge),
+                    const SizedBox(height: 2),
+                    Text(l.bodyCaption, style: theme.textTheme.bodySmall),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: theme.colorScheme.onSurfaceVariant),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (!p.hasBodyDetails)
+            Text(l.addBodyDetails,
+                style: AppTheme.ui(14, weight: FontWeight.w700, color: c.accent))
+          else ...[
+            Row(
+              children: [
+                fact(l.height, p.heightCm == null ? null : '${_num(p.heightCm!)} ${l.unitCm}'),
+                fact(l.weight, p.weightKg == null ? null : '${_num(p.weightKg!)} ${l.unitKg}'),
+                fact(l.age, p.age == null ? null : l.ageYears(p.age!)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (p.bmi != null)
+              Row(
+                children: [
+                  Text('${l.bmi} ', style: theme.textTheme.labelMedium),
+                  Text(p.bmi!.toStringAsFixed(1),
+                      style: AppTheme.display(22, weight: FontWeight.w700, color: bandColor)),
+                  const SizedBox(width: 8),
+                  if (p.bmiCategory != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: c.tint(bandColor, theme.brightness),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(l.bmiCategoryLabel(p.bmiCategory!),
+                          style: AppTheme.ui(13, weight: FontWeight.w700, color: bandColor)),
+                    ),
+                ],
+              )
+            else
+              Text(l.bmiNeedsBoth, style: theme.textTheme.bodySmall),
+            if (p.targetWeightKg != null || p.activityLevel != null) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  fact(l.targetWeight,
+                      p.targetWeightKg == null ? null : '${_num(p.targetWeightKg!)} ${l.unitKg}'),
+                  fact(l.activityLevel,
+                      p.activityLevel == null ? null : l.activityLabel(p.activityLevel!)),
+                ],
+              ),
+            ],
+          ],
+        ],
       ),
     );
   }

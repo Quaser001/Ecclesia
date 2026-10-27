@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:mobile/l10n/l10n.dart';
 import 'package:mobile/features/profile/prescription_consent.dart';
 import 'package:mobile/features/profile/prescription_merge.dart';
 import 'package:mobile/features/profile/profile_screen.dart' show kConditionOptions;
@@ -51,7 +52,7 @@ Future<List<UserProfile?>> _pumpReview(
   PrescriptionSuggestions s,
 ) async {
   final results = <UserProfile?>[];
-  await tester.pumpWidget(MaterialApp(
+  await tester.pumpWidget(MaterialApp(localizationsDelegates: localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, 
     home: Builder(
       builder: (context) => Scaffold(
         body: Center(
@@ -156,7 +157,7 @@ void main() {
     testWidgets('adds only ticked items, merged without duplicates',
         (tester) async {
       final results = await _pumpReview(tester, _suggestions());
-      await tester.tap(find.text('Diabetes Type 2'));
+      await tester.tap(find.text('Type 2 diabetes'));
       await tester.tap(find.text('Peanuts'));
       await tester.pump();
       await tester.tap(find.byType(FilledButton));
@@ -196,7 +197,7 @@ void main() {
     testWidgets('asks once, remembers, and can be declined', (tester) async {
       SharedPreferences.setMockInitialValues({});
       late BuildContext ctx;
-      await tester.pumpWidget(MaterialApp(
+      await tester.pumpWidget(MaterialApp(localizationsDelegates: localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, 
         home: Builder(builder: (c) {
           ctx = c;
           return const Scaffold();

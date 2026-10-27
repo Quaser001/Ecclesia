@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app/app_theme.dart';
 import 'app/theme_controller.dart';
+import 'l10n/l10n.dart';
 import 'navigation/bottom_navigation.dart';
 import 'services/api_service.dart';
 import 'services/device_id_service.dart';
@@ -21,19 +22,32 @@ class CalFitApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final apiService = ApiService();
 
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: ThemeController.themeMode,
-      builder: (context, themeMode, _) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        ThemeController.themeMode,
+        ThemeController.textScale,
+        ThemeController.locale,
+      ]),
+      builder: (context, _) {
         return MaterialApp(
-          title: 'CalFit - AI Nutrition & Health Scanner',
+          onGenerateTitle: (context) => context.l10n.appName,
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
-          themeMode: themeMode,
-          home: BottomNavigation(
-            apiService: apiService,
-            userId: deviceId.deviceId,
-          ),
+          themeMode: ThemeController.themeMode.value,
+          locale: ThemeController.locale.value,
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: localizationsDelegates,
+          // The in-app text size multiplies the phone's own setting.
+          builder: (context, child) {
+            final mq = MediaQuery.of(context);
+            final scale = mq.textScaler.scale(1) * ThemeController.textScale.value;
+            return MediaQuery(
+              data: mq.copyWith(textScaler: TextScaler.linear(scale.clamp(0.8, 2.0))),
+              child: child!,
+            );
+          },
+          home: BottomNavigation(apiService: apiService, userId: deviceId.deviceId),
         );
       },
     );

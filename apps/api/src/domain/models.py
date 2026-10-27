@@ -7,7 +7,9 @@ from enum import Enum
 from typing import Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field, field_validator
+
+from src.services.body_metrics import bmi as _bmi, bmi_category as _bmi_category
 
 
 # ---------------------------------------------------------------------------
@@ -56,6 +58,20 @@ class HealthCondition(str, Enum):
     OBESITY = "obesity"
     LACTOSE_INTOLERANCE = "lactose_intolerance"
     ANAEMIA = "anaemia"
+
+
+class Sex(str, Enum):
+    FEMALE = "female"
+    MALE = "male"
+    OTHER = "other"
+
+
+class ActivityLevel(str, Enum):
+    SEDENTARY = "sedentary"      # desk job, little exercise
+    LIGHT = "light"              # light exercise 1-3 days a week
+    MODERATE = "moderate"        # moderate exercise 3-5 days a week
+    ACTIVE = "active"            # hard exercise 6-7 days a week
+    VERY_ACTIVE = "very_active"  # physical job plus training
 
 
 class HealthGoal(str, Enum):
@@ -109,8 +125,32 @@ class UserProfile(BaseModel):
     # Non-medical, user-toggled sensitivities. Flagged as `sensitivity` tier,
     # never surfaced as a medical warning.
     avoid_caffeine: bool = False
+    # Body details: optional, stored exactly as entered; BMI is calculated.
+    height_cm: Optional[float] = Field(default=None, ge=50, le=250)
+    weight_kg: Optional[float] = Field(default=None, ge=15, le=350)
+    target_weight_kg: Optional[float] = Field(default=None, ge=15, le=350)
+    birth_year: Optional[int] = Field(default=None, ge=1900)
+    sex: Optional[Sex] = None
+    activity_level: Optional[ActivityLevel] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+    @field_validator("birth_year")
+    @classmethod
+    def _birth_year_not_in_future(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v > datetime.now(timezone.utc).year:
+            raise ValueError("birth_year cannot be in the future")
+        return v
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def bmi(self) -> Optional[float]:
+        return _bmi(self.height_cm, self.weight_kg)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def bmi_category(self) -> Optional[str]:
+        return _bmi_category(self.bmi)
 
 
 class UserProfileRequest(BaseModel):
@@ -122,6 +162,12 @@ class UserProfileRequest(BaseModel):
     dietary_preferences: list[DietaryPreference] = Field(default_factory=list)
     health_goals: list[HealthGoal] = Field(default_factory=list)
     avoid_caffeine: bool = False
+    height_cm: Optional[float] = Field(default=None, ge=50, le=250)
+    weight_kg: Optional[float] = Field(default=None, ge=15, le=350)
+    target_weight_kg: Optional[float] = Field(default=None, ge=15, le=350)
+    birth_year: Optional[int] = Field(default=None, ge=1900)
+    sex: Optional[Sex] = None
+    activity_level: Optional[ActivityLevel] = None
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +291,8 @@ class Alternative(BaseModel):
     brand: Optional[str] = None
     reason: str                          # Why this is a better fit
     criteria: Optional[str] = None      # Guidance text if no real product available
-    verified: bool = False              # True only for products from knowledge base
+    verified: bool = False              # True only for real products from the food database
+    image_url: Optional[str] = None     # Product photo (Open Food Facts) when known
 
 
 # ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/app_theme.dart';
-import '../../core/constants/app_colors.dart';
+import '../../l10n/l10n.dart';
 
 /// One-time, plain-language consent before a prescription photo is sent
 /// anywhere. Declining changes nothing. Agreement is remembered on the device.
@@ -35,6 +35,7 @@ class _ConsentSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = context.l10n;
     Widget point(IconData icon, String text) => Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(
@@ -54,25 +55,20 @@ class _ConsentSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Read a prescription?',
-                style: AppTheme.display(24,
-                    color: theme.textTheme.displayMedium?.color)),
+            Text(l.prescriptionConsentTitle,
+                style: AppTheme.display(24, color: theme.textTheme.displayMedium?.color)),
             const SizedBox(height: 14),
-            point(Icons.cloud_upload_outlined,
-                'Your photo is sent to Google Gemini to be read.'),
-            point(Icons.delete_outline_rounded,
-                'CalFit does not save the photo or what is read from it.'),
-            point(Icons.fact_check_outlined,
-                'We only suggest conditions and allergies. Nothing is added unless you tick it and confirm.'),
-            point(Icons.info_outline_rounded,
-                'This is not medical advice. Check every suggestion.'),
+            point(Icons.cloud_upload_outlined, l.prescriptionConsentGemini),
+            point(Icons.delete_outline_rounded, l.prescriptionConsentNoSave),
+            point(Icons.fact_check_outlined, l.prescriptionConsentSuggestOnly),
+            point(Icons.medical_information_outlined, l.prescriptionConsentNotAdvice),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: TextButton(
                     onPressed: () => Navigator.pop(context, false),
-                    child: const Text('Cancel'),
+                    child: Text(l.cancel),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -80,11 +76,7 @@ class _ConsentSheet extends StatelessWidget {
                   flex: 2,
                   child: FilledButton(
                     onPressed: () => Navigator.pop(context, true),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.verdict,
-                      foregroundColor: AppColors.bg,
-                    ),
-                    child: const Text('Agree and continue'),
+                    child: Text(l.agreeAndContinue),
                   ),
                 ),
               ],

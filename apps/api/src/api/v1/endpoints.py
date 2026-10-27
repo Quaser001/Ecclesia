@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from src.api.v1.auth import router as auth_router
+from src.api.v1.insights import router as insights_router
 from src.api.v1.prescriptions import router as prescriptions_router
 from src.api.v1.profiles import router as profiles_router
 from src.api.v1.scans import router as scans_router
@@ -21,3 +22,4 @@ router.include_router(auth_router)
 router.include_router(profiles_router)
 router.include_router(prescriptions_router)
 router.include_router(scans_router)
+router.include_router(insights_router)

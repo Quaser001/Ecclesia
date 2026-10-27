@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/l10n/l10n.dart';
 import 'package:mobile/features/scan/scan_result_screen.dart';
 import 'package:mobile/models/scan_result.dart';
 
@@ -43,7 +44,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(home: ScanResultScreen(scanResult: mockResult)),
+      MaterialApp(localizationsDelegates: localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: ScanResultScreen(scanResult: mockResult)),
     );
     // Let the score ring animation (900ms easeOutCubic) and any skeleton
     // transitions finish before asserting on their final frames.
@@ -52,8 +53,11 @@ void main() {
     expect(find.text('Organic Roasted Chickpeas'), findsOneWidget);
     // Score animates 0 → 85. After pumpAndSettle it should land on 85.
     expect(find.text('85'), findsOneWidget);
-    // Suitability verdict is lowercase in the design pass ("excellent fit").
-    expect(find.text('excellent fit'), findsOneWidget);
+    // The verdict is shown as a coloured pill with its label, so the colour
+    // is never the only signal.
+    expect(find.text('Excellent fit'), findsOneWidget);
+    // Alternatives sit below the fold in a lazily built list.
+    await tester.scrollUntilVisible(find.text('Roasted Edamame'), 300);
     expect(find.text('Roasted Edamame'), findsOneWidget);
   });
 
@@ -85,7 +89,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(home: ScanResultScreen(scanResult: mockResult)),
+      MaterialApp(localizationsDelegates: localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: ScanResultScreen(scanResult: mockResult)),
     );
     await tester.pumpAndSettle();
 

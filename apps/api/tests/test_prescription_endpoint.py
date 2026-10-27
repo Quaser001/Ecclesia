@@ -76,6 +76,9 @@ class SpyStorage(StorageProvider):
         self.uploads += 1
         return "x"
 
+    async def delete_folder(self, bucket, prefix):
+        return 0
+
 
 @pytest.fixture
 def enabled(monkeypatch):

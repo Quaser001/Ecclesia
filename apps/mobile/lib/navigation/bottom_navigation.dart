@@ -3,16 +3,22 @@ import 'package:flutter/services.dart';
 
 import '../app/app_theme.dart';
 import '../core/constants/app_colors.dart';
-import '../core/widgets/app_backdrop.dart';
 import '../core/widgets/medical_disclaimer.dart';
 import '../features/history/history_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/insights/insights_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/scan/scan_screen.dart';
+import '../l10n/l10n.dart';
 import '../services/api_service.dart';
 
-/// A deliberately quiet bottom bar. The scan button is the loud element —
-/// everything else keeps still so the eye finds the primary action.
+/// App shell: four tabs with the Scan button in the middle.
+///
+///   Home · History · [ Scan ] · Insights · Profile
+///
+/// The bar is five equal slots, the middle one left empty for the docked
+/// Scan button, so two tabs sit on each side and the spacing is even by
+/// construction (the old bar had one tab on the left and two on the right).
 class BottomNavigation extends StatefulWidget {
   final ApiService apiService;
   final String userId;
@@ -27,200 +33,181 @@ class BottomNavigation extends StatefulWidget {
   State<BottomNavigation> createState() => _BottomNavigationState();
 }
 
+class _Tab {
+  final IconData icon;
+  final IconData activeIcon;
+  final String Function(AppLocalizations) label;
+  const _Tab(this.icon, this.activeIcon, this.label);
+}
+
+final _tabs = [
+  _Tab(Icons.home_outlined, Icons.home_rounded, (l) => l.navHome),
+  _Tab(Icons.history_rounded, Icons.history_rounded, (l) => l.navHistory),
+  _Tab(Icons.insights_outlined, Icons.insights_rounded, (l) => l.navInsights),
+  _Tab(Icons.person_outline_rounded, Icons.person_rounded, (l) => l.navProfile),
+];
+
 class _BottomNavigationState extends State<BottomNavigation> {
   int _currentIndex = 0;
-  late final List<Widget> _screens;
+
+  /// Bumped after a scan so the visible tab rebuilds and reloads its data.
+  int _dataVersion = 0;
 
   @override
   void initState() {
     super.initState();
-    // On first launch, show the "not medical advice" dialog once. We wait for
-    // the first frame so there is always a BuildContext ready to host the
-    // dialog on top of.
+    // Show the "not medical advice" dialog once, after the first frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       MedicalDisclaimer.showOnFirstLaunch(context);
     });
-    _screens = [
-      HomeScreen(
-        apiService: widget.apiService,
-        userId: widget.userId,
-        onNavigateToHistory: () {
-          HapticFeedback.selectionClick();
-          setState(() => _currentIndex = 1);
-        },
-      ),
-      HistoryScreen(apiService: widget.apiService, userId: widget.userId),
-      ProfileScreen(apiService: widget.apiService, userId: widget.userId),
-    ];
   }
 
-  void _onTapIndex(int index) {
+  void _select(int index) {
     if (_currentIndex == index) return;
     HapticFeedback.selectionClick();
     setState(() => _currentIndex = index);
   }
 
+  Future<void> _startScan() async {
+    HapticFeedback.mediumImpact();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ScanScreen(apiService: widget.apiService, userId: widget.userId),
+      ),
+    );
+    if (mounted) setState(() => _dataVersion++);
+  }
+
+  Widget _screen(int index) {
+    switch (index) {
+      case 0:
+        return HomeScreen(
+          apiService: widget.apiService,
+          userId: widget.userId,
+          onNavigateToHistory: () => _select(1),
+          onNavigateToProfile: () => _select(3),
+          onStartScan: _startScan,
+        );
+      case 1:
+        return HistoryScreen(
+          apiService: widget.apiService,
+          userId: widget.userId,
+          onStartScan: _startScan,
+        );
+      case 2:
+        return InsightsScreen(apiService: widget.apiService, onStartScan: _startScan);
+      default:
+        return ProfileScreen(apiService: widget.apiService, userId: widget.userId);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final c = context.colors;
 
     return Scaffold(
       extendBody: true,
-      body: Stack(
-        children: [
-          const Positioned.fill(child: AppBackdrop()),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
-            transitionBuilder: (child, animation) =>
-                FadeTransition(opacity: animation, child: child),
-            child: KeyedSubtree(
-              key: ValueKey(_currentIndex),
-              child: _screens[_currentIndex],
-            ),
-          ),
-        ],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
+        child: KeyedSubtree(
+          key: ValueKey('$_currentIndex-$_dataVersion'),
+          child: _screen(_currentIndex),
+        ),
       ),
-      floatingActionButton: _ScanFab(onPressed: () {
-        HapticFeedback.mediumImpact();
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ScanScreen(
-              apiService: widget.apiService,
-              userId: widget.userId,
-            ),
-          ),
-        );
-      }),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: SizedBox.square(
+        dimension: 64,
+        child: FloatingActionButton(
+          onPressed: _startScan,
+          tooltip: context.l10n.scanAProduct,
+          backgroundColor: c.brand,
+          foregroundColor: c.onBrand,
+          elevation: 2,
+          highlightElevation: 4,
+          shape: const CircleBorder(),
+          child: const Icon(Icons.qr_code_scanner_rounded, size: 28),
+        ),
+      ),
       bottomNavigationBar: BottomAppBar(
         color: theme.colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
+        height: 72,
         padding: EdgeInsets.zero,
-        child: SizedBox(
-          height: 62,
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 6,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: c.divider)),
+          ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _NavTab(
-                icon: Icons.dashboard_outlined,
-                activeIcon: Icons.dashboard_rounded,
-                label: 'Home',
-                active: _currentIndex == 0,
-                onTap: () => _onTapIndex(0),
-              ),
-              const SizedBox(width: 56),
-              _NavTab(
-                icon: Icons.history_rounded,
-                activeIcon: Icons.history_rounded,
-                label: 'History',
-                active: _currentIndex == 1,
-                onTap: () => _onTapIndex(1),
-              ),
-              _NavTab(
-                icon: Icons.person_outline_rounded,
-                activeIcon: Icons.person_rounded,
-                label: 'Profile',
-                active: _currentIndex == 2,
-                onTap: () => _onTapIndex(2),
-              ),
+              _slot(0),
+              _slot(1),
+              const Expanded(child: SizedBox()), // Scan button sits here
+              _slot(2),
+              _slot(3),
             ],
           ),
         ),
       ),
     );
   }
-}
 
-class _ScanFab extends StatelessWidget {
-  final VoidCallback onPressed;
-  const _ScanFab({required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 62,
-      height: 62,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF6CF0B4), AppColors.verdict, Color(0xFF1FB57A)],
+  Widget _slot(int index) => Expanded(
+        child: _NavTab(
+          tab: _tabs[index],
+          active: _currentIndex == index,
+          onTap: () => _select(index),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.verdict.withValues(alpha: 0.45),
-            blurRadius: 22,
-            spreadRadius: 1,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: FloatingActionButton(
-        onPressed: onPressed,
-        backgroundColor: Colors.transparent,
-        shape: const CircleBorder(),
-        tooltip: 'Scan a product',
-        elevation: 0,
-        focusElevation: 0,
-        hoverElevation: 0,
-        highlightElevation: 0,
-        child: const Icon(Icons.photo_camera_rounded, color: AppColors.bg, size: 27),
-      ),
-    );
-  }
+      );
 }
 
 class _NavTab extends StatelessWidget {
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
+  final _Tab tab;
   final bool active;
   final VoidCallback onTap;
 
-  const _NavTab({
-    required this.icon,
-    required this.activeIcon,
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
+  const _NavTab({required this.tab, required this.active, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = active
-        ? theme.colorScheme.primary
-        : theme.textTheme.bodyMedium?.color;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 72,
+    final c = context.colors;
+    final color = active ? c.brand : c.muted;
+    final label = tab.label(context.l10n);
+    return Semantics(
+      selected: active,
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: InkResponse(
+        onTap: onTap,
+        radius: 36,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+              duration: const Duration(milliseconds: 180),
+              width: 52,
+              height: 30,
               decoration: BoxDecoration(
-                color: active
-                    ? theme.colorScheme.primary.withValues(alpha: 0.14)
-                    : Colors.transparent,
+                color: active ? c.brandSoft : Colors.transparent,
                 borderRadius: BorderRadius.circular(999),
               ),
-              child: Icon(active ? activeIcon : icon, color: color, size: 22),
+              child: Icon(active ? tab.activeIcon : tab.icon, color: color, size: 22),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
               label,
-              style: AppTheme.ui(10,
-                  weight: active ? FontWeight.w700 : FontWeight.w500,
-                  color: color),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTheme.ui(12,
+                  weight: active ? FontWeight.w700 : FontWeight.w500, color: color),
             ),
           ],
         ),

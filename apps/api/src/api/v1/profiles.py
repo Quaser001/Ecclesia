@@ -5,7 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from src.config.auth import CurrentUserDep
-from src.config.dependencies import SupabaseDep
+from src.config.dependencies import StorageDep, SupabaseDep
+from src.config.settings import settings
 from src.domain.models import UserProfile, UserProfileRequest
 
 router = APIRouter(prefix="/profile", tags=["profile"])
@@ -39,6 +40,28 @@ async def upsert_profile(
         dietary_preferences=body.dietary_preferences,
         health_goals=body.health_goals,
         avoid_caffeine=body.avoid_caffeine,
+        height_cm=body.height_cm,
+        weight_kg=body.weight_kg,
+        target_weight_kg=body.target_weight_kg,
+        birth_year=body.birth_year,
+        sex=body.sex,
+        activity_level=body.activity_level,
     )
     saved = await supabase.upsert_profile(profile)
     return saved
+
+
+@router.delete("", summary="Delete my data")
+async def delete_my_data(
+    user_id: CurrentUserDep,
+    supabase: SupabaseDep = None,
+    storage: StorageDep = None,
+) -> dict[str, int]:
+    """Delete the caller's scan photos, scans, usage counters and profile.
+
+    Photos go first: if that fails the request errors and nothing else has
+    been removed, so the user can simply try again.
+    """
+    photos = await storage.delete_folder(settings.STORAGE_BUCKET, f"scans/{user_id}")
+    scans = await supabase.delete_user_data(user_id)
+    return {"scans_deleted": scans, "photos_deleted": photos}

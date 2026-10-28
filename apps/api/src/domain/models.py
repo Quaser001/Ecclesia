@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, computed_field, field_validator
+from pydantic import BaseModel, Field, StringConstraints, computed_field, field_validator
 
 from src.domain.identity import Identification
 from src.domain.nutrient_levels import NutrientLevel, nutrient_levels
@@ -155,14 +155,21 @@ class UserProfile(BaseModel):
         return _bmi_category(self.bmi)
 
 
+ShortText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=80)]
+# min_length 1: an empty allergy would be a substring of every ingredient.
+AllergyText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
+
+
 class UserProfileRequest(BaseModel):
     """Request body for creating/updating a user profile."""
 
-    name: Optional[str] = None
-    health_conditions: list[HealthCondition] = Field(default_factory=list)
-    allergies: list[str] = Field(default_factory=list)
-    dietary_preferences: list[DietaryPreference] = Field(default_factory=list)
-    health_goals: list[HealthGoal] = Field(default_factory=list)
+    # Every allergy goes into each scan's matching and explanation prompt, so
+    # an unbounded list is unbounded Gemini cost. Real profiles are far below these.
+    name: Optional[ShortText] = None
+    health_conditions: list[HealthCondition] = Field(default_factory=list, max_length=40)
+    allergies: list[AllergyText] = Field(default_factory=list, max_length=30)
+    dietary_preferences: list[DietaryPreference] = Field(default_factory=list, max_length=20)
+    health_goals: list[HealthGoal] = Field(default_factory=list, max_length=20)
     avoid_caffeine: bool = False
     height_cm: Optional[float] = Field(default=None, ge=50, le=250)
     weight_kg: Optional[float] = Field(default=None, ge=15, le=350)
@@ -337,6 +344,9 @@ class ScanResponse(BaseModel):
     image_url: Optional[str] = None
     insufficient_data: bool = False
     pipeline_message: Optional[str] = None
+    # False when the result couldn't be written to history (the scan_id then
+    # names nothing), and for insufficient-data results, which are never saved.
+    saved: bool = True
     # Front-of-pack scans: which real product was used, or the choices to
     # offer when the user has to confirm or pick (status confirm/choose).
     identification: Optional[Identification] = None

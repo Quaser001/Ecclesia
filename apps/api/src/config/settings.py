@@ -8,6 +8,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """CalFit configuration — all values come from environment variables."""
 
+    # "production" turns on startup validation (validate_for_production) and
+    # turns off everything that only makes sense on a laptop: the local SQLite
+    # / disk / in-memory fallbacks and the public API docs. ADR-006.
+    APP_ENV: Literal["development", "production"] = "development"
+
     # API Settings
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "CalFit API"
@@ -30,16 +35,29 @@ class Settings(BaseSettings):
     # How many new device identities one client IP may mint per UTC day.
     DEVICE_TOKEN_DAILY_CAP_PER_IP: int = 20
 
+    # How many proxies in front of us append to X-Forwarded-For. 0 = use the
+    # socket peer (local dev). Cloud Run's front end appends one entry: 1.
+    # The client can put anything in the header, so only entries our own
+    # proxies appended (counted from the right) are trusted. services/client_ip.py
+    TRUSTED_PROXY_HOPS: int = 0
+
     # Prescription reading sends a medical document to Gemini. Keep OFF until the
-    # key is on the paid, no-training tier (docs/GEMINI_BILLING.md).
+    # key is on the paid, no-training tier (docs/GEMINI_BILLING.md). Even when
+    # ON, it only runs on Vertex or when the paid tier is confirmed: see
+    # prescription_ai_allowed. Prescriptions must never reach the free tier.
     PRESCRIPTION_AI_ENABLED: bool = False
     PRESCRIPTION_DAILY_CAP: int = 5
+    # Set to true only after checking in AI Studio that GEMINI_API_KEY's
+    # project has billing on (paid tier: Google doesn't train on the data).
+    GEMINI_PAID_TIER_CONFIRMED: bool = False
 
     # Gemini — real, generally-available model names only.
     # Browse https://ai.google.dev/gemini-api/docs/models for the current list.
     GEMINI_API_KEY: str = ""
-    GEMINI_API_KEYS: str = ""
     GEMINI_MODEL: str = "gemini-2.5-flash"
+    # Per call. Cloud Run cuts a request at its own timeout, so one slow model
+    # must not use all of it.
+    GEMINI_TIMEOUT_SECONDS: int = 25
 
     # Where Gemini runs (docs/AI_PROVIDER_OPTIONS.md).
     #   developer_api: AI Studio, authenticated with GEMINI_API_KEY.
@@ -84,15 +102,47 @@ class Settings(BaseSettings):
     # "text" locally. See docs/EVALS_AND_OBSERVABILITY.md.
     LOG_FORMAT: Literal["text", "json"] = "text"
 
-    # Dev convenience — default user ID when no auth system is connected.
-    # Not used for authorization: endpoints still take user_id explicitly.
-    DEFAULT_USER_ID: str = "dev-user-001"
-
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @property
+    def is_production(self) -> bool:
+        return self.APP_ENV == "production"
+
+    @property
+    def supabase_configured(self) -> bool:
+        return bool(self.SUPABASE_URL and self.SUPABASE_SERVICE_ROLE_KEY)
+
+    @property
+    def prescription_ai_allowed(self) -> bool:
+        """Prescriptions are health data: only on a tier that doesn't train on them."""
+        return self.PRESCRIPTION_AI_ENABLED and (
+            self.GEMINI_BACKEND == "vertex" or self.GEMINI_PAID_TIER_CONFIRMED
+        )
+
+    def config_problems(self) -> list[str]:
+        """What would make a production instance wrong. Names only, never values."""
+        problems = []
+        if len(self.AUTH_SECRET_KEY) < 32:
+            problems.append("AUTH_SECRET_KEY is missing or shorter than 32 characters")
+        if not self.supabase_configured:
+            problems.append("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must both be set")
+        if self.GEMINI_BACKEND == "vertex" and not self.GOOGLE_CLOUD_PROJECT:
+            problems.append("GEMINI_BACKEND=vertex needs GOOGLE_CLOUD_PROJECT")
+        if self.GEMINI_BACKEND == "developer_api" and not self.GEMINI_API_KEY:
+            problems.append("GEMINI_API_KEY is not set")
+        if self.PRESCRIPTION_AI_ENABLED and not self.prescription_ai_allowed:
+            problems.append("PRESCRIPTION_AI_ENABLED needs GEMINI_BACKEND=vertex "
+                            "or GEMINI_PAID_TIER_CONFIRMED=true")
+        return problems
+
+    def validate_for_production(self) -> None:
+        """Refuse to start a production instance that would misbehave quietly."""
+        if self.is_production and (problems := self.config_problems()):
+            raise RuntimeError("Refusing to start in production: " + "; ".join(problems))
 
 
 # Global settings instance

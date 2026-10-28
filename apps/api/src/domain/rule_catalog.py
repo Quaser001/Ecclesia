@@ -572,6 +572,9 @@ KETO_CARBS_G = 15.0
 KETO_SUGAR_G = 4.0
 WEIGHT_CALORIES_KCAL = 350.0
 WEIGHT_FAT_G = 18.0
+# SRC_WHO_SUGAR: free sugars < 10% of energy is 50 g a day at 2000 kcal, so
+# 12 g (the RULE-003B line) is about a quarter of the day in one serving.
+WEIGHT_SUGAR_G = 12.0
 
 SCORE_CURVES: tuple[ScoreCurve, ...] = (
     ScoreCurve("sugar-blood-sugar", _SUGAR, "sugars_g", "g", _anchors(_bands(*_SUGAR))),
@@ -591,5 +594,7 @@ SCORE_CURVES: tuple[ScoreCurve, ...] = (
                _anchors([(WEIGHT_CALORIES_KCAL, FindingSeverity.WARNING)])),
     ScoreCurve("fat-weight", ("RULE-010B-FAT-HIGH",), "total_fat_g", "g",
                _anchors([(WEIGHT_FAT_G, FindingSeverity.WARNING)])),
+    ScoreCurve("sugar-weight", ("RULE-010C-SUGAR-HIGH",), "sugars_g", "g",
+               _anchors([(WEIGHT_SUGAR_G, FindingSeverity.WARNING)])),
 )
 CURVE_BY_RULE: dict[str, ScoreCurve] = {r: c for c in SCORE_CURVES for r in c.rule_ids}

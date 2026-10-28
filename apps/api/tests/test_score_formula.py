@@ -35,6 +35,7 @@ PROFILE_FOR_CURVE = {
     "sugar-keto": dict(dietary_preferences=[DietaryPreference.KETO]),
     "calories-weight": dict(health_goals=[HealthGoal.WEIGHT_LOSS]),
     "fat-weight": dict(health_goals=[HealthGoal.WEIGHT_LOSS]),
+    "sugar-weight": dict(health_goals=[HealthGoal.WEIGHT_LOSS]),
 }
 
 

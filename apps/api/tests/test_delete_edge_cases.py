@@ -11,17 +11,25 @@ from src.providers.local_db_provider import LocalDBProvider
 from src.providers.supabase_provider import SupabaseStorageProvider
 
 
-async def test_prescription_counter_is_deleted_too(tmp_path):
+async def test_delete_keeps_todays_counters_so_the_caps_dont_reset(tmp_path):
+    """The token still works after a delete: wiping today's counters would
+    let one token scan 50, delete, scan 50 more, and so on."""
     db = LocalDBProvider(db_path=str(tmp_path / "t.db"))
     await db.increment_scan_usage("me")
     await db.increment_scan_usage("rx:me")
     await db.increment_scan_usage("rx:someone-else")
+    with db._get_connection() as conn:
+        conn.executemany(
+            "INSERT INTO scan_usage (user_id, usage_date, scan_count) VALUES (?, ?, 3)",
+            [("me", "2026-01-01"), ("rx:me", "2026-01-01")])
+        conn.commit()
 
     await db.delete_user_data("me")
 
     with db._get_connection() as conn:
-        left = {r[0] for r in conn.execute("SELECT user_id FROM scan_usage")}
-    assert left == {"rx:someone-else"}
+        left = {tuple(r) for r in conn.execute(
+            "SELECT user_id, usage_date < '2026-06-01' FROM scan_usage")}
+    assert left == {("me", 0), ("rx:me", 0), ("rx:someone-else", 0)}  # past days gone
 
 
 class _StuckBucket:

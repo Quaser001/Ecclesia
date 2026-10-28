@@ -50,6 +50,9 @@ Each curve is 1.0 exactly where its rule starts to fire, so there are no cliffs.
 | Sugar, for keto (g) | 4 → 1.0 · 8 → 0.80 · 16 → 0.05 |
 | Calories, for weight loss (kcal) | 350 → 1.0 · 700 → 0.80 · 1400 → 0.05 |
 | Fat, for weight loss (g) | 18 → 1.0 · 36 → 0.80 · 72 → 0.05 |
+| Sugar, for weight loss (g) | 12 → 1.0 · 24 → 0.80 · 48 → 0.05 |
+
+Sugar for weight loss (new 2026-10-29, cited to WHO's free-sugar guideline) is skipped when the diabetes sugar curve already applies, so the same grams aren't counted twice. Before it, a 53 g-sugar cola scored 10/10 for weight loss.
 
 Between two points the factor is a straight line. Beyond the last point it is 0.05: a measured excess alone never reaches 0, only a hard stop does.
 

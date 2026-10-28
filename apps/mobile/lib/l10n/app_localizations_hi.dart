@@ -112,6 +112,14 @@ class AppLocalizationsHi extends AppLocalizations {
       'आज की स्कैन सीमा पूरी हो गई। यह आधी रात (UTC) को रीसेट होगी।';
 
   @override
+  String get errorProfileReset =>
+      'आपका साइन-इन रीसेट हो गया है, इसलिए आपकी स्वास्थ्य प्रोफ़ाइल अब हमारे सर्वर पर नहीं है। स्कैन करने से पहले कृपया प्रोफ़ाइल में इसे फिर से भरें।';
+
+  @override
+  String get errorPrescriptionLimit =>
+      'आज की प्रिस्क्रिप्शन सीमा पूरी हो गई है। कृपया कल फिर कोशिश करें।';
+
+  @override
   String get errorGeneric => 'कुछ गड़बड़ हो गई। कृपया फिर कोशिश करें।';
 
   @override

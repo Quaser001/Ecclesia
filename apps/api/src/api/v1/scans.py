@@ -31,10 +31,11 @@ from src.domain.models import (
 )
 from src.orchestration.scan_graph import ScanOrchestrator
 from src.providers.food_lookup import LookupUnavailable
-from src.repositories.product_repository import ProductRepository
+from src.repositories.product_repository import shared_product_repository
 from src.services.identification import observation_from_product
-from src.services.serving_memory import product_key
+from src.services.image_bytes import sniff_image_type, strip_jpeg_location
 from src.services.rate_limit import RateLimitExceeded
+from src.services.serving_memory import product_key
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +125,17 @@ async def _accept_photo(
             status_code=413,
             detail=f"Image too large. Maximum size is {settings.MAX_SCAN_UPLOAD_BYTES // (1024 * 1024)} MB.",
         )
-    return photo_bytes, content_type
+    return checked_photo(photo_bytes)
+
+
+def checked_photo(photo_bytes: bytes) -> tuple[bytes, str]:
+    """The photo's real type from its bytes, and a JPEG without its GPS position."""
+    actual_type = sniff_image_type(photo_bytes)
+    if actual_type is None:
+        raise HTTPException(status_code=422, detail="That file isn't a photo we can read.")
+    if actual_type == "image/jpeg":
+        photo_bytes = strip_jpeg_location(photo_bytes)
+    return photo_bytes, actual_type
 
 
 PHOTO_LINK_SECONDS = 3600
@@ -188,7 +199,7 @@ async def get_scan_history(
                 )
             )
         except Exception as exc:
-            logger.warning("Skipping malformed scan history row: %s", exc)
+            logger.warning("Skipping malformed scan history row: %s", type(exc).__name__)
     return items
 
 
@@ -288,7 +299,7 @@ async def confirm_scan(
     photo_bytes, content_type = await _accept_photo(photo, content_length, user_id, limiter)
     product = None
     if source == "calfit_database":
-        product = ProductRepository().find_by_code(product_code)
+        product = shared_product_repository().find_by_code(product_code)
     elif lookup is not None:
         try:
             product = await lookup.get(product_code)
@@ -355,6 +366,6 @@ async def delete_scan(
     if path:
         try:
             await storage.delete_object(settings.STORAGE_BUCKET, path)
-        except Exception as exc:  # noqa: BLE001 - the scan is gone; "Delete my data" sweeps the folder
+        except Exception as exc:
             logger.warning("Scan photo not deleted: %s", type(exc).__name__)
     return Response(status_code=204)

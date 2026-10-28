@@ -89,6 +89,7 @@ class SpyStorage(StorageProvider):
 @pytest.fixture
 def enabled(monkeypatch):
     monkeypatch.setattr(settings, "PRESCRIPTION_AI_ENABLED", True)
+    monkeypatch.setattr(settings, "GEMINI_PAID_TIER_CONFIRMED", True)
 
 
 @pytest.fixture

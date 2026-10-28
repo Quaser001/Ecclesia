@@ -112,6 +112,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'You\'ve reached today\'s scan limit. It resets at midnight (UTC).';
 
   @override
+  String get errorProfileReset =>
+      'Your sign-in was reset, so your health profile is no longer on our server. Please fill it in again in Profile before scanning.';
+
+  @override
+  String get errorPrescriptionLimit =>
+      'You\'ve reached today\'s prescription limit. Try again tomorrow.';
+
+  @override
   String get errorGeneric => 'Something went wrong. Please try again.';
 
   @override

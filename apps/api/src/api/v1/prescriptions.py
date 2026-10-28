@@ -12,6 +12,7 @@ import logging
 
 from fastapi import APIRouter, File, Header, HTTPException, UploadFile
 
+from src.api.v1.scans import checked_photo
 from src.config.auth import CurrentUserDep
 from src.config.dependencies import GeminiDep, PrescriptionLimiterDep, SupabaseDep
 from src.config.settings import settings
@@ -40,7 +41,9 @@ async def prescription_suggestions(
     supabase: SupabaseDep = None,
     limiter: PrescriptionLimiterDep = None,
 ) -> PrescriptionSuggestions:
-    if not settings.PRESCRIPTION_AI_ENABLED:
+    # Prescriptions are health data: only on Vertex or a confirmed paid tier,
+    # never the free tier, even if PRESCRIPTION_AI_ENABLED is switched on.
+    if not settings.prescription_ai_allowed:
         raise HTTPException(
             status_code=503, detail="Prescription reading is not enabled on this server."
         )
@@ -70,10 +73,11 @@ async def prescription_suggestions(
         raise HTTPException(status_code=422, detail="Uploaded file is empty.")
     if len(photo_bytes) > max_bytes:
         raise too_large
+    photo_bytes, content_type = checked_photo(photo_bytes)
 
     try:
         observation = await gemini.analyze_prescription(photo_bytes, content_type)
-    except Exception as exc:  # noqa: BLE001 - any provider failure maps to a 502
+    except Exception as exc:
         # Class name only: exception text could echo document content.
         logger.warning("prescription read failed user=%s error=%s", user_id, type(exc).__name__)
         raise HTTPException(

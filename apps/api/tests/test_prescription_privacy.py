@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from src.providers.gemini_provider import GoogleGeminiProvider, _parse_prescription_json
+from src.providers.interfaces import ServiceUnavailable
 
 SECRET = "Metformin"
 
@@ -45,7 +46,7 @@ async def test_exception_text_is_not_logged(caplog):
     async def generate(**kwargs):
         raise RuntimeError(f"bad response mentioning {SECRET}")
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ServiceUnavailable):  # an outage, not the photo's fault
         await _provider(generate).analyze_prescription(b"x")
     assert SECRET.lower() not in caplog.text.lower()
 

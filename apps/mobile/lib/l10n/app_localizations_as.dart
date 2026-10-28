@@ -112,6 +112,14 @@ class AppLocalizationsAs extends AppLocalizations {
       'আজিৰ স্কেনৰ সীমা শেষ হ\'ল। মাজনিশা (UTC) পুনৰ আৰম্ভ হ\'ব।';
 
   @override
+  String get errorProfileReset =>
+      'আপোনাৰ ছাইন-ইন ৰিছেট হৈছে, সেয়ে আপোনাৰ স্বাস্থ্য প্ৰফাইল আমাৰ ছাৰ্ভাৰত আৰু নাই। স্কেন কৰাৰ আগতে অনুগ্ৰহ কৰি প্ৰফাইলত ইয়াক পুনৰ পূৰণ কৰক।';
+
+  @override
+  String get errorPrescriptionLimit =>
+      'আজিৰ প্ৰেছক্ৰিপচনৰ সীমা পূৰ্ণ হৈছে। কাইলৈ পুনৰ চেষ্টা কৰক।';
+
+  @override
   String get errorGeneric => 'কিবা ভুল হ\'ল। আকৌ চেষ্টা কৰক।';
 
   @override

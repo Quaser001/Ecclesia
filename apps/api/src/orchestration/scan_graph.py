@@ -24,6 +24,7 @@ Design rule (see agents.md):
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 import uuid
@@ -35,6 +36,7 @@ from langgraph.graph import END, StateGraph
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.config.settings import settings
+from src.domain.identity import Identification, IdStatus
 from src.domain.models import (
     Alternative,
     KnowledgeEntry,
@@ -47,11 +49,21 @@ from src.domain.models import (
     UserProfile,
 )
 from src.domain.rule_catalog import MIN_EXTRACTION_CONFIDENCE
-from src.domain.identity import Identification, IdStatus
+from src.domain.score_formula import format_score
 from src.observability import log_scan_summary, note, start_scan_trace, timed
 from src.providers.food_lookup import FoodLookupProvider, LookupUnavailable
-from src.providers.interfaces import GeminiProvider, StorageProvider, SupabaseProvider
-from src.repositories.product_repository import FoodProduct, ProductRepository, _tokens
+from src.providers.interfaces import (
+    GeminiProvider,
+    ServiceUnavailable,
+    StorageProvider,
+    SupabaseProvider,
+)
+from src.repositories.product_repository import (
+    FoodProduct,
+    ProductRepository,
+    _tokens,
+    shared_product_repository,
+)
 from src.services.alternative_service import AlternativeService
 from src.services.explanation_service import ExplanationService
 from src.services.identification import (
@@ -92,6 +104,7 @@ class ScanState(BaseModel):
     explanation: str = ""
     alternatives: list[Alternative] = Field(default_factory=list)
     image_url: str | None = None
+    image_path: str | None = None  # inside the bucket, to remove it if the save fails
 
     # Which product a front-of-pack photo shows (services/identification.py).
     identification: Identification | None = None
@@ -121,8 +134,10 @@ async def node_analyze_photo(
     try:
         product = await gemini.analyze_photo(state.photo_bytes, state.mime_type)
         return {"product": product}
+    except ServiceUnavailable:
+        raise  # an outage is a 503 for the client, not "take a clearer photo" (ADR-006)
     except Exception as exc:
-        logger.warning("Gemini photo analysis failed: %s", exc)
+        logger.warning("Gemini photo analysis failed: %s", type(exc).__name__)
         return {
             "product": None,
             "insufficient_data": True,
@@ -130,7 +145,7 @@ async def node_analyze_photo(
                 "We couldn't analyze this photo right now. Please try again — "
                 "a clearer shot of the nutrition label usually works best."
             ),
-            "error": str(exc),
+            "error": type(exc).__name__,
         }
 
 
@@ -149,10 +164,12 @@ async def node_validate_extraction(state: ScanState) -> dict[str, Any]:
         return {"insufficient_data": True}
 
     if product.insufficient_data:
+        # Our own words, not the model's extraction_notes: those are model
+        # output that no guard has checked ("verified allergen free").
         return {
+            "product": product.model_copy(update={"extraction_notes": None}),
             "insufficient_data": True,
-            "pipeline_message": product.extraction_notes
-            or "The photo didn't contain enough product information.",
+            "pipeline_message": "The photo didn't contain enough product information.",
         }
 
     has_enough = bool(product.product_name or product.ingredients or product.brand)
@@ -198,13 +215,16 @@ async def node_match_product(
         return {}  # the name itself is doubtful: let identification ask for a retake
 
     try:
-        matched = product_repo.match_product(
+        # sqlite is blocking: off the event loop, so one slow query doesn't
+        # stall every other request on this worker.
+        matched = await asyncio.to_thread(
+            product_repo.match_product,
             name=product.product_name,
             brand=product.brand,
             category=product.category,
         )
     except Exception as exc:
-        logger.warning("Local product match failed (non-fatal): %s", exc)
+        logger.warning("Local product match failed (non-fatal): %s", type(exc).__name__)
         return {}
 
     if not matched:
@@ -286,7 +306,8 @@ async def node_identify_product(
                 "pipeline_message": message_for(ident)}
     words = _tokens(obs.brand) | _tokens(obs.product_name) | _tokens(obs.variant)
     candidates: list[tuple[FoodProduct, Source]] = [
-        (p, "calfit_database") for p in product_repo.search_by_words(words)]
+        (p, "calfit_database")
+        for p in await asyncio.to_thread(product_repo.search_by_words, words)]
     ranked = rank(obs, candidates)
     lookup_failed = False
     if not ranked and lookup is not None and obs.product_name:
@@ -316,7 +337,7 @@ async def node_apply_serving_memory(
         return {}
     try:
         saved = await supabase.get_serving_memory(state.user_id, key)
-    except Exception as exc:  # noqa: BLE001 - a missing memory never blocks a scan
+    except Exception as exc:
         logger.warning("Serving memory unavailable: %s", type(exc).__name__)
         return {}
     if not saved:
@@ -348,23 +369,31 @@ async def node_retrieve_knowledge(
         logger.info("Retrieved %d knowledge entries", len(knowledge))
         return {"knowledge": knowledge}
     except Exception as exc:
-        logger.warning("Knowledge retrieval failed (non-fatal): %s", exc)
+        logger.warning("Knowledge retrieval failed (non-fatal): %s", type(exc).__name__)
         return {"knowledge": []}
 
 
 async def node_load_profile(
     state: ScanState, supabase: SupabaseProvider
 ) -> dict[str, Any]:
-    """Load the user's health profile from the database."""
+    """Load the user's health profile from the database.
+
+    No profile yet (a new install) scores against an empty profile. A profile
+    that FAILED to load must not: scoring without the user's allergies could
+    call a peanut product suitable for someone allergic to peanuts.
+    """
     try:
         profile = await supabase.get_profile(state.user_id)
-        if profile is None:
-            logger.info("No profile for user=%s, using empty profile", state.user_id)
-            profile = UserProfile(user_id=state.user_id)
-        return {"profile": profile}
     except Exception as exc:
-        logger.warning("Profile load failed, using empty profile: %s", exc)
-        return {"profile": UserProfile(user_id=state.user_id)}
+        logger.warning("Profile load failed, not scoring: %s", type(exc).__name__)
+        raise ServiceUnavailable(
+            "We couldn't load your health profile, so we didn't score this product. "
+            "Please try again in a moment."
+        ) from exc
+    if profile is None:
+        logger.info("No profile for user=%s, using empty profile", state.user_id)
+        profile = UserProfile(user_id=state.user_id)
+    return {"profile": profile}
 
 
 async def node_score_product(state: ScanState) -> dict[str, Any]:
@@ -393,7 +422,8 @@ async def node_generate_explanation(
         )
         return {"explanation": explanation}
     except Exception as exc:
-        logger.warning("LLM explanation generation failed (%s), using rule-summary fallback.", exc)
+        logger.warning("LLM explanation generation failed (%s), using rule-summary fallback.",
+                       type(exc).__name__)
         score = state.score_result.score if state.score_result else 0
         suitability = (
             state.score_result.suitability.value.replace("_", " ").title()
@@ -402,8 +432,8 @@ async def node_generate_explanation(
         )
         return {
             "explanation": (
-                f"Evaluated with a health score of {score}/100 ({suitability}) based on "
-                "your profile. See the detailed findings below."
+                f"Evaluated with a health score of {format_score(score)} out of 10 "
+                f"({suitability}) based on your profile. See the detailed findings below."
             )
         }
 
@@ -413,7 +443,8 @@ async def node_find_alternatives(
 ) -> dict[str, Any]:
     """Find better-fit alternatives for the scanned product from the local DB."""
     alt_svc = AlternativeService()
-    alternatives = alt_svc.find(
+    alternatives = await asyncio.to_thread(  # sqlite reads: off the event loop
+        alt_svc.find,
         product=state.product,
         profile=state.profile,
         score_result=state.score_result,
@@ -430,9 +461,9 @@ async def node_upload_image(
     try:
         path = f"scans/{state.user_id}/{uuid.uuid4()}.jpg"
         url = await storage.upload_image(bucket, path, state.photo_bytes, state.mime_type)
-        return {"image_url": url}
+        return {"image_url": url, "image_path": path}
     except Exception as exc:
-        logger.warning("Image upload failed (non-fatal): %s", exc)
+        logger.warning("Image upload failed (non-fatal): %s", type(exc).__name__)
         return {"image_url": None}
 
 
@@ -509,7 +540,7 @@ def build_scan_graph(
     lookup: FoodLookupProvider | None = None,
 ) -> Any:
     """Build and compile the LangGraph scan pipeline."""
-    repo = product_repo or ProductRepository()
+    repo = product_repo or shared_product_repository()
     graph = StateGraph(ScanState)
 
     def add(name: str, node: Any) -> None:
@@ -592,6 +623,8 @@ class ScanOrchestrator:
         self._graph = build_scan_graph(gemini, supabase, storage, storage_bucket,
                                        product_repo=product_repo, lookup=lookup)
         self._supabase = supabase
+        self._storage = storage
+        self._bucket = storage_bucket
 
     async def run(
         self,
@@ -660,6 +693,11 @@ class ScanOrchestrator:
         saved = False
         if not response.insufficient_data:
             saved = await self._persist_scan(response)
+            if not saved:
+                # Tell the client, instead of handing back a scan_id that
+                # doesn't exist, and don't keep a photo no scan points to.
+                await self._remove_photo(final_state.image_path)
+        response.saved = saved
 
         log_scan_summary(
             trace,
@@ -708,3 +746,11 @@ class ScanOrchestrator:
             # the explanation (and so the user's conditions).
             logger.warning("Failed to persist scan %s: %s", response.scan_id, type(exc).__name__)
             return False
+
+    async def _remove_photo(self, path: str | None) -> None:
+        if not path:
+            return
+        try:
+            await self._storage.delete_object(self._bucket, path)
+        except Exception as exc:
+            logger.warning("Orphan photo not removed: %s", type(exc).__name__)

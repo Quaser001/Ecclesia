@@ -34,6 +34,7 @@ from src.domain.rule_catalog import (
     RULE_ERROR_CAP,
     WEIGHT_CALORIES_KCAL,
     WEIGHT_FAT_G,
+    WEIGHT_SUGAR_G,
     RuleSpec,
     rule,
 )
@@ -312,6 +313,14 @@ def _rule_high_sodium_hypertension(
 # RULE 3: DIABETES TYPE 1 & TYPE 2 (SUGAR & GLYCEMIC INDEX)
 # ---------------------------------------------------------------------------
 
+def _has_blood_sugar_concern(profile: UserProfile) -> bool:
+    return bool(
+        {HealthCondition.DIABETES_TYPE_1, HealthCondition.DIABETES_TYPE_2,
+         HealthCondition.PREDIABETES}
+        & set(profile.health_conditions)
+    ) or (HealthGoal.MANAGE_BLOOD_SUGAR in profile.health_goals)
+
+
 def _rule_high_sugar_diabetes(
     product: ProductObservation, profile: UserProfile
 ) -> list[ScanFinding]:
@@ -321,13 +330,7 @@ def _rule_high_sugar_diabetes(
     (2015): free sugars < 10% of daily energy.
     """
     findings: list[ScanFinding] = []
-    has_diabetes = bool(
-        {HealthCondition.DIABETES_TYPE_1, HealthCondition.DIABETES_TYPE_2,
-         HealthCondition.PREDIABETES}
-        & set(profile.health_conditions)
-    ) or (HealthGoal.MANAGE_BLOOD_SUGAR in profile.health_goals)
-
-    if not has_diabetes:
+    if not _has_blood_sugar_concern(profile):
         return findings
 
     sugar = product.nutrition.sugars_g
@@ -830,6 +833,23 @@ def _rule_obesity_weight_loss(
                 title="High Total Fat Content",
                 detail=f"Contains {total_fat:.1f} g of fat per serving.",
                 nutrient_or_ingredient="fat",
+                score_impact=15,
+            )
+        )
+
+    # Sugar is calories with nothing filling: a 53 g-sugar cola used to pass
+    # this rule untouched. Skipped when RULE-003 (diabetes) already scores the
+    # same grams more strictly, so sugar isn't counted twice.
+    if sugars is not None and sugars > WEIGHT_SUGAR_G \
+            and not _has_blood_sugar_concern(profile):
+        findings.append(
+            ScanFinding(
+                rule_id="RULE-010C-SUGAR-HIGH",
+                severity=FindingSeverity.WARNING,
+                title="High Sugar Content",
+                detail=f"Contains {sugars:.1f} g of sugar per serving, about "
+                       f"{sugars / 50 * 100:.0f}% of the WHO daily limit for free sugars.",
+                nutrient_or_ingredient="sugars",
                 score_impact=15,
             )
         )

@@ -9,12 +9,16 @@ import sqlite3
 import unicodedata
 from pathlib import Path
 from typing import Any, Optional
+
 from pydantic import BaseModel, Field
 
 from src.domain.food_taxonomy import classify_text, flavours_of
-from src.domain.models import NutritionInfo, ProductObservation
+from src.domain.models import NutritionInfo
 
 logger = logging.getLogger(__name__)
+
+
+_shared_repos: dict[str, ProductRepository] = {}
 
 
 def get_food_db_path() -> str:
@@ -48,6 +52,18 @@ class FoodProduct(BaseModel):
     calfit_category: Optional[str] = None
     flavours: list[str] = Field(default_factory=list)
     imported_at: Optional[str] = None  # ISO date the record was fetched
+
+
+def shared_product_repository(db_path: str | None = None) -> ProductRepository:
+    """One repository per database file and process.
+
+    Constructing one runs CREATE TABLE IF NOT EXISTS; per request that is a
+    write on every scan for nothing.
+    """
+    path = db_path or get_food_db_path()
+    if path not in _shared_repos:
+        _shared_repos[path] = ProductRepository(path)
+    return _shared_repos[path]
 
 
 class ProductRepository:

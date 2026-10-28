@@ -15,8 +15,10 @@ ENV UV_LINK_MODE=copy \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# uv binary — pin a version so builds are reproducible.
-COPY --from=ghcr.io/astral-sh/uv:0.4.30 /uv /usr/local/bin/uv
+# uv binary — pin the version that wrote uv.lock (its header says revision 3).
+# An older uv can't read a newer lock format and `--frozen` fails the build.
+# Bump this together with the uv you lock with.
+COPY --from=ghcr.io/astral-sh/uv:0.11.18 /uv /usr/local/bin/uv
 
 WORKDIR /app
 
@@ -25,12 +27,12 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project
 
-# Now the project itself. From data/ only the food product database ships;
-# data/calfit.db is the local dev store of real profiles and scans.
+# Now the source. The app runs from /app/src (CMD imports src.main), so the
+# project is never installed as a package and no build backend is fetched.
+# From data/ only the food product database ships; data/calfit.db is the
+# local dev store of real profiles and scans.
 COPY src ./src
 COPY data/food.db ./data/food.db
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
 
 ############################
 # 2. Runtime layer
@@ -52,6 +54,7 @@ COPY --from=build --chown=calfit:calfit /app /app
 ENV PORT=8080
 EXPOSE 8080
 
-# Single worker: one Gemini call at a time per instance keeps the memory
-# footprint predictable, and Cloud Run scales horizontally anyway.
+# Single async worker. It serves up to Cloud Run's --concurrency requests at
+# once (20, docs/DEPLOY_CLOUD_RUN.md), each holding at most one 10 MB photo,
+# so 1 GiB of memory leaves room. Cloud Run scales out past that.
 CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port ${PORT} --workers 1 --proxy-headers --no-access-log"]

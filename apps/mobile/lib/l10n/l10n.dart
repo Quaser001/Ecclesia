@@ -177,6 +177,8 @@ extension ProfileLabels on AppLocalizations {
         ApiErrorKind.notFound => errorNotFound,
         ApiErrorKind.unauthorized => errorUnauthorized,
         ApiErrorKind.rateLimited => errorScanLimit,
+        ApiErrorKind.prescriptionLimit => errorPrescriptionLimit,
+        ApiErrorKind.profileReset => errorProfileReset,
         _ => errorGeneric,
       };
     }

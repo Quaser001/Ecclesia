@@ -31,6 +31,12 @@ class ApiConfig {
   /// host machine). Everything else falls back to `127.0.0.1`.
   static String get baseUrl {
     if (_envBaseUrl.isNotEmpty) return _envBaseUrl;
+    // A release build must be pointed at the real (https) server. Falling
+    // back to the emulator's cleartext address would send health data
+    // unencrypted to whatever answers on 10.0.2.2.
+    if (kReleaseMode) {
+      throw StateError('Release builds need --dart-define=API_BASE_URL=https://...');
+    }
     if (kIsWeb) return 'http://127.0.0.1:8000';
     try {
       if (Platform.isAndroid) return 'http://10.0.2.2:8000';
@@ -46,7 +52,12 @@ class ApiConfig {
 
 /// A thin, typed exception the UI can show without leaking stack details.
 /// What went wrong, so the app can show a message in the user's language.
-enum ApiErrorKind { network, timeout, badRequest, unauthorized, notFound, rateLimited, server, other }
+enum ApiErrorKind {
+  network, timeout, badRequest, unauthorized, notFound, rateLimited, server, other,
+  // The old identity was replaced by a new, empty one: set up the profile again.
+  profileReset,
+  prescriptionLimit,
+}
 
 class ApiException implements Exception {
   final String message; // English, for logs only
@@ -102,17 +113,32 @@ class ApiService {
   }
 
   /// Runs [send] with the bearer token. If the server rejects the token
-  /// (401), drops it, registers a fresh identity once and retries.
+  /// (401), drops it and registers a fresh identity once.
+  ///
+  /// The fresh identity has an EMPTY profile on the server, so a scan scored
+  /// with it would ignore the user's allergies. A call that [scores] a
+  /// product is therefore never retried: it fails with
+  /// [ApiErrorKind.profileReset], and so does every scan until the profile is
+  /// saved again. Other calls retry so the app keeps working.
   Future<http.Response> _authed(
-    Future<http.Response> Function(Map<String, String> authHeader) send,
-  ) async {
+    Future<http.Response> Function(Map<String, String> authHeader) send, {
+    bool scores = false,
+  }) async {
+    if (scores && await tokenStore.profileResetPending()) throw _profileReset();
     var res = await send({'Authorization': 'Bearer ${await _token()}'});
     if (res.statusCode == 401) {
       await tokenStore.clear();
+      await tokenStore.setProfileResetPending(true);
+      if (scores) throw _profileReset();
       res = await send({'Authorization': 'Bearer ${await _token()}'});
     }
     return res;
   }
+
+  static ApiException _profileReset() => ApiException(
+      'Identity was reset; the profile must be saved again before scanning.',
+      statusCode: 401,
+      kind: ApiErrorKind.profileReset);
 
   Uri _uri(String path, [Map<String, String>? query]) =>
       Uri.parse('$baseUrl$path').replace(queryParameters: query);
@@ -150,6 +176,7 @@ class ApiService {
           )
           .timeout(ApiConfig.lightTimeout));
       if (res.statusCode == 200) {
+        await tokenStore.setProfileResetPending(false);
         return UserProfile.fromJson(jsonDecode(res.body));
       }
       throw _fromResponse('save your profile', res);
@@ -174,7 +201,7 @@ class ApiService {
         ));
         final streamed = await client.send(request).timeout(ApiConfig.scanTimeout);
         return http.Response.fromStream(streamed);
-      });
+      }, scores: true);
 
       if (response.statusCode == 200) {
         return ScanResult.fromJson(jsonDecode(response.body));
@@ -205,7 +232,7 @@ class ApiService {
         ));
         final streamed = await client.send(request).timeout(ApiConfig.scanTimeout);
         return http.Response.fromStream(streamed);
-      });
+      }, scores: true);
       if (response.statusCode == 200) {
         return ScanResult.fromJson(jsonDecode(response.body));
       }
@@ -273,7 +300,15 @@ class ApiService {
       // unreadable photo), so show them rather than a generic error.
       final detail = _detailOf(response);
       if (detail != null) {
-        throw ApiException(detail, statusCode: response.statusCode);
+        // Keep the kind too: the screen maps it (a 429 is the daily limit).
+        final code = response.statusCode;
+        throw ApiException(detail,
+            statusCode: code,
+            kind: switch (code) {
+              429 => ApiErrorKind.prescriptionLimit,
+              503 => ApiErrorKind.other, // switched off on this server: retrying won't help
+              _ => _kindFor(code),
+            });
       }
       throw _fromResponse('read this prescription', response);
     });
@@ -322,6 +357,7 @@ class ApiService {
       if (res.statusCode != 200) throw _fromResponse('delete your data', res);
     });
     await tokenStore.clear();
+    await tokenStore.setProfileResetPending(false); // deliberate: nothing to warn about
   }
 
   /// Totals across every scan (Home's numbers), not just the latest page.
@@ -418,16 +454,19 @@ class ApiService {
   }
 
   ApiException _fromResponse(String action, http.Response res) {
-    debugPrint('API ${res.statusCode} on $action: ${res.body}');
+    // Status only: an error body can echo the profile (health data), and
+    // debugPrint is not stripped from release builds.
+    debugPrint('API ${res.statusCode} on $action');
     final code = res.statusCode;
-    final kind = switch (code) {
-      400 || 413 || 422 => ApiErrorKind.badRequest,
-      401 || 403 => ApiErrorKind.unauthorized,
-      404 => ApiErrorKind.notFound,
-      429 => ApiErrorKind.rateLimited,
-      >= 500 => ApiErrorKind.server,
-      _ => ApiErrorKind.other,
-    };
-    return ApiException("Couldn't $action (HTTP $code).", statusCode: code, kind: kind);
+    return ApiException("Couldn't $action (HTTP $code).", statusCode: code, kind: _kindFor(code));
   }
+
+  static ApiErrorKind _kindFor(int code) => switch (code) {
+        400 || 413 || 422 => ApiErrorKind.badRequest,
+        401 || 403 => ApiErrorKind.unauthorized,
+        404 => ApiErrorKind.notFound,
+        429 => ApiErrorKind.rateLimited,
+        >= 500 => ApiErrorKind.server,
+        _ => ApiErrorKind.other,
+      };
 }

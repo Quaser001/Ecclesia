@@ -94,13 +94,19 @@ gcloud run deploy calfit-api \
   --set-env-vars "PRESCRIPTION_AI_ENABLED=false" \
   --set-env-vars "PRESCRIPTION_DAILY_CAP=5" \
   --set-env-vars "LOG_FORMAT=json" \
+  --set-env-vars "APP_ENV=production" \
+  --set-env-vars "TRUSTED_PROXY_HOPS=1" \
   --set-secrets "GEMINI_API_KEY=GEMINI_API_KEY:latest" \
   --set-secrets "SUPABASE_URL=SUPABASE_URL:latest" \
   --set-secrets "SUPABASE_SERVICE_ROLE_KEY=SUPABASE_SERVICE_ROLE_KEY:latest" \
-  --set-secrets "AUTH_SECRET_KEY=AUTH_SECRET_KEY:latest"
+  --set-secrets "AUTH_SECRET_KEY=AUTH_SECRET_KEY:1"
 ```
 
-`PRESCRIPTION_AI_ENABLED` stays `false` until the Gemini key is on the paid tier, which does not train on what it receives (see `docs/GEMINI_BILLING.md`). Prescriptions must never reach the free tier. Turning it on later only needs `gcloud run services update calfit-api --update-env-vars PRESCRIPTION_AI_ENABLED=true`.
+- `APP_ENV=production` makes the instance refuse to start when a secret is missing or weak. It also refuses the laptop fallbacks (local SQLite, local photo folder) and hides `/docs`. Before deploying, run `python -m src.check_config` against the same settings: it checks every key actually works.
+- `TRUSTED_PROXY_HOPS=1` makes the per-IP registration cap use the phone's address that Cloud Run's front end appends to `X-Forwarded-For`. Without it, every install shares the front end's address.
+- `AUTH_SECRET_KEY` is pinned to version `1`, not `latest`, so adding a secret version can't log every user out by accident (see "Do not rotate" above).
+
+`PRESCRIPTION_AI_ENABLED` stays `false` until the Gemini key is on the paid tier, which does not train on what it receives (see `docs/GEMINI_BILLING.md`). Prescriptions must never reach the free tier. Turning it on later needs the paid tier confirmed as well, or `APP_ENV=production` refuses to start: after the billing check in `docs/GEMINI_BILLING.md`, run `gcloud run services update calfit-api --update-env-vars PRESCRIPTION_AI_ENABLED=true,GEMINI_PAID_TIER_CONFIRMED=true` (on Vertex, `GEMINI_BACKEND=vertex` replaces the confirmation). Run `python -m src.check_config` with the same settings first.
 
 `--max-instances 3` is a soft safety cap for the free tier. Lift it once Gemini billing is on and we've seen real usage.
 

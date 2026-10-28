@@ -35,6 +35,8 @@
   "errorNotFound": "Ym shem ïa kane.",
   "errorUnauthorized": "Dei ban pynthymmai ïa ka session. Sngewbha pyrshang sa shisien.",
   "errorScanLimit": "Lah dep ka jingkhap scan jong mynta ka sngi. Kan sdang thymmai ha pdeng miet (UTC).",
+  "errorProfileReset": "Ka sign-in jong phi la reset, namarkata ka profile koit-khiah jong phi kam don shuh ha ka server jong ngi. Sngewbha thoh biang ha Profile shwa ba phi scan.",
+  "errorPrescriptionLimit": "Phi la poi ha ka jingkhang prescription jong kane ka sngi. Pyrshang biang lashai.",
   "errorGeneric": "Don kaei kaei ba bakla. Sngewbha pyrshang sa shisien.",
   "errorImageOpen": "Ym lah ban plie ïa kane ka dur. Sngewbha jied kawei pat.",
 

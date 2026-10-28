@@ -48,7 +48,7 @@ Rotating the key is part of this move, because the old key is tied to the old pr
 ## 5. Verify no free-tier fallback can happen
 
 - Confirm `GEMINI_API_KEY` in production is the paid-tier key.
-- Confirm `GEMINI_API_KEYS` (plural, for load-balancing — see `settings.py`) is **unset** or holds only paid-tier keys. A single free-tier key in that list would silently route some traffic through free-tier terms.
+- Only then set `GEMINI_PAID_TIER_CONFIRMED=true`. Prescription reading refuses to run on the AI Studio backend without it, even with `PRESCRIPTION_AI_ENABLED=true`. On Vertex (`GEMINI_BACKEND=vertex`) it isn't needed: Vertex never trains on the data.
 
 ## 6. One-time billing dashboard
 

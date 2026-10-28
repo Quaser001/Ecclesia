@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 import time
 from abc import ABC, abstractmethod
+from collections import deque
 from datetime import date
 from typing import Any
 
@@ -59,6 +60,10 @@ class OpenFoodFactsLookup(FoodLookupProvider):
 
     CACHE_SECONDS = 24 * 3600
     CACHE_MAX = 512
+    # Open Food Facts allows about 10 searches a minute per IP, shared by
+    # every user of this instance. Stay under it: past this, answer
+    # "unavailable" at once rather than get the instance blocked.
+    CALLS_PER_MINUTE = 8
 
     def __init__(self, user_agent: str, timeout: float = 6.0,
                  client: httpx.AsyncClient | None = None) -> None:
@@ -66,6 +71,15 @@ class OpenFoodFactsLookup(FoodLookupProvider):
         self._timeout = timeout
         self._client = client
         self._cache: dict[str, tuple[float, Any]] = {}
+        self._recent_calls: deque[float] = deque()
+
+    def _take_call_slot(self) -> None:
+        now = time.monotonic()
+        while self._recent_calls and now - self._recent_calls[0] > 60:
+            self._recent_calls.popleft()
+        if len(self._recent_calls) >= self.CALLS_PER_MINUTE:
+            raise LookupUnavailable("throttled")
+        self._recent_calls.append(now)
 
     def _cached(self, key: str) -> tuple[bool, Any]:
         hit = self._cache.get(key)
@@ -79,6 +93,7 @@ class OpenFoodFactsLookup(FoodLookupProvider):
         self._cache[key] = (time.monotonic() + self.CACHE_SECONDS, value)
 
     async def _get_json(self, url: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        self._take_call_slot()
         try:
             if self._client is not None:
                 resp = await self._client.get(url, params=params, headers=self._headers,

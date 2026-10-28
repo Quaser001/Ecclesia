@@ -38,6 +38,8 @@
   "errorNotFound": "We couldn't find that.",
   "errorUnauthorized": "Your session needs refreshing. Please try again.",
   "errorScanLimit": "You've reached today's scan limit. It resets at midnight (UTC).",
+  "errorProfileReset": "Your sign-in was reset, so your health profile is no longer on our server. Please fill it in again in Profile before scanning.",
+  "errorPrescriptionLimit": "You've reached today's prescription limit. Try again tomorrow.",
   "errorGeneric": "Something went wrong. Please try again.",
   "errorImageOpen": "We couldn't open that image. Please try another.",
 

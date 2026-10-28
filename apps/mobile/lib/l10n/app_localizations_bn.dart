@@ -112,6 +112,14 @@ class AppLocalizationsBn extends AppLocalizations {
       'আজকের স্ক্যানের সীমা শেষ। মধ্যরাতে (UTC) আবার শুরু হবে।';
 
   @override
+  String get errorProfileReset =>
+      'আপনার সাইন-ইন রিসেট হয়েছে, তাই আপনার স্বাস্থ্য প্রোফাইল আর আমাদের সার্ভারে নেই। স্ক্যান করার আগে অনুগ্রহ করে প্রোফাইলে এটি আবার পূরণ করুন।';
+
+  @override
+  String get errorPrescriptionLimit =>
+      'আজকের প্রেসক্রিপশনের সীমা পূর্ণ হয়েছে। আগামীকাল আবার চেষ্টা করুন।';
+
+  @override
   String get errorGeneric => 'কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।';
 
   @override

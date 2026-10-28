@@ -71,6 +71,16 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
+def _where(exc: BaseException) -> str:
+    """file:line of the innermost frame, for a log line without the message."""
+    tb = exc.__traceback__
+    while tb is not None and tb.tb_next is not None:
+        tb = tb.tb_next
+    if tb is None:
+        return "?"
+    return f"{tb.tb_frame.f_code.co_filename.replace(chr(92), '/').rsplit('/', 1)[-1]}:{tb.tb_lineno}"
+
+
 def configure_logging(fmt: str = "text") -> None:
     handler = logging.StreamHandler()
     handler.addFilter(_RequestIdFilter())
@@ -101,7 +111,18 @@ async def request_context_middleware(request: Any, call_next: Callable[..., Any]
     start = time.perf_counter()
     status = 500
     try:
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            # A bug, not a handled error: answer in JSON with the request id
+            # so a user's report can be matched to this log line. The type and
+            # place only: exception text can carry a user's health data.
+            access_logger.error("Unhandled %s at %s", type(exc).__name__, _where(exc))
+            from starlette.responses import JSONResponse
+            response = JSONResponse(
+                status_code=500,
+                content={"detail": "Something went wrong on our side.", "request_id": rid},
+            )
         status = response.status_code
         response.headers["X-Request-ID"] = rid
         return response

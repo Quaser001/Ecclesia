@@ -8,6 +8,18 @@ from src.domain.models import KnowledgeEntry, ProductObservation, UserProfile
 from src.domain.prescription import PrescriptionObservation
 
 
+class ServiceUnavailable(Exception):
+    """A service the answer depends on is down: the API returns 503 with `message`.
+
+    Never turned into a normal-looking result (ADR-006): a Gemini outage is not
+    "take a clearer photo", and a profile that didn't load is not an empty profile.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
+
+
 class GeminiProvider(ABC):
     """Interface for Gemini multimodal capabilities."""
 

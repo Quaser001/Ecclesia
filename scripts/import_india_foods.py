@@ -9,7 +9,7 @@ Data: Open Food Facts (https://world.openfoodfacts.org), Open Database
 Licence (ODbL). Credit it wherever products are shown.
 
 Usage (from the repository root):
-    .venv/Scripts/python.exe -I scripts/import_india_foods.py [--max-pages 6]
+    apps/api/.venv/Scripts/python.exe -I scripts/import_india_foods.py [--max-pages 6]
 """
 
 from __future__ import annotations

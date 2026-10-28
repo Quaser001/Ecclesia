@@ -12,7 +12,25 @@ Confirmed by the founder on 2026-10-28.
 - **Confirm endpoint:** only a product code comes from the client; the data is fetched server-side.
 - **Privacy policy (DPDP):** both copies are kept in sync. Open Food Facts lookups send only the product name.
 
+- **Hardening pass (2026-10-29, ADR-006):**
+  - production refuses to start misconfigured;
+  - outages are 503s, and a profile that failed to load is never scored;
+  - body-size and token-presence checks run before parsing; magic bytes are checked and JPEG location data stripped;
+  - the per-IP registration cap reads the proxy-appended IP;
+  - today's quota counters survive "Delete my data";
+  - prescriptions need Vertex or a confirmed paid tier;
+  - profile text is bounded;
+  - app: no cloud backup of the token, no cleartext in release, no identity swap mid-scan, no error bodies in logs.
+
+  Details: `reviews/2026-10-29-production-hardening.md`.
+
 ## Open
+- **Gemini key in `apps/api/.env` is invalid** (401 on 2026-10-29): the founder must replace it.
+- **Deferred:**
+  - token expiry and revocation;
+  - retention for abandoned identities;
+  - transactional delete (SQL function);
+  - per-token read limits.
 - **Google sign-in not built.** Device tokens tie data to an install.
 - **Free Gemini tier** must not see real users (Vertex plan not bought).
 - **No crash reporting or consent flow.**

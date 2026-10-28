@@ -9,10 +9,26 @@ abstract class AuthTokenStore {
   Future<String?> read();
   Future<void> write(String token);
   Future<void> clear();
+
+  /// Set when the server stopped accepting the old identity and a new, empty
+  /// one was made: scans are refused until the profile is saved again.
+  Future<bool> profileResetPending();
+  Future<void> setProfileResetPending(bool pending);
 }
 
 class PrefsAuthTokenStore implements AuthTokenStore {
   static const _key = 'calfit.auth_token';
+  static const _resetKey = 'calfit.profile_reset_pending';
+
+  @override
+  Future<bool> profileResetPending() async =>
+      (await SharedPreferences.getInstance()).getBool(_resetKey) ?? false;
+
+  @override
+  Future<void> setProfileResetPending(bool pending) async {
+    final prefs = await SharedPreferences.getInstance();
+    pending ? await prefs.setBool(_resetKey, true) : await prefs.remove(_resetKey);
+  }
 
   @override
   Future<String?> read() async =>
@@ -30,6 +46,13 @@ class PrefsAuthTokenStore implements AuthTokenStore {
 /// In-memory store for tests.
 class MemoryAuthTokenStore implements AuthTokenStore {
   String? _token;
+  bool _resetPending = false;
+
+  @override
+  Future<bool> profileResetPending() async => _resetPending;
+
+  @override
+  Future<void> setProfileResetPending(bool pending) async => _resetPending = pending;
 
   @override
   Future<String?> read() async => _token;

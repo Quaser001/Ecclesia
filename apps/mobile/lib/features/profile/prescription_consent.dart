@@ -9,6 +9,10 @@ import '../../l10n/l10n.dart';
 class PrescriptionConsent {
   static const _key = 'calfit.rx_consent';
 
+  /// After "Delete my data": the next identity asks for consent again.
+  static Future<void> forget() async =>
+      (await SharedPreferences.getInstance()).remove(_key);
+
   /// Returns true if the user has agreed (now or earlier).
   static Future<bool> ensure(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();

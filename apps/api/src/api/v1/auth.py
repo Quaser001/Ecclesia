@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from src.config.dependencies import TokenIssueLimiterDep
 from src.config.settings import settings
+from src.services.client_ip import client_ip
 from src.services.device_tokens import AuthNotConfigured, issue_token
 from src.services.rate_limit import RateLimitExceeded
 
@@ -25,9 +26,8 @@ async def register_device(request: Request, limiter: TokenIssueLimiterDep = None
     Capped per client IP per UTC day so identities (and the per-user scan
     quota attached to them) cannot be minted without limit.
     """
-    client_ip = request.client.host if request.client else ""
     try:
-        await limiter.check_and_increment(client_ip)
+        await limiter.check_and_increment(client_ip(request, settings.TRUSTED_PROXY_HOPS))
     except RateLimitExceeded:
         raise HTTPException(status_code=429, detail="Too many registrations from this network today.")
     try:

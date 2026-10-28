@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any
@@ -22,6 +23,8 @@ from src.providers.interfaces import StorageProvider, SupabaseProvider
 
 logger = logging.getLogger(__name__)
 
+_KNOWLEDGE_SCAN_CAP = 1000
+
 
 class SupabaseDBProvider(SupabaseProvider):
     """Production Supabase provider."""
@@ -30,10 +33,15 @@ class SupabaseDBProvider(SupabaseProvider):
         self._url = url
         self._key = key
         self._client: AsyncClient | None = None
+        # Shared per process (config/dependencies.py): without the lock two
+        # first requests could each create a client and leak one's pool.
+        self._client_lock = asyncio.Lock()
 
     async def _get_client(self) -> AsyncClient:
         if self._client is None:
-            self._client = await acreate_client(self._url, self._key)
+            async with self._client_lock:
+                if self._client is None:
+                    self._client = await acreate_client(self._url, self._key)
         return self._client
 
     async def query_knowledge_by_tags(
@@ -46,7 +54,10 @@ class SupabaseDBProvider(SupabaseProvider):
             response = (
                 await client.table("knowledge")
                 .select("*")
-                .limit(limit)
+                # The whole (small, curated) table, filtered below. Limiting
+                # first returned 10 arbitrary rows, so most entries could
+                # never match. The cap only guards against runaway growth.
+                .limit(_KNOWLEDGE_SCAN_CAP)
                 .execute()
             )
             entries = []
@@ -57,7 +68,7 @@ class SupabaseDBProvider(SupabaseProvider):
                     entries.append(_row_to_knowledge(row))
             return entries[:limit]
         except Exception as exc:
-            logger.error("Knowledge tag query failed: %s", exc)
+            logger.error("Knowledge tag query failed: %s", type(exc).__name__)
             return []
 
     async def query_knowledge_vector(
@@ -81,7 +92,7 @@ class SupabaseDBProvider(SupabaseProvider):
                 return None
             return _row_to_profile(response.data[0])
         except Exception as exc:
-            logger.error("Get profile failed for user %s: %s", user_id, exc)
+            logger.error("Get profile failed for user %s: %s", user_id, type(exc).__name__)
             raise
 
     async def upsert_profile(self, profile: UserProfile) -> UserProfile:
@@ -111,7 +122,7 @@ class SupabaseDBProvider(SupabaseProvider):
             )
             return _row_to_profile(response.data[0])
         except Exception as exc:
-            logger.error("Upsert profile failed: %s", exc)
+            logger.error("Upsert profile failed: %s", type(exc).__name__)
             raise
 
     async def ensure_profile_exists(self, user_id: str) -> None:
@@ -127,7 +138,7 @@ class SupabaseDBProvider(SupabaseProvider):
                 .execute()
             )
         except Exception as exc:
-            logger.error("Ensure profile failed for user %s: %s", user_id, exc)
+            logger.error("Ensure profile failed for user %s: %s", user_id, type(exc).__name__)
             raise
 
     async def increment_scan_usage(self, user_id: str) -> int:
@@ -167,7 +178,7 @@ class SupabaseDBProvider(SupabaseProvider):
             response = await query.order("scanned_at", desc=True).limit(limit).execute()
             return response.data or []
         except Exception as exc:
-            logger.error("Get scan history failed: %s", exc)
+            logger.error("Get scan history failed: %s", type(exc).__name__)
             raise
 
     async def get_scan_stats(self, user_id: str) -> dict[str, Any]:
@@ -213,9 +224,11 @@ class SupabaseDBProvider(SupabaseProvider):
             await client.table("scan_feedback").delete().eq("user_id", user_id).execute()
             await client.table("serving_memory").delete().eq("user_id", user_id).execute()
             scans = await client.table("scans").delete().eq("user_id", user_id).execute()
-            # Scan counter and the prescription counter (keyed "rx:<user_id>").
+            # Past days of the scan and prescription counters ("rx:<user_id>").
+            # Today's stay: the token still works after a delete, so wiping
+            # them would reset the daily caps. They hold an id, a date and a count.
             await client.table("scan_usage").delete().in_(
-                "user_id", [user_id, f"rx:{user_id}"]).execute()
+                "user_id", [user_id, f"rx:{user_id}"]).lt("usage_date", _utc_today()).execute()
             await client.table("profiles").delete().eq("user_id", user_id).execute()
             return len(scans.data or [])
         except Exception as exc:
@@ -323,10 +336,15 @@ class SupabaseStorageProvider(StorageProvider):
         self._url = url
         self._key = key
         self._client: AsyncClient | None = None
+        # Shared per process (config/dependencies.py): without the lock two
+        # first requests could each create a client and leak one's pool.
+        self._client_lock = asyncio.Lock()
 
     async def _get_client(self) -> AsyncClient:
         if self._client is None:
-            self._client = await acreate_client(self._url, self._key)
+            async with self._client_lock:
+                if self._client is None:
+                    self._client = await acreate_client(self._url, self._key)
         return self._client
 
     async def upload_image(
@@ -439,3 +457,8 @@ def _row_to_knowledge(row: dict) -> KnowledgeEntry:
         relevance_tags=row.get("relevance_tags") or [],
         source=row.get("source", "calfit_knowledge_base"),
     )
+
+
+def _utc_today() -> str:
+    """The quota day, as the scan_usage table counts it (UTC)."""
+    return datetime.now(timezone.utc).date().isoformat()

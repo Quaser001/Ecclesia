@@ -290,6 +290,18 @@ abstract class AppLocalizations {
   /// **'You\'ve reached today\'s scan limit. It resets at midnight (UTC).'**
   String get errorScanLimit;
 
+  /// No description provided for @errorProfileReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Your sign-in was reset, so your health profile is no longer on our server. Please fill it in again in Profile before scanning.'**
+  String get errorProfileReset;
+
+  /// No description provided for @errorPrescriptionLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ve reached today\'s prescription limit. Try again tomorrow.'**
+  String get errorPrescriptionLimit;
+
   /// No description provided for @errorGeneric.
   ///
   /// In en, this message translates to:

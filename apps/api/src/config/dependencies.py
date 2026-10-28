@@ -3,11 +3,18 @@ Dependency injection configuration for CalFit.
 
 Wires real providers when credentials are present.
 Raises clear errors when credentials are missing — never silently substitutes fake data.
+
+Providers are built once per process and reused (keyed on the settings they
+were built from, so tests that change settings still get a matching one).
+A Supabase or Gemini client per request means a new HTTP connection pool per
+request that is never closed. ADR-006.
 """
 
 from __future__ import annotations
 
-from typing import Annotated
+import logging
+from collections.abc import Callable
+from typing import Annotated, Any, TypeVar
 
 from fastapi import Depends
 
@@ -15,6 +22,17 @@ from src.config.settings import settings
 from src.providers.food_lookup import FoodLookupProvider
 from src.providers.interfaces import GeminiProvider, StorageProvider, SupabaseProvider
 from src.services.rate_limit import InMemoryStore, ScanLimiter, SupabaseCounterStore
+
+logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+_shared: dict[tuple[Any, ...], Any] = {}
+
+
+def _shared_instance(key: tuple[Any, ...], build: Callable[[], T]) -> T:
+    if key not in _shared:
+        _shared[key] = build()
+    return _shared[key]  # type: ignore[no-any-return]
 
 
 def get_gemini_provider() -> GeminiProvider:
@@ -34,10 +52,14 @@ def get_gemini_provider() -> GeminiProvider:
                 "GEMINI_BACKEND=vertex needs a regional GOOGLE_CLOUD_LOCATION "
                 "(asia-south1 for Mumbai), not 'global'."
             )
-        return GoogleGeminiProvider(
-            model=settings.GEMINI_MODEL,
-            vertex_project=settings.GOOGLE_CLOUD_PROJECT,
-            vertex_location=settings.GOOGLE_CLOUD_LOCATION.strip(),
+        location = settings.GOOGLE_CLOUD_LOCATION.strip()
+        return _shared_instance(
+            ("gemini-vertex", settings.GOOGLE_CLOUD_PROJECT, location, settings.GEMINI_MODEL),
+            lambda: GoogleGeminiProvider(
+                model=settings.GEMINI_MODEL,
+                vertex_project=settings.GOOGLE_CLOUD_PROJECT,
+                vertex_location=location,
+            ),
         )
 
     if not settings.GEMINI_API_KEY:
@@ -45,9 +67,9 @@ def get_gemini_provider() -> GeminiProvider:
             "GEMINI_API_KEY is not set. Add it to your .env file. "
             "See .env.example for required variables."
         )
-    return GoogleGeminiProvider(
-        api_key=settings.GEMINI_API_KEY,
-        model=settings.GEMINI_MODEL,
+    return _shared_instance(
+        ("gemini-api", settings.GEMINI_API_KEY, settings.GEMINI_MODEL),
+        lambda: GoogleGeminiProvider(api_key=settings.GEMINI_API_KEY, model=settings.GEMINI_MODEL),
     )
 
 
@@ -69,30 +91,45 @@ def get_food_lookup() -> FoodLookupProvider | None:
     return _food_lookup
 
 
-def get_supabase_provider() -> SupabaseProvider:
-    """Return the Supabase provider if configured, else the local SQLite provider."""
-    if settings.SUPABASE_URL and settings.SUPABASE_SERVICE_ROLE_KEY:
-        from src.providers.supabase_provider import SupabaseDBProvider
-        return SupabaseDBProvider(
-            url=settings.SUPABASE_URL,
-            key=settings.SUPABASE_SERVICE_ROLE_KEY,
+def _local_fallback(what: str) -> None:
+    """The laptop fallbacks are for development only: production refuses them.
+
+    On Cloud Run a local SQLite file is per instance and wiped on restart, so a
+    user's allergies would silently disappear between requests.
+    """
+    if settings.is_production:
+        raise RuntimeError(
+            f"{what}: Supabase is not configured and APP_ENV=production. "
+            "Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
         )
-    # Default to local SQLite database for local MVP
+
+
+def get_supabase_provider() -> SupabaseProvider:
+    """Return the Supabase provider if configured, else the local SQLite provider (dev only)."""
+    if settings.supabase_configured:
+        from src.providers.supabase_provider import SupabaseDBProvider
+        return _shared_instance(
+            ("supabase-db", settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY),
+            lambda: SupabaseDBProvider(
+                url=settings.SUPABASE_URL, key=settings.SUPABASE_SERVICE_ROLE_KEY),
+        )
+    _local_fallback("Database")
     from src.providers.local_db_provider import LocalDBProvider
-    return LocalDBProvider()
+    return _shared_instance(("local-db",), LocalDBProvider)
 
 
 def get_storage_provider() -> StorageProvider:
-    """Return the Supabase Storage provider if configured, else local file storage."""
-    if settings.SUPABASE_URL and settings.SUPABASE_SERVICE_ROLE_KEY:
+    """Return Supabase Storage if configured, else local file storage (dev only)."""
+    if settings.supabase_configured:
         from src.providers.supabase_provider import SupabaseStorageProvider
-        return SupabaseStorageProvider(
-            url=settings.SUPABASE_URL,
-            key=settings.SUPABASE_SERVICE_ROLE_KEY,
+        return _shared_instance(
+            ("supabase-storage", settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY),
+            lambda: SupabaseStorageProvider(
+                url=settings.SUPABASE_URL, key=settings.SUPABASE_SERVICE_ROLE_KEY),
         )
-    # Default to local storage
+    _local_fallback("Photo storage")
     from src.providers.local_db_provider import LocalStorageProvider
-    return LocalStorageProvider()
+    return _shared_instance(("local-storage",), LocalStorageProvider)
 
 
 # Fallback limiter for local runs with no database configured. Its counter
@@ -109,11 +146,12 @@ def get_scan_limiter(
     Cloud Run instances, so on its own it would let a user take
     `cap * instances` scans a day. The Postgres counter has neither problem.
     """
-    if settings.SUPABASE_URL and settings.SUPABASE_SERVICE_ROLE_KEY:
+    if settings.supabase_configured:
         return ScanLimiter(
             cap=settings.DAILY_SCAN_CAP,
             store=SupabaseCounterStore(supabase),
         )
+    _local_fallback("Daily scan limit")
     return _in_memory_limiter
 
 
@@ -136,11 +174,12 @@ def get_prescription_limiter(
     supabase: SupabaseProvider = Depends(get_supabase_provider),
 ) -> ScanLimiter:
     """Separate, much smaller daily cap for prescription reads."""
-    if settings.SUPABASE_URL and settings.SUPABASE_SERVICE_ROLE_KEY:
+    if settings.supabase_configured:
         return ScanLimiter(
             cap=settings.PRESCRIPTION_DAILY_CAP,
             store=SupabaseCounterStore(supabase),
         )
+    _local_fallback("Prescription limit")
     return _prescription_memory_limiter
 
 

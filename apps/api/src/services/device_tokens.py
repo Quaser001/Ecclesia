@@ -51,6 +51,7 @@ def verify_token(secret: str, token: str) -> str:
     if len(parts) != 3 or parts[0] != _VERSION or not _USER_ID_RE.match(parts[1]):
         raise InvalidToken("malformed token")
     expected = _sign(secret, parts[1])
-    if not hmac.compare_digest(expected, parts[2]):
+    # Bytes, not str: compare_digest raises TypeError on non-ASCII text (a 500).
+    if not hmac.compare_digest(expected.encode(), parts[2].encode("utf-8", "replace")):
         raise InvalidToken("bad signature")
     return parts[1]

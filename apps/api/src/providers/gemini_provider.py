@@ -13,26 +13,59 @@ from google.genai import types
 from src.config.settings import settings
 from src.domain.models import NutritionInfo, ProductObservation
 from src.domain.prescription import AllergyKind, PrescriptionObservation, StatedAllergy
+from src.observability import note
 from src.prompts.extraction import EXTRACTION_USER_INSTRUCTION, build_extraction_prompt
 from src.prompts.prescription_extraction import (
     PRESCRIPTION_USER_INSTRUCTION,
     build_prescription_prompt,
 )
-from src.observability import note
-from src.providers.interfaces import GeminiProvider
+from src.providers.interfaces import GeminiProvider, ServiceUnavailable
 
 logger = logging.getLogger(__name__)
 
 # Real, generally-available Gemini models, newest first. Keep names in sync with
 # https://ai.google.dev/gemini-api/docs/models — the SDK rejects fictional names.
+# Retired models only add a failing call (and its latency) to every fallback.
 _FALLBACK_MODELS = [
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-8b",
 ]
+
+# A bad key (401) or no permission (403) fails the same way on every model:
+# trying the next one only multiplies the cost and the wait. A 400 moves on
+# (one model can reject a config field another accepts) unless it is about the
+# key; if every model rejects the request, the photo itself is the problem.
+# Anything else (429, 5xx, timeout, unreadable output) moves on too.
+_SAME_ON_EVERY_MODEL = {401, 403}
+
+# Output caps, thinking included. They bound what one call can cost; a label
+# or prescription transcription and a short explanation fit well inside.
+_MAX_READ_TOKENS = 8192
+_MAX_EXPLANATION_TOKENS = 2048
+
+_UNAVAILABLE = "The AI service is unavailable right now. Please try again in a few minutes."
+
+
+def _is_key_error(exc: Exception) -> bool:
+    # AI Studio answers an invalid key with 400 INVALID_ARGUMENT, not 401.
+    return "api key" in str(getattr(exc, "message", "") or exc).lower()
+
+
+def _fails_on_every_model(exc: Exception) -> bool:
+    code = getattr(exc, "code", None)
+    return code in _SAME_ON_EVERY_MODEL or (code == 400 and _is_key_error(exc))
+
+
+def _give_up(last_exception: Exception | None) -> Exception:
+    """Unusable output, or a request every model rejected (400), is the
+    photo's problem: a ValueError, shown as "try a clearer photo". Anything
+    else means the service is down: a 503."""
+    if isinstance(last_exception, ValueError):
+        return last_exception
+    if last_exception is not None and getattr(last_exception, "code", None) == 400 \
+            and not _is_key_error(last_exception):
+        return ValueError("every model rejected the request (400)")
+    return ServiceUnavailable(_UNAVAILABLE)
 
 
 # Greedy decoding (temperature 0) plus a fixed seed: as repeatable as hosted
@@ -53,15 +86,19 @@ class GoogleGeminiProvider(GeminiProvider):
         vertex_location: str = "",
     ) -> None:
         self._model = (model or getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash")).strip()
+        # Without a timeout one stuck call holds the request until Cloud Run
+        # kills it, with every fallback model still to try.
+        http_options = types.HttpOptions(timeout=settings.GEMINI_TIMEOUT_SECONDS * 1000)
         if vertex_project:
             # Vertex AI: the service account's credentials, a regional endpoint.
             self._key = ""
             self._client = genai.Client(
-                vertexai=True, project=vertex_project, location=vertex_location
+                vertexai=True, project=vertex_project, location=vertex_location,
+                http_options=http_options,
             )
         else:
             self._key = (api_key or getattr(settings, "GEMINI_API_KEY", "")).strip()
-            self._client = genai.Client(api_key=self._key)
+            self._client = genai.Client(api_key=self._key, http_options=http_options)
 
     async def analyze_photo(
         self, photo_bytes: bytes, mime_type: str = "image/jpeg"
@@ -89,6 +126,7 @@ class GoogleGeminiProvider(GeminiProvider):
                         response_schema=_EXTRACTION_SCHEMA,
                         temperature=0.0,
                         seed=GENERATION_SEED,
+                        max_output_tokens=_MAX_READ_TOKENS,
                     ),
                 )
                 raw_text = response.text or ""
@@ -101,13 +139,13 @@ class GoogleGeminiProvider(GeminiProvider):
                 logger.warning(
                     "Photo analysis with model %s failed: %s", model_name, type(exc).__name__)
                 last_exception = exc
+                if _fails_on_every_model(exc):
+                    break
 
-        note(model=None, model_attempts=len(candidate_models))
+        note(model=None, model_attempts=attempt)
         logger.error(
-            "All Gemini vision models failed. Last error: %s", type(last_exception).__name__)
-        if last_exception:
-            raise last_exception
-        raise RuntimeError("Photo analysis failed on all models.")
+            "Gemini photo analysis gave up. Last error: %s", type(last_exception).__name__)
+        raise _give_up(last_exception)
 
     async def analyze_prescription(
         self, photo_bytes: bytes, mime_type: str = "image/jpeg"
@@ -133,6 +171,7 @@ class GoogleGeminiProvider(GeminiProvider):
                         response_schema=_PRESCRIPTION_SCHEMA,
                         temperature=0.0,
                         seed=GENERATION_SEED,
+                        max_output_tokens=_MAX_READ_TOKENS,
                     ),
                 )
                 parsed = _parse_prescription_json(response.text or "")
@@ -140,18 +179,18 @@ class GoogleGeminiProvider(GeminiProvider):
                     # A model failure, not a verdict on the photo: try the next model.
                     raise ValueError("unparseable prescription response")
                 return _dict_to_prescription_observation(parsed)
-            except Exception as exc:  # noqa: BLE001 - any failure moves to the next model
+            except Exception as exc:
                 logger.warning(
                     "Prescription analysis with model %s failed: %s",
                     model_name,
                     type(exc).__name__,
                 )
                 last_exception = exc
+                if _fails_on_every_model(exc):
+                    break
 
-        logger.error("All Gemini vision models failed for prescription analysis.")
-        if last_exception:
-            raise last_exception
-        raise RuntimeError("Prescription analysis failed on all models.")
+        logger.error("Gemini prescription analysis gave up.")
+        raise _give_up(last_exception)
 
     async def generate_explanation(self, messages: list[dict[str, str]]) -> str:
         """Generate clinical health explanation for nutritional suitability."""
@@ -169,6 +208,7 @@ class GoogleGeminiProvider(GeminiProvider):
                         system_instruction=system_text or None,
                         temperature=0.0,
                         seed=GENERATION_SEED,
+                        max_output_tokens=_MAX_EXPLANATION_TOKENS,
                     ),
                 )
                 note(explanation_model=model_name, explanation_attempts=attempt)
@@ -180,12 +220,12 @@ class GoogleGeminiProvider(GeminiProvider):
                     model_name, type(exc).__name__,
                 )
                 last_exception = exc
+                if _fails_on_every_model(exc):
+                    break
 
         logger.error(
-            "All Gemini text models failed. Last error: %s", type(last_exception).__name__)
-        if last_exception:
-            raise last_exception
-        return ""
+            "Gemini explanation gave up. Last error: %s", type(last_exception).__name__)
+        raise _give_up(last_exception)
 
 
 # ---------------------------------------------------------------------------

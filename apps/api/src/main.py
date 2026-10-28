@@ -3,21 +3,53 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from src.api.v1.endpoints import router as api_router
+from src.body_limit import BodyLimitMiddleware
 from src.config.settings import settings
-from src.observability import configure_logging, request_context_middleware
+from src.observability import configure_logging, current_request_id, request_context_middleware
+from src.providers.interfaces import ServiceUnavailable
 
 configure_logging(settings.LOG_FORMAT)
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    # Production refuses to start misconfigured, instead of failing on the
+    # first request or quietly using a laptop fallback (ADR-006).
+    settings.validate_for_production()
+    if not settings.is_production:
+        for problem in settings.config_problems():
+            logger.warning("Development config: %s", problem)
+    yield
+
+
+# The interactive docs and schema list every route: useful locally, an
+# inventory for attackers in production.
+_docs = not settings.is_production
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    openapi_url=f"{settings.API_V1_STR}/openapi.json" if _docs else None,
+    docs_url="/docs" if _docs else None,
+    redoc_url="/redoc" if _docs else None,
+    lifespan=lifespan,
 )
+
+
+@app.exception_handler(ServiceUnavailable)
+async def service_unavailable(_: Request, exc: ServiceUnavailable) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={"detail": exc.message, "request_id": current_request_id()},
+        headers={"Retry-After": "30"},
+    )
 
 # Dev-safe default; override at deploy time with CORS_ALLOWED_ORIGINS=https://a.com,https://b.com
 #
@@ -42,7 +74,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Added after CORS, so it runs first: every request (CORS preflights too) gets an id.
+# Size and token-presence checks before any route parses a body.
+app.add_middleware(BodyLimitMiddleware, max_upload_bytes=settings.MAX_SCAN_UPLOAD_BYTES)
+
+# Added last, so it runs first: every request (CORS preflights and 413s too) gets an id.
 app.middleware("http")(request_context_middleware)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)

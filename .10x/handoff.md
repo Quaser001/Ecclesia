@@ -1,6 +1,14 @@
 # Handoff
 
-**From:** Discovery (2026-10-28)  **To:** whichever role the next request needs.
+**From:** Production hardening (2026-10-29). **To:** the founder (review and commit), then DevOps (deploy).
+
+- **What changed:** 47 audited issues were verified, and the fix-now set was implemented. See `specs/2026-10-29-production-hardening.md`, ADR-006, and `reviews/2026-10-29-production-hardening.md`.
+- **New rules for everyone (ADR-006):**
+  - Production fails loudly at startup.
+  - A failed dependency is a 503, never a quiet fallback.
+  - Scoring never runs on a profile that failed to load.
+- **Run from `apps/api/.venv`,** which matches `uv.lock`. The root `.venv` is stale: it has FastAPI 0.141 and holds all 22 known vulnerabilities, and it can be deleted.
+- **Check every key works:** `cd apps/api && .venv/Scripts/python.exe -m src.check_config`. On 2026-10-29 it reports the Gemini key as invalid.
 
 - **Sources of truth:**
   - `AGENTS.md` (rules);

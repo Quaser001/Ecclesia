@@ -112,6 +112,14 @@ class AppLocalizationsKha extends AppLocalizations {
       'Lah dep ka jingkhap scan jong mynta ka sngi. Kan sdang thymmai ha pdeng miet (UTC).';
 
   @override
+  String get errorProfileReset =>
+      'Ka sign-in jong phi la reset, namarkata ka profile koit-khiah jong phi kam don shuh ha ka server jong ngi. Sngewbha thoh biang ha Profile shwa ba phi scan.';
+
+  @override
+  String get errorPrescriptionLimit =>
+      'Phi la poi ha ka jingkhang prescription jong kane ka sngi. Pyrshang biang lashai.';
+
+  @override
   String get errorGeneric =>
       'Don kaei kaei ba bakla. Sngewbha pyrshang sa shisien.';
 

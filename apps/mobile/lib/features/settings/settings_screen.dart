@@ -9,6 +9,7 @@ import '../../core/utils/user_message.dart';
 import '../../core/widgets/surface_card.dart';
 import '../../l10n/l10n.dart';
 import '../../services/api_service.dart';
+import '../profile/prescription_consent.dart';
 import 'privacy_policy_screen.dart';
 
 /// Settings: appearance (theme, text size), language, privacy and data,
@@ -51,6 +52,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _deleting = true);
     try {
       await widget.apiService.deleteMyData();
+      await PrescriptionConsent.forget();
       if (!mounted) return;
       HapticFeedback.mediumImpact();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.dataDeleted)));

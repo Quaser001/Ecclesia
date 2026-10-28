@@ -333,8 +333,11 @@ class LocalDBProvider(SupabaseProvider):
             conn.execute("DELETE FROM scan_feedback WHERE user_id = ?", (user_id,))
             conn.execute("DELETE FROM serving_memory WHERE user_id = ?", (user_id,))
             deleted = conn.execute("DELETE FROM scans WHERE user_id = ?", (user_id,)).rowcount
-            # Scan counter and the prescription counter (keyed "rx:<user_id>").
-            conn.execute("DELETE FROM scan_usage WHERE user_id IN (?, ?)", (user_id, f"rx:{user_id}"))
+            # Past days of the scan and prescription counters; today's stay so
+            # a delete doesn't reset the daily caps (see SupabaseDBProvider).
+            today = datetime.now(timezone.utc).date().isoformat()
+            conn.execute("DELETE FROM scan_usage WHERE user_id IN (?, ?) AND usage_date < ?",
+                         (user_id, f"rx:{user_id}", today))
             conn.execute("DELETE FROM profiles WHERE user_id = ?", (user_id,))
             conn.commit()
         return deleted

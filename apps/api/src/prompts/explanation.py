@@ -21,7 +21,7 @@ EXPLANATION_SYSTEM_PROMPT = """You write the short explanation shown under a Cal
 """
 
 EXPLANATION_USER_TEMPLATE = """<product>{product_name} by {brand} (category: {category})</product>
-<verdict>{suitability}, score {score}/100</verdict>
+<verdict>{suitability}, score {score} out of 10</verdict>
 
 <findings>
 {findings_summary}

@@ -88,3 +88,19 @@ The "lassi never gets ice cream as an alternative" test first passed for the wro
 
 A test that passes either way gives you confidence you haven't earned.
 
+## 14. Pick the aggregation before the numbers
+
+The old scores clumped at 0, 25 and 75 for two reasons: each rule subtracted a fixed amount (a step), and the amounts were added up and chopped at 0. The fix was mostly the shape of the formula. Smooth curves remove the steps, and multiplying instead of adding means a serious problem dominates while irrelevant checks change nothing.
+
+Averaging would have been the tempting choice, and the wrong one: an average lets good things hide bad ones. Decide how criteria combine before tuning a single number.
+
+## 15. Say which numbers are cited and which are judgment
+
+The thresholds (6 g sugar, 800 mg sodium) come from WHO, FSSAI and AHA. The curve heights (0.55, 0.3) are our call, and the code and docs label them "CalFit judgment".
+
+Being honest about this is what lets a dietitian review it, and what keeps you credible when someone asks "why 2.1?"
+
+## 16. Store precision, display meaning
+
+Scores stay whole numbers 0-100 in the database (tenths), and the app shows 6.3/10. No data migration and no rounding errors in averages, and the API doesn't break for old app versions. The same trick works for money (paise) and weights (grams).
+

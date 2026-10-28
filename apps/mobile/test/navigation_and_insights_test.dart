@@ -126,7 +126,7 @@ void main() {
     await tester.pumpWidget(_app(InsightsScreen(apiService: api)));
     await tester.pumpAndSettle();
 
-    expect(find.text('42'), findsWidgets);
+    expect(find.text('4.2'), findsWidgets); // average 42 tenths, shown out of 10
     await tester.scrollUntilVisible(find.text('Very high sugar'), 300);
     expect(find.text('Very high sugar'), findsOneWidget);
     expect(find.text('2 of 3'), findsOneWidget);

@@ -510,7 +510,7 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'Week of {date}: average {score} from {count} scans'**
-  String weekSummary(String date, int score, int count);
+  String weekSummary(String date, String score, int count);
 
   /// No description provided for @flaggedMost.
   ///
@@ -1442,17 +1442,17 @@ abstract class AppLocalizations {
   /// **'Scanned {when}'**
   String scannedWhen(String when);
 
-  /// No description provided for @outOf100.
+  /// No description provided for @outOf10.
   ///
   /// In en, this message translates to:
-  /// **'out of 100'**
-  String get outOf100;
+  /// **'out of 10'**
+  String get outOf10;
 
-  /// No description provided for @scoreOutOf100.
+  /// No description provided for @scoreOutOf10.
   ///
   /// In en, this message translates to:
-  /// **'Score {score} out of 100'**
-  String scoreOutOf100(int score);
+  /// **'Score {score} out of 10'**
+  String scoreOutOf10(String score);
 
   /// No description provided for @whatWeFound.
   ///
@@ -1488,7 +1488,7 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'−{points} pts'**
-  String pointsLost(int points);
+  String pointsLost(String points);
 
   /// No description provided for @onTheLabel.
   ///

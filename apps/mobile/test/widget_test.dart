@@ -52,7 +52,7 @@ void main() {
 
     expect(find.text('Organic Roasted Chickpeas'), findsOneWidget);
     // Score animates 0 → 85. After pumpAndSettle it should land on 85.
-    expect(find.text('85'), findsOneWidget);
+    expect(find.text('8.5'), findsOneWidget); // score 85 tenths, shown out of 10
     // The verdict is shown as a coloured pill with its label, so the colour
     // is never the only signal.
     expect(find.text('Excellent fit'), findsOneWidget);

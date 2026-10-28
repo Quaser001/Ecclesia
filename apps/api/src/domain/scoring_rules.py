@@ -27,7 +27,17 @@ from src.domain.models import (
     SuitabilityStatus,
     UserProfile,
 )
-from src.domain.rule_catalog import RuleSpec, rule
+from src.domain.rule_catalog import (
+    KETO_CARBS_G,
+    KETO_SUGAR_G,
+    KIDNEY_SODIUM_MG,
+    RULE_ERROR_CAP,
+    WEIGHT_CALORIES_KCAL,
+    WEIGHT_FAT_G,
+    RuleSpec,
+    rule,
+)
+from src.domain.score_formula import combine
 
 # ---------------------------------------------------------------------------
 # Score → Suitability mapping
@@ -160,12 +170,9 @@ _USER_ALLERGY_ALIASES: dict[str, tuple[str, ...]] = {
     "sesame": ("sesame",), "mustard": ("mustard",),
 }
 
-# A matched allergen (declared or in ingredients) or active celiac gluten
-# finding is a hard stop: the score can never rise above this, so the verdict
-# is always "Not Suitable". A "may contain" warning is NOT a hard stop — it is
-# an alert, not a declared allergen.
-_HARD_STOP_SCORE_CAP = 15
-_HARD_STOP_RULE_IDS = ("RULE-001A", "RULE-001B")
+# Hard stops (a matched allergen, celiac gluten, a product the diet excludes)
+# are factor 0 in score_formula.py, so the score is 0 and the verdict "Not
+# suitable". A "may contain" warning is NOT a hard stop: it is an alert.
 
 
 def _contains_term(text: str, term: str) -> bool:
@@ -665,7 +672,7 @@ def _rule_kidney_disease(
         return findings
 
     sodium = product.nutrition.sodium_mg
-    if sodium is not None and sodium > 300:
+    if sodium is not None and sodium > KIDNEY_SODIUM_MG:
         findings.append(
             ScanFinding(
                 rule_id="RULE-008A-KIDNEY-SODIUM",
@@ -757,7 +764,7 @@ def _rule_dietary_preferences(
     if (DietaryPreference.KETO in profile.dietary_preferences) or (DietaryPreference.LOW_CARB in profile.dietary_preferences):
         carbs = product.nutrition.total_carbs_g
         sugars = product.nutrition.sugars_g
-        if carbs is not None and carbs > 15:
+        if carbs is not None and carbs > KETO_CARBS_G:
             findings.append(
                 ScanFinding(
                     rule_id="RULE-009D-KETO-CARBS",
@@ -768,7 +775,7 @@ def _rule_dietary_preferences(
                     score_impact=30,
                 )
             )
-        elif sugars is not None and sugars > 4:
+        elif sugars is not None and sugars > KETO_SUGAR_G:
             findings.append(
                 ScanFinding(
                     rule_id="RULE-009E-KETO-SUGAR",
@@ -803,7 +810,7 @@ def _rule_obesity_weight_loss(
     total_fat = product.nutrition.total_fat_g
     sugars = product.nutrition.sugars_g
 
-    if calories is not None and calories > 350:
+    if calories is not None and calories > WEIGHT_CALORIES_KCAL:
         findings.append(
             ScanFinding(
                 rule_id="RULE-010A-CALORIES-HIGH",
@@ -815,7 +822,7 @@ def _rule_obesity_weight_loss(
             )
         )
 
-    if total_fat is not None and total_fat > 18:
+    if total_fat is not None and total_fat > WEIGHT_FAT_G:
         findings.append(
             ScanFinding(
                 rule_id="RULE-010B-FAT-HIGH",
@@ -864,8 +871,8 @@ def calculate_score(
 
     Applies all rules to (product, profile) and computes a score.
     Rules are independent — no LLM involvement.
-    Score starts at 100 and rules subtract penalty points.
-    Score is clamped to [0, 100].
+    The score is 10 x the product of one factor per finding
+    (score_formula.py), stored as tenths: 0-100 means 0.0-10.0.
     """
     all_findings: list[ScanFinding] = []
     rules_applied: list[str] = []
@@ -893,22 +900,11 @@ def calculate_score(
                 )
             )
 
-    total_penalty = sum(f.score_impact for f in all_findings)
-    score = max(0, min(100, 100 - total_penalty))
+    score, all_findings = combine(all_findings, product)
 
     # A result with a failed check can never read as "excellent".
     if rule_errors:
-        score = min(score, 79)
-
-    # Hard stops: a matched allergen, or gluten for someone with celiac disease,
-    # always means Not Suitable regardless of how clean the rest of the label is.
-    hard_stop = any(
-        f.rule_id.startswith(_HARD_STOP_RULE_IDS)
-        or (f.rule_id == "RULE-005-GLUTEN" and f.severity == FindingSeverity.CRITICAL)
-        for f in all_findings
-    )
-    if hard_stop:
-        score = min(score, _HARD_STOP_SCORE_CAP)
+        score = min(score, RULE_ERROR_CAP)
 
     suitability = _suitability_from_score(score)
     risk_level = _SUITABILITY_TO_RISK[suitability]

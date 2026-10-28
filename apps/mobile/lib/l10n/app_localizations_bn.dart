@@ -238,7 +238,7 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String weekSummary(String date, int score, int count) {
+  String weekSummary(String date, String score, int count) {
     return '$date-এর সপ্তাহ: $countটি স্ক্যানে গড় $score';
   }
 
@@ -753,11 +753,11 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String get outOf100 => '100-র মধ্যে';
+  String get outOf10 => '10-র মধ্যে';
 
   @override
-  String scoreOutOf100(int score) {
-    return 'স্কোর 100-র মধ্যে $score';
+  String scoreOutOf10(String score) {
+    return 'স্কোর 10-র মধ্যে $score';
   }
 
   @override
@@ -778,7 +778,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get severityGoodToKnow => 'জেনে রাখুন';
 
   @override
-  String pointsLost(int points) {
+  String pointsLost(String points) {
     return '−$points পয়েন্ট';
   }
 

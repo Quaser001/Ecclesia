@@ -242,7 +242,7 @@ class AppLocalizationsKha extends AppLocalizations {
   }
 
   @override
-  String weekSummary(String date, int score, int count) {
+  String weekSummary(String date, String score, int count) {
     return 'Ka taiew $date: average $score na $count scan';
   }
 
@@ -766,11 +766,11 @@ class AppLocalizationsKha extends AppLocalizations {
   }
 
   @override
-  String get outOf100 => 'na 100';
+  String get outOf10 => 'na 10';
 
   @override
-  String scoreOutOf100(int score) {
-    return 'Score $score na 100';
+  String scoreOutOf10(String score) {
+    return 'Score $score na 10';
   }
 
   @override
@@ -791,7 +791,7 @@ class AppLocalizationsKha extends AppLocalizations {
   String get severityGoodToKnow => 'Bha ban tip';
 
   @override
-  String pointsLost(int points) {
+  String pointsLost(String points) {
     return '−$points pts';
   }
 

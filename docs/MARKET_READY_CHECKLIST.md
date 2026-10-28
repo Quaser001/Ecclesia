@@ -185,3 +185,16 @@ Detail: `docs/LAUNCH_CHECKLIST.md` sections 1–2, `docs/DEPLOY_CLOUD_RUN.md`.
 - [ ] When deploying: `LOG_FORMAT=json`, then the four log-based metrics and alerts from the evals doc
 - [ ] Buy the plan: Vertex AI in `asia-south1`, then follow `docs/AI_PROVIDER_OPTIONS.md` steps 1-7
 - Later (from competitor review: Yuka, TruthIn, FoodSwitch): product search in the food database, additive (INS) explanations from a sourced list, share a result, data export
+
+## Scoring out of 10 (28 Oct 2026, not committed)
+
+- [x] Formula: score = 10 x product of one factor per finding (desirability functions; `docs/SCORING_FORMULA.md`)
+- [x] Smooth curves through the cited rule thresholds; no cliffs (tested at every threshold, mutation-checked)
+- [x] Hard stops are exactly 0; vegetarian/vegan/halal violations are now hard stops (were 40-50 points)
+- [x] Finding cards show each finding's own cost out of 10; explanation prompt and fact check say "out of 10"
+- [x] App shows 6.3 / 10 everywhere (ring, badges, Home, Insights, history) in all 5 languages
+- [x] AI calls: temperature 0 + fixed seed for label reading, prescriptions and explanations
+- [ ] Rescore your 31 stored scans with the new formula (dry run done: 8 verdicts change, all stricter); needs your OK
+- [ ] Decide: general nutrition quality for users with no conditions (today every product is 10.0 for them); candidate Nutri-Score 2023 from its published tables
+- [ ] Dietitian review of the curve heights (0.8 / 0.55 / 0.3 / floor 0.05), labelled "CalFit judgment" in rule_catalog.py
+

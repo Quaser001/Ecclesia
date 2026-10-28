@@ -6,9 +6,10 @@ import logging
 import re
 
 from src.domain.models import KnowledgeEntry, ProductObservation, ScoreResult, UserProfile
+from src.domain.score_formula import format_score
+from src.observability import note
 from src.prompts.explanation import build_explanation_messages
 from src.providers.interfaces import GeminiProvider
-from src.observability import note
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class ExplanationService:
                 product_name=product.product_name or "Unknown Product",
                 brand=product.brand or "Unknown Brand",
                 category=product.category or "Unknown",
-                score=score_result.score,
+                score=format_score(score_result.score),
                 suitability=score_result.suitability.value,
                 findings_summary=findings_summary,
                 conditions=conditions,
@@ -56,7 +57,7 @@ class ExplanationService:
 
             explanation = (await self._gemini.generate_explanation(messages)).strip()
 
-            facts = f"{score_result.score} 100\n{findings_summary}\n{nutrition_summary}"
+            facts = f"{format_score(score_result.score)} 10\n{findings_summary}\n{nutrition_summary}"
             if not is_explanation_grounded(explanation, facts):
                 logger.warning("Explanation rejected by guard; using rule-based fallback.")
                 note(explanation="fallback_ungrounded")
@@ -131,19 +132,19 @@ def _format_nutrition(product: ProductObservation) -> str:
 def _fallback_explanation(product: ProductObservation, score_result: ScoreResult) -> str:
     """Factual rule-based fallback explanation when LLM is unavailable."""
     product_name = product.product_name or "This product"
-    score = score_result.score
+    score = format_score(score_result.score)
     suitability = score_result.suitability.value
 
     if not score_result.findings:
         return (
-            f"{product_name} received a score of {score}/100 ({suitability}). "
+            f"{product_name} received a score of {score} out of 10 ({suitability}). "
             "No specific concerns were identified based on your health profile and the available product information."
         )
 
     key_concerns = [f.title for f in score_result.findings[:3]]
     concerns_text = "; ".join(key_concerns)
     return (
-        f"{product_name} received a personalized score of {score}/100 ({suitability}). "
+        f"{product_name} received a personalized score of {score} out of 10 ({suitability}). "
         f"Key concerns for your profile: {concerns_text}. "
         "Please review the findings below for details."
     )

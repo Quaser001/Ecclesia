@@ -239,7 +239,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String weekSummary(String date, int score, int count) {
+  String weekSummary(String date, String score, int count) {
     return 'Week of $date: average $score from $count scans';
   }
 
@@ -759,11 +759,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get outOf100 => 'out of 100';
+  String get outOf10 => 'out of 10';
 
   @override
-  String scoreOutOf100(int score) {
-    return 'Score $score out of 100';
+  String scoreOutOf10(String score) {
+    return 'Score $score out of 10';
   }
 
   @override
@@ -784,7 +784,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get severityGoodToKnow => 'Good to know';
 
   @override
-  String pointsLost(int points) {
+  String pointsLost(String points) {
     return '−$points pts';
   }
 

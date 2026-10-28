@@ -35,6 +35,12 @@ _FALLBACK_MODELS = [
 ]
 
 
+# Greedy decoding (temperature 0) plus a fixed seed: as repeatable as hosted
+# models allow. Not bit-for-bit guaranteed; the score never depends on the
+# model anyway (rules + score_formula.py), only the wording of explanations.
+GENERATION_SEED = 7
+
+
 class GoogleGeminiProvider(GeminiProvider):
     """Production Gemini provider implementing both photo analysis and text explanation."""
 
@@ -82,6 +88,7 @@ class GoogleGeminiProvider(GeminiProvider):
                         response_mime_type="application/json",
                         response_schema=_EXTRACTION_SCHEMA,
                         temperature=0.0,
+                        seed=GENERATION_SEED,
                     ),
                 )
                 raw_text = response.text or ""
@@ -125,6 +132,7 @@ class GoogleGeminiProvider(GeminiProvider):
                         response_mime_type="application/json",
                         response_schema=_PRESCRIPTION_SCHEMA,
                         temperature=0.0,
+                        seed=GENERATION_SEED,
                     ),
                 )
                 parsed = _parse_prescription_json(response.text or "")
@@ -159,7 +167,8 @@ class GoogleGeminiProvider(GeminiProvider):
                     contents=prompt_text,
                     config=types.GenerateContentConfig(
                         system_instruction=system_text or None,
-                        temperature=0.1,
+                        temperature=0.0,
+                        seed=GENERATION_SEED,
                     ),
                 )
                 note(explanation_model=model_name, explanation_attempts=attempt)

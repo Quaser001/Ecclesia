@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../../app/app_theme.dart';
 import '../../l10n/l10n.dart';
+import '../utils/score_format.dart';
 
 /// The hero moment of a scan: the score reveals from 0 to its final value
 /// over ~900ms with an eased curve. Serif numerals (Fraunces) make the
@@ -58,7 +59,7 @@ class HealthScoreRing extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '$current',
+                      formatScore(current),
                       style: AppTheme.display(
                         size * 0.36,
                         weight: FontWeight.w500,
@@ -68,7 +69,7 @@ class HealthScoreRing extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      context.l10n.outOf100,
+                      context.l10n.outOf10,
                       style: AppTheme.ui(
                         (size * 0.075).clamp(12.0, 16.0),
                         weight: FontWeight.w500,

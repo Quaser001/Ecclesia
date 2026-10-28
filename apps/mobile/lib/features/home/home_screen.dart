@@ -16,6 +16,7 @@ import '../../models/scan_result.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
 import '../scan/scan_detail_screen.dart';
+import '../../core/utils/score_format.dart';
 
 /// Home: what did I scan last, how am I doing, and what's my profile.
 ///
@@ -421,9 +422,9 @@ class _StatsRow extends StatelessWidget {
       children: [
         Expanded(child: _Stat(label: context.l10n.statScans, value: '${stats.total}', color: c.brand)),
         const SizedBox(width: 10),
-        Expanded(child: _Stat(label: context.l10n.statAverage, value: '$avg', color: c.score(avg))),
+        Expanded(child: _Stat(label: context.l10n.statAverage, value: formatScore(avg), color: c.score(avg))),
         const SizedBox(width: 10),
-        Expanded(child: _Stat(label: context.l10n.statBest, value: '$best', color: c.score(best))),
+        Expanded(child: _Stat(label: context.l10n.statBest, value: formatScore(best), color: c.score(best))),
       ],
     );
   }

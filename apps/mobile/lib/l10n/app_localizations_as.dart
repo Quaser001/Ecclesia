@@ -238,7 +238,7 @@ class AppLocalizationsAs extends AppLocalizations {
   }
 
   @override
-  String weekSummary(String date, int score, int count) {
+  String weekSummary(String date, String score, int count) {
     return '$dateৰ সপ্তাহ: $countটা স্কেনৰ গড় $score';
   }
 
@@ -753,11 +753,11 @@ class AppLocalizationsAs extends AppLocalizations {
   }
 
   @override
-  String get outOf100 => '100ৰ ভিতৰত';
+  String get outOf10 => '10ৰ ভিতৰত';
 
   @override
-  String scoreOutOf100(int score) {
-    return 'স্ক\'ৰ 100ৰ ভিতৰত $score';
+  String scoreOutOf10(String score) {
+    return 'স্ক\'ৰ 10ৰ ভিতৰত $score';
   }
 
   @override
@@ -778,7 +778,7 @@ class AppLocalizationsAs extends AppLocalizations {
   String get severityGoodToKnow => 'জানি থোৱা ভাল';
 
   @override
-  String pointsLost(int points) {
+  String pointsLost(String points) {
     return '−$points পইণ্ট';
   }
 

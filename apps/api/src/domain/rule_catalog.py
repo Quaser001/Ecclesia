@@ -466,3 +466,130 @@ _BY_ID: dict[str, RuleSpec] = {r.rule_id: r for r in RULE_CATALOG}
 def rule(rule_id: str) -> RuleSpec:
     """Look up a RuleSpec by id. Raises KeyError if unknown."""
     return _BY_ID[rule_id]
+
+
+# ---------------------------------------------------------------------------
+# Score formula: how findings become a score out of 10
+# ---------------------------------------------------------------------------
+#
+#   score = 10 x P,   P = product of one factor per finding (each 0..1)
+#
+# - A measured nutrient (sugar, sodium, ...) is scored on a smooth curve, so
+#   5.9 g and 6.1 g of sugar score almost the same: no cliffs at thresholds.
+#   The curve is 1.0 where the rule starts to fire and falls through the
+#   cited thresholds above (WHO, FSSAI, AHA, KDIGO) to a floor.
+# - A rule with no quantity (an ingredient is present) uses its severity's
+#   factor below.
+# - A hard stop (your allergen, gluten with celiac disease, a product your
+#   diet excludes) is 0, so the score is 0.
+# - Factors multiply, so a serious problem can't be averaged away by things
+#   that are fine, and checks that don't apply to you change nothing.
+#
+# The x-axis thresholds are the cited rule thresholds. The heights below are
+# CalFit's judgment, not from a cited source: reviewers, change them here.
+# Stored and sent as an integer 0-100 (tenths of a point); shown as 0.0-10.0.
+
+SEVERITY_FACTOR: dict[FindingSeverity, float] = {
+    FindingSeverity.INFO: 1.0,
+    FindingSeverity.WARNING: 0.8,
+    FindingSeverity.ALERT: 0.55,
+    FindingSeverity.CRITICAL: 0.3,
+}
+POSITIVE_FACTOR = 1.1   # a finding that helps (iron-rich food for anaemia); score still caps at 10
+CURVE_FLOOR = 0.05      # a measured excess never drives a score to 0 on its own
+RULE_ERROR_CAP = 79     # a check that crashed: the result can't read as excellent (< 8.0)
+
+# Hard stops: the product is excluded for this person, whatever else is true.
+HARD_STOP_RULE_IDS = (
+    "RULE-001A-ALLERGY-DECLARED", "RULE-001B-ALLERGY-INGREDIENT",
+    "RULE-009A-VEGAN", "RULE-009B-VEGETARIAN", "RULE-009C-HALAL",
+)
+# Gluten is a hard stop only for celiac disease (its finding is CRITICAL then).
+CELIAC_GLUTEN_RULE_ID = "RULE-005-GLUTEN"
+# Findings that help rather than hurt.
+POSITIVE_RULE_IDS = ("RULE-011A-ANAEMIA-IRON-RICH", "RULE-011B-ANAEMIA-FORTIFIED")
+
+
+@dataclass(frozen=True)
+class ScoreCurve:
+    """One measured nutrient's effect on the score: (value, factor) anchors,
+    linear in between, CURVE_FLOOR beyond the last anchor."""
+
+    curve_id: str
+    rule_ids: tuple[str, ...]  # findings scored on this curve
+    field: str                 # NutritionInfo field holding the measured value
+    unit: str
+    points: tuple[tuple[float, float], ...]
+
+    def factor(self, value: float) -> float:
+        pts = self.points
+        if value <= pts[0][0]:
+            return 1.0
+        for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+            if value <= x1:
+                return y0 + (y1 - y0) * (value - x0) / (x1 - x0)
+        return CURVE_FLOOR
+
+
+def _anchors(bands: list[tuple[float, FindingSeverity]]) -> tuple[tuple[float, float], ...]:
+    """Curve anchors from a rule's thresholds, lowest first.
+
+    1.0 where the first band starts; each later band starts at its severity's
+    factor (half the previous one when two bands share a severity); the floor
+    at twice the last threshold. A single-threshold rule reaches its severity
+    factor at twice the threshold and the floor at four times.
+    """
+    points = [(bands[0][0], 1.0)]
+    previous = 1.0
+    for threshold, severity in bands[1:]:
+        f = SEVERITY_FACTOR[severity]
+        if f >= previous:
+            f = previous / 2
+        points.append((threshold, f))
+        previous = f
+    last = bands[-1][0]
+    if len(bands) == 1:
+        points += [(2 * last, SEVERITY_FACTOR[bands[0][1]]), (4 * last, CURVE_FLOOR)]
+    else:
+        points.append((2 * last, CURVE_FLOOR))
+    return tuple(points)
+
+
+def _bands(*rule_ids: str) -> list[tuple[float, FindingSeverity]]:
+    specs = sorted((rule(r) for r in rule_ids), key=lambda s: s.threshold)
+    return [(s.threshold, s.severity) for s in specs]
+
+
+_SUGAR = ("RULE-003D-SUGAR-MODERATE", "RULE-003C-SUGAR-HIGH",
+          "RULE-003B-SUGAR-VERY-HIGH", "RULE-003A-SUGAR-EXTREME")
+_SODIUM = ("RULE-002C-SODIUM-MODERATE", "RULE-002B-SODIUM-HIGH", "RULE-002A-SODIUM-CRITICAL")
+_SATFAT = ("RULE-004B-SATFAT-HIGH", "RULE-004A-SATFAT-VERY-HIGH")
+
+# Thresholds of the rules that are not catalog rows yet (scoring_rules.py);
+# test_score_formula.py checks each curve starts exactly where its rule fires.
+KIDNEY_SODIUM_MG = 300.0
+KETO_CARBS_G = 15.0
+KETO_SUGAR_G = 4.0
+WEIGHT_CALORIES_KCAL = 350.0
+WEIGHT_FAT_G = 18.0
+
+SCORE_CURVES: tuple[ScoreCurve, ...] = (
+    ScoreCurve("sugar-blood-sugar", _SUGAR, "sugars_g", "g", _anchors(_bands(*_SUGAR))),
+    ScoreCurve("sodium-blood-pressure", _SODIUM, "sodium_mg", "mg", _anchors(_bands(*_SODIUM))),
+    ScoreCurve("satfat-cholesterol", _SATFAT, "saturated_fat_g", "g", _anchors(_bands(*_SATFAT))),
+    ScoreCurve("cholesterol", ("RULE-004D-CHOLESTEROL-HIGH",), "cholesterol_mg", "mg",
+               _anchors(_bands("RULE-004D-CHOLESTEROL-HIGH"))),
+    ScoreCurve("trans-fat", ("RULE-004C-TRANSFAT-DANGER",), "trans_fat_g", "g",
+               _anchors(_bands("RULE-004C-TRANSFAT-DANGER"))),
+    ScoreCurve("sodium-kidney", ("RULE-008A-KIDNEY-SODIUM",), "sodium_mg", "mg",
+               _anchors([(KIDNEY_SODIUM_MG, FindingSeverity.CRITICAL)])),
+    ScoreCurve("carbs-keto", ("RULE-009D-KETO-CARBS",), "total_carbs_g", "g",
+               _anchors([(KETO_CARBS_G, FindingSeverity.ALERT)])),
+    ScoreCurve("sugar-keto", ("RULE-009E-KETO-SUGAR",), "sugars_g", "g",
+               _anchors([(KETO_SUGAR_G, FindingSeverity.WARNING)])),
+    ScoreCurve("calories-weight", ("RULE-010A-CALORIES-HIGH",), "calories_kcal", "kcal",
+               _anchors([(WEIGHT_CALORIES_KCAL, FindingSeverity.WARNING)])),
+    ScoreCurve("fat-weight", ("RULE-010B-FAT-HIGH",), "total_fat_g", "g",
+               _anchors([(WEIGHT_FAT_G, FindingSeverity.WARNING)])),
+)
+CURVE_BY_RULE: dict[str, ScoreCurve] = {r: c for c in SCORE_CURVES for r in c.rule_ids}

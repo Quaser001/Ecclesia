@@ -277,7 +277,11 @@ class ScanFinding(BaseModel):
     title: str
     detail: str
     nutrient_or_ingredient: Optional[str] = None
-    score_impact: int = Field(default=0, description="Negative score points this rule subtracts.")
+    score_impact: int = Field(
+        default=0,
+        description="What the score would gain without this finding, in tenths of a point "
+                    "(score_formula.py); negative when the finding helps.",
+    )
     # Short citation of the authority the threshold comes from (e.g. "WHO sodium
     # guidance 2012", "FSSAI labelling rules 2020"). Shown to the user so they
     # can see why a product was flagged.

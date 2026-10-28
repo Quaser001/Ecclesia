@@ -13,6 +13,7 @@ import '../../models/scan_result.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
 import '../scan/scan_detail_screen.dart';
+import '../../core/utils/score_format.dart';
 
 /// Insights: trends from the user's own scans, and how they line up with
 /// the user's goals.
@@ -237,7 +238,7 @@ class _SummaryCard extends StatelessWidget {
             runSpacing: 4,
             children: [
               Text(
-                '$avg',
+                formatScore(avg),
                 style: AppTheme.display(
                   44,
                   weight: FontWeight.w700,
@@ -340,19 +341,25 @@ class _WeeklyCard extends StatelessWidget {
                             ? l.weekNoScans(l.shortDate(w.weekStart))
                             : l.weekSummary(
                                 l.shortDate(w.weekStart),
-                                w.averageScore!,
+                                formatScore(w.averageScore!),
                                 w.scans,
                               ),
                         excludeSemantics: true,
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            Text(
-                              w.averageScore?.toString() ?? '',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: w.averageScore == null
-                                    ? null
-                                    : c.score(w.averageScore!),
+                            // "7.0" is wider than "70" was: one line, shrunk to
+                            // the column rather than wrapping into the bar.
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                w.averageScore == null ? '' : formatScore(w.averageScore!),
+                                maxLines: 1,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: w.averageScore == null
+                                      ? null
+                                      : c.score(w.averageScore!),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 4),

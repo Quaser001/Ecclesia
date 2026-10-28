@@ -148,7 +148,8 @@ class SupabaseDBProvider(SupabaseProvider):
             response = await client.table("scans").insert(scan_data).execute()
             return response.data[0]["scan_id"]
         except Exception as exc:
-            logger.error("Save scan failed: %s", exc)
+            # Class name only: the row holds the explanation (and so conditions).
+            logger.error("Save scan failed: %s", type(exc).__name__)
             raise
 
     async def get_scan_history(

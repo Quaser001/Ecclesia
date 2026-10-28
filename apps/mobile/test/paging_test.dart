@@ -82,7 +82,7 @@ void main() {
     await tester.pumpWidget(_app(HomeScreen(apiService: _api(seen), userId: 'u')));
     await tester.pumpAndSettle();
     expect(find.text('31'), findsOneWidget);
-    expect(find.text('18'), findsOneWidget);
-    expect(find.text('75'), findsOneWidget);
+    expect(find.text('1.8'), findsOneWidget); // average 18 tenths, shown out of 10
+    expect(find.text('7.5'), findsOneWidget);
   });
 }

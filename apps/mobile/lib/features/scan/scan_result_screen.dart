@@ -11,6 +11,7 @@ import '../../core/widgets/surface_card.dart';
 import '../../l10n/l10n.dart';
 import '../../models/scan_result.dart';
 import '../../services/api_service.dart';
+import '../../core/utils/score_format.dart';
 
 /// Scan result: the score reveal, what was found, the nutrient levels, what's
 /// on the label, what to try instead, and "was this right?".
@@ -920,7 +921,8 @@ class _FindingCard extends StatelessWidget {
               ),
               const Spacer(),
               if (finding.scoreImpact > 0)
-                Text(context.l10n.pointsLost(finding.scoreImpact), style: theme.textTheme.labelMedium),
+                Text(context.l10n.pointsLost(formatScore(finding.scoreImpact)),
+                    style: theme.textTheme.labelMedium),
             ],
           ),
           const SizedBox(height: 10),

@@ -28,8 +28,12 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback? onNavigateToProfile;
   final VoidCallback? onStartScan;
 
+  /// Bumped by the tab bar to refresh quietly when the tab is shown again.
+  final int refreshTick;
+
   const HomeScreen({
     super.key,
+    this.refreshTick = 0,
     required this.apiService,
     required this.userId,
     this.onNavigateToHistory,
@@ -45,7 +49,14 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   UserProfile? _profile;
   List<ScanHistoryItem> _history = [];
+  ScanStats? _stats;
   String? _error;
+
+  @override
+  void didUpdateWidget(covariant HomeScreen old) {
+    super.didUpdateWidget(old);
+    if (widget.refreshTick != old.refreshTick) _loadData(silent: true);
+  }
 
   @override
   void initState() {
@@ -53,25 +64,30 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadData();
   }
 
-  Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  /// [silent]: refresh in the background, keeping what's on screen.
+  Future<void> _loadData({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
     try {
       final results = await Future.wait([
         widget.apiService.getProfile(),
-        widget.apiService.getScanHistory(),
+        widget.apiService.getScanHistory(limit: 4),
+        widget.apiService.getScanStats(),
       ]);
       if (!mounted) return;
       setState(() {
         _profile = results[0] as UserProfile;
-        _history = (results[1] as List<ScanHistoryItem>)
-          ..sort((a, b) => b.scannedAt.compareTo(a.scannedAt));
+        _history = results[1] as List<ScanHistoryItem>;
+        _stats = results[2] as ScanStats;
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
+      if (silent && _profile != null) return; // keep what's on screen
       setState(() {
         _error = UserMessage.of(context, e);
         _isLoading = false;
@@ -141,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
       else ...[
         _LatestScanCard(item: _history.first, onTap: () => _open(_history.first)),
         const SizedBox(height: 12),
-        _StatsRow(history: _history),
+        if (_stats != null) _StatsRow(stats: _stats!),
       ],
       if (!_isLoading && _profileEmpty) ...[
         const SizedBox(height: 12),
@@ -174,6 +190,7 @@ class _HomeScreenState extends State<HomeScreen> {
             productName: item.productName,
             subtitle: '${item.brand ?? context.l10n.unknownBrand} · '
                 '${context.l10n.relativeTime(item.scannedAt)}',
+            imageUrl: item.imageUrl,
             onTap: () => _open(item),
           ),
           const SizedBox(height: 10),
@@ -389,20 +406,20 @@ class _LatestSkeleton extends StatelessWidget {
   }
 }
 
-/// Three numbers from the user's own history: scans, average, best.
+/// Three numbers across all of the user's scans (from the server, not just
+/// the page loaded here): how many, their average score, and the best.
 class _StatsRow extends StatelessWidget {
-  final List<ScanHistoryItem> history;
-  const _StatsRow({required this.history});
+  final ScanStats stats;
+  const _StatsRow({required this.stats});
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final scores = history.map((h) => h.score).toList();
-    final avg = (scores.reduce((a, b) => a + b) / scores.length).round();
-    final best = scores.reduce((a, b) => a > b ? a : b);
+    final avg = stats.average ?? 0;
+    final best = stats.best ?? 0;
     return Row(
       children: [
-        Expanded(child: _Stat(label: context.l10n.statScans, value: '${history.length}', color: c.brand)),
+        Expanded(child: _Stat(label: context.l10n.statScans, value: '${stats.total}', color: c.brand)),
         const SizedBox(width: 10),
         Expanded(child: _Stat(label: context.l10n.statAverage, value: '$avg', color: c.score(avg))),
         const SizedBox(width: 10),

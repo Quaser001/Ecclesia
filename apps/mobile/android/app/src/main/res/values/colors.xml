@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Brand colours mirrored from lib/core/constants/app_colors.dart.
-  Keep in sync — these drive the native splash and the adaptive icon
-  background, which run before Flutter has started.
+  Keep in sync: these drive the native splash and the launcher icon, which
+  show before Flutter has started.
 -->
 <resources>
-    <color name="calfit_bg_dark">#0A1512</color>
-    <color name="calfit_bg_light">#FFFFFF</color>
-    <color name="calfit_verdict">#2BA373</color>
-    <color name="calfit_ember">#F59E3C</color>
-    <color name="ic_launcher_background">#0A1512</color>
+    <color name="calfit_bg_dark">#161513</color>
+    <color name="calfit_bg_light">#FAF7F2</color>
+    <color name="calfit_brand">#1F6B4F</color>
+    <color name="calfit_accent">#F08A72</color>
+    <!-- Launcher icon and splash: deep green, with an off-white C and a coral tick. -->
+    <color name="ic_launcher_background">#1F6B4F</color>
 </resources>

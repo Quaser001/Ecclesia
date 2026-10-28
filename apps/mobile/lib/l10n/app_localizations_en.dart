@@ -712,7 +712,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tipsTitle => 'For the best result';
 
   @override
-  String get tipBackOfPack => 'Back of the pack, not the front';
+  String get tipBackOfPack =>
+      'The front works; the back gives the fullest check';
 
   @override
   String get tipLight => 'Good light, no glare on the plastic';
@@ -938,4 +939,257 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notMedicalAdviceTitle => 'Not medical advice';
+
+  @override
+  String get viewPhoto => 'View the photo';
+
+  @override
+  String get onbWelcomeTitle => 'Know what\'s in your food';
+
+  @override
+  String get onbWelcomeBody =>
+      'Photograph the back of any packaged food. CalFit reads the label and tells you how well it fits you.';
+
+  @override
+  String get onbPointScan =>
+      'Works with Indian packs: biscuits, namkeen, noodles, drinks and more';
+
+  @override
+  String get onbPointPersonal =>
+      'Scores change with your conditions, allergies and goals';
+
+  @override
+  String get onbPointAlternatives =>
+      'Suggests real, similar products that suit you better';
+
+  @override
+  String get onbChooseLanguage => 'Choose your language';
+
+  @override
+  String get onbProfileTitle => 'Tell us a little about you';
+
+  @override
+  String get onbProfileBody =>
+      'Pick anything that applies. You can change it any time in Profile.';
+
+  @override
+  String get onbAllergiesTitle => 'Allergies';
+
+  @override
+  String get onbConditionsTitle => 'Health conditions';
+
+  @override
+  String get onbDietTitle => 'Diet';
+
+  @override
+  String get onbSafetyTitle => 'One important note';
+
+  @override
+  String get onbGetStarted => 'Get started';
+
+  @override
+  String get onbNext => 'Next';
+
+  @override
+  String get onbSkip => 'Skip';
+
+  @override
+  String onbStep(int current, int total) {
+    return 'Step $current of $total';
+  }
+
+  @override
+  String get allergy_peanut => 'Peanut';
+
+  @override
+  String get allergy_milk => 'Milk';
+
+  @override
+  String get allergy_gluten => 'Gluten';
+
+  @override
+  String get allergy_soy => 'Soy';
+
+  @override
+  String get allergy_egg => 'Egg';
+
+  @override
+  String get allergy_tree_nuts => 'Tree nuts';
+
+  @override
+  String get nutrientSalt => 'Salt';
+
+  @override
+  String get atAGlance => 'At a glance';
+
+  @override
+  String get levelsPer100g =>
+      'Per 100 g, on the standard traffic-light scale. The same for everyone.';
+
+  @override
+  String get levelsPer100ml =>
+      'Per 100 ml, on the standard traffic-light scale. The same for everyone.';
+
+  @override
+  String get levelLow => 'Low';
+
+  @override
+  String get levelMedium => 'Medium';
+
+  @override
+  String get levelHigh => 'High';
+
+  @override
+  String get feedbackQuestion => 'Was this result right?';
+
+  @override
+  String get feedbackWhy =>
+      'Your answer helps us check how accurate CalFit is.';
+
+  @override
+  String get feedbackYes => 'Yes';
+
+  @override
+  String get feedbackNo => 'Not quite';
+
+  @override
+  String get feedbackWhatWrong => 'What was wrong?';
+
+  @override
+  String get issueWrongProduct => 'Wrong product';
+
+  @override
+  String get issueWrongNutrition => 'Nutrition numbers';
+
+  @override
+  String get issueWrongIngredients => 'Ingredients';
+
+  @override
+  String get issueMissedAllergen => 'Missed an allergen';
+
+  @override
+  String get issueScoreUnfair => 'Score feels wrong';
+
+  @override
+  String get issueOther => 'Something else';
+
+  @override
+  String get feedbackSend => 'Send';
+
+  @override
+  String get feedbackThanks => 'Thank you. This helps us get better.';
+
+  @override
+  String get feedbackFailed =>
+      'Couldn\'t send that. Check your connection and try again.';
+
+  @override
+  String get pickerConfirmTitle => 'Is this the product?';
+
+  @override
+  String get pickerChooseTitle => 'Which one is it?';
+
+  @override
+  String pickerReadAs(String text) {
+    return 'We read “$text” on the pack.';
+  }
+
+  @override
+  String get pickerYes => 'Yes, that\'s it';
+
+  @override
+  String get pickerNoRetake => 'No, retake the photo';
+
+  @override
+  String get pickerNoneRetake => 'None of these, retake';
+
+  @override
+  String get sourceOpenFoodFacts => 'Open Food Facts';
+
+  @override
+  String get sourceCalfitDb => 'CalFit database';
+
+  @override
+  String get retakeHint =>
+      'Take the photo again with the product name in view, or photograph the back of the pack.';
+
+  @override
+  String identifiedAs(String name) {
+    return 'Identified as $name';
+  }
+
+  @override
+  String identifiedSource(String source) {
+    return 'Nutrition per 100 g/ml from $source';
+  }
+
+  @override
+  String get notThisProduct => 'Not this product?';
+
+  @override
+  String get removeScanTitle => 'Remove this scan?';
+
+  @override
+  String get removeScanBody =>
+      'It will be deleted from your history so you can take the photo again.';
+
+  @override
+  String get remove => 'Remove';
+
+  @override
+  String get scanRemoved => 'Scan removed. Tap Scan to try again.';
+
+  @override
+  String get couldntRemove => 'Couldn\'t remove the scan. Try again.';
+
+  @override
+  String get servingUnknownTitle => 'Serving size unknown';
+
+  @override
+  String get servingUnknownBody =>
+      'This label\'s numbers don\'t say whether they\'re per 100 g/ml or per serving. Check the pack and add the serving size; we\'ll use it the next time you scan this product.';
+
+  @override
+  String get addServingSize => 'Add serving size';
+
+  @override
+  String get servingSheetTitle => 'Serving size';
+
+  @override
+  String get servingAmountLabel => 'One serving (g or ml)';
+
+  @override
+  String get servingAmountHelp =>
+      'On the pack, look for “serving size” or the net quantity.';
+
+  @override
+  String get servingBasisLabel => 'The numbers on the label are';
+
+  @override
+  String get basisPer100 => 'Per 100 g/ml';
+
+  @override
+  String get basisPerServing => 'Per serving';
+
+  @override
+  String servingSaved(String amount) {
+    return 'Saved: $amount g/ml per serving. We\'ll use it the next time you scan this product.';
+  }
+
+  @override
+  String get servingSaveFailed =>
+      'Couldn\'t save. Check your connection and try again.';
+
+  @override
+  String labelNotePer100(String source) {
+    return 'Per 100 g/ml, from $source. A dash means it isn\'t known.';
+  }
+
+  @override
+  String labelNoteYourServing(String amount) {
+    return 'Per serving of $amount g/ml, the serving size you saved.';
+  }
+
+  @override
+  String get confirmingProduct => 'Checking this product…';
 }

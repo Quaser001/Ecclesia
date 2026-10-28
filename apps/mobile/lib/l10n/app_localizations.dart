@@ -1361,7 +1361,7 @@ abstract class AppLocalizations {
   /// No description provided for @tipBackOfPack.
   ///
   /// In en, this message translates to:
-  /// **'Back of the pack, not the front'**
+  /// **'The front works; the back gives the fullest check'**
   String get tipBackOfPack;
 
   /// No description provided for @tipLight.
@@ -1771,6 +1771,456 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not medical advice'**
   String get notMedicalAdviceTitle;
+
+  /// No description provided for @viewPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'View the photo'**
+  String get viewPhoto;
+
+  /// No description provided for @onbWelcomeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Know what\'s in your food'**
+  String get onbWelcomeTitle;
+
+  /// No description provided for @onbWelcomeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Photograph the back of any packaged food. CalFit reads the label and tells you how well it fits you.'**
+  String get onbWelcomeBody;
+
+  /// No description provided for @onbPointScan.
+  ///
+  /// In en, this message translates to:
+  /// **'Works with Indian packs: biscuits, namkeen, noodles, drinks and more'**
+  String get onbPointScan;
+
+  /// No description provided for @onbPointPersonal.
+  ///
+  /// In en, this message translates to:
+  /// **'Scores change with your conditions, allergies and goals'**
+  String get onbPointPersonal;
+
+  /// No description provided for @onbPointAlternatives.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggests real, similar products that suit you better'**
+  String get onbPointAlternatives;
+
+  /// No description provided for @onbChooseLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your language'**
+  String get onbChooseLanguage;
+
+  /// No description provided for @onbProfileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell us a little about you'**
+  String get onbProfileTitle;
+
+  /// No description provided for @onbProfileBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick anything that applies. You can change it any time in Profile.'**
+  String get onbProfileBody;
+
+  /// No description provided for @onbAllergiesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Allergies'**
+  String get onbAllergiesTitle;
+
+  /// No description provided for @onbConditionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Health conditions'**
+  String get onbConditionsTitle;
+
+  /// No description provided for @onbDietTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Diet'**
+  String get onbDietTitle;
+
+  /// No description provided for @onbSafetyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'One important note'**
+  String get onbSafetyTitle;
+
+  /// No description provided for @onbGetStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Get started'**
+  String get onbGetStarted;
+
+  /// No description provided for @onbNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get onbNext;
+
+  /// No description provided for @onbSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get onbSkip;
+
+  /// No description provided for @onbStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Step {current} of {total}'**
+  String onbStep(int current, int total);
+
+  /// No description provided for @allergy_peanut.
+  ///
+  /// In en, this message translates to:
+  /// **'Peanut'**
+  String get allergy_peanut;
+
+  /// No description provided for @allergy_milk.
+  ///
+  /// In en, this message translates to:
+  /// **'Milk'**
+  String get allergy_milk;
+
+  /// No description provided for @allergy_gluten.
+  ///
+  /// In en, this message translates to:
+  /// **'Gluten'**
+  String get allergy_gluten;
+
+  /// No description provided for @allergy_soy.
+  ///
+  /// In en, this message translates to:
+  /// **'Soy'**
+  String get allergy_soy;
+
+  /// No description provided for @allergy_egg.
+  ///
+  /// In en, this message translates to:
+  /// **'Egg'**
+  String get allergy_egg;
+
+  /// No description provided for @allergy_tree_nuts.
+  ///
+  /// In en, this message translates to:
+  /// **'Tree nuts'**
+  String get allergy_tree_nuts;
+
+  /// No description provided for @nutrientSalt.
+  ///
+  /// In en, this message translates to:
+  /// **'Salt'**
+  String get nutrientSalt;
+
+  /// No description provided for @atAGlance.
+  ///
+  /// In en, this message translates to:
+  /// **'At a glance'**
+  String get atAGlance;
+
+  /// No description provided for @levelsPer100g.
+  ///
+  /// In en, this message translates to:
+  /// **'Per 100 g, on the standard traffic-light scale. The same for everyone.'**
+  String get levelsPer100g;
+
+  /// No description provided for @levelsPer100ml.
+  ///
+  /// In en, this message translates to:
+  /// **'Per 100 ml, on the standard traffic-light scale. The same for everyone.'**
+  String get levelsPer100ml;
+
+  /// No description provided for @levelLow.
+  ///
+  /// In en, this message translates to:
+  /// **'Low'**
+  String get levelLow;
+
+  /// No description provided for @levelMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get levelMedium;
+
+  /// No description provided for @levelHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'High'**
+  String get levelHigh;
+
+  /// No description provided for @feedbackQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Was this result right?'**
+  String get feedbackQuestion;
+
+  /// No description provided for @feedbackWhy.
+  ///
+  /// In en, this message translates to:
+  /// **'Your answer helps us check how accurate CalFit is.'**
+  String get feedbackWhy;
+
+  /// No description provided for @feedbackYes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes'**
+  String get feedbackYes;
+
+  /// No description provided for @feedbackNo.
+  ///
+  /// In en, this message translates to:
+  /// **'Not quite'**
+  String get feedbackNo;
+
+  /// No description provided for @feedbackWhatWrong.
+  ///
+  /// In en, this message translates to:
+  /// **'What was wrong?'**
+  String get feedbackWhatWrong;
+
+  /// No description provided for @issueWrongProduct.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong product'**
+  String get issueWrongProduct;
+
+  /// No description provided for @issueWrongNutrition.
+  ///
+  /// In en, this message translates to:
+  /// **'Nutrition numbers'**
+  String get issueWrongNutrition;
+
+  /// No description provided for @issueWrongIngredients.
+  ///
+  /// In en, this message translates to:
+  /// **'Ingredients'**
+  String get issueWrongIngredients;
+
+  /// No description provided for @issueMissedAllergen.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed an allergen'**
+  String get issueMissedAllergen;
+
+  /// No description provided for @issueScoreUnfair.
+  ///
+  /// In en, this message translates to:
+  /// **'Score feels wrong'**
+  String get issueScoreUnfair;
+
+  /// No description provided for @issueOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Something else'**
+  String get issueOther;
+
+  /// No description provided for @feedbackSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get feedbackSend;
+
+  /// No description provided for @feedbackThanks.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you. This helps us get better.'**
+  String get feedbackThanks;
+
+  /// No description provided for @feedbackFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t send that. Check your connection and try again.'**
+  String get feedbackFailed;
+
+  /// No description provided for @pickerConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Is this the product?'**
+  String get pickerConfirmTitle;
+
+  /// No description provided for @pickerChooseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Which one is it?'**
+  String get pickerChooseTitle;
+
+  /// No description provided for @pickerReadAs.
+  ///
+  /// In en, this message translates to:
+  /// **'We read “{text}” on the pack.'**
+  String pickerReadAs(String text);
+
+  /// No description provided for @pickerYes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes, that\'s it'**
+  String get pickerYes;
+
+  /// No description provided for @pickerNoRetake.
+  ///
+  /// In en, this message translates to:
+  /// **'No, retake the photo'**
+  String get pickerNoRetake;
+
+  /// No description provided for @pickerNoneRetake.
+  ///
+  /// In en, this message translates to:
+  /// **'None of these, retake'**
+  String get pickerNoneRetake;
+
+  /// No description provided for @sourceOpenFoodFacts.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Food Facts'**
+  String get sourceOpenFoodFacts;
+
+  /// No description provided for @sourceCalfitDb.
+  ///
+  /// In en, this message translates to:
+  /// **'CalFit database'**
+  String get sourceCalfitDb;
+
+  /// No description provided for @retakeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Take the photo again with the product name in view, or photograph the back of the pack.'**
+  String get retakeHint;
+
+  /// No description provided for @identifiedAs.
+  ///
+  /// In en, this message translates to:
+  /// **'Identified as {name}'**
+  String identifiedAs(String name);
+
+  /// No description provided for @identifiedSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Nutrition per 100 g/ml from {source}'**
+  String identifiedSource(String source);
+
+  /// No description provided for @notThisProduct.
+  ///
+  /// In en, this message translates to:
+  /// **'Not this product?'**
+  String get notThisProduct;
+
+  /// No description provided for @removeScanTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this scan?'**
+  String get removeScanTitle;
+
+  /// No description provided for @removeScanBody.
+  ///
+  /// In en, this message translates to:
+  /// **'It will be deleted from your history so you can take the photo again.'**
+  String get removeScanBody;
+
+  /// No description provided for @remove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get remove;
+
+  /// No description provided for @scanRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan removed. Tap Scan to try again.'**
+  String get scanRemoved;
+
+  /// No description provided for @couldntRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t remove the scan. Try again.'**
+  String get couldntRemove;
+
+  /// No description provided for @servingUnknownTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Serving size unknown'**
+  String get servingUnknownTitle;
+
+  /// No description provided for @servingUnknownBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This label\'s numbers don\'t say whether they\'re per 100 g/ml or per serving. Check the pack and add the serving size; we\'ll use it the next time you scan this product.'**
+  String get servingUnknownBody;
+
+  /// No description provided for @addServingSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Add serving size'**
+  String get addServingSize;
+
+  /// No description provided for @servingSheetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Serving size'**
+  String get servingSheetTitle;
+
+  /// No description provided for @servingAmountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'One serving (g or ml)'**
+  String get servingAmountLabel;
+
+  /// No description provided for @servingAmountHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'On the pack, look for “serving size” or the net quantity.'**
+  String get servingAmountHelp;
+
+  /// No description provided for @servingBasisLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'The numbers on the label are'**
+  String get servingBasisLabel;
+
+  /// No description provided for @basisPer100.
+  ///
+  /// In en, this message translates to:
+  /// **'Per 100 g/ml'**
+  String get basisPer100;
+
+  /// No description provided for @basisPerServing.
+  ///
+  /// In en, this message translates to:
+  /// **'Per serving'**
+  String get basisPerServing;
+
+  /// No description provided for @servingSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved: {amount} g/ml per serving. We\'ll use it the next time you scan this product.'**
+  String servingSaved(String amount);
+
+  /// No description provided for @servingSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save. Check your connection and try again.'**
+  String get servingSaveFailed;
+
+  /// No description provided for @labelNotePer100.
+  ///
+  /// In en, this message translates to:
+  /// **'Per 100 g/ml, from {source}. A dash means it isn\'t known.'**
+  String labelNotePer100(String source);
+
+  /// No description provided for @labelNoteYourServing.
+  ///
+  /// In en, this message translates to:
+  /// **'Per serving of {amount} g/ml, the serving size you saved.'**
+  String labelNoteYourServing(String amount);
+
+  /// No description provided for @confirmingProduct.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking this product…'**
+  String get confirmingProduct;
 }
 
 class _AppLocalizationsDelegate

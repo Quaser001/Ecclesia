@@ -76,8 +76,14 @@ class SpyStorage(StorageProvider):
         self.uploads += 1
         return "x"
 
+    async def delete_object(self, bucket, path):
+        return None
+
     async def delete_folder(self, bucket, prefix):
         return 0
+
+    async def signed_urls(self, bucket, paths, expires_in):
+        return {p: None for p in paths}
 
 
 @pytest.fixture

@@ -17,6 +17,7 @@ from src.domain.models import (
     Sex,
     UserProfile,
 )
+from src.domain.feedback import summarize_feedback
 from src.providers.interfaces import StorageProvider, SupabaseProvider
 
 logger = logging.getLogger(__name__)
@@ -151,21 +152,42 @@ class SupabaseDBProvider(SupabaseProvider):
             raise
 
     async def get_scan_history(
-        self, user_id: str, limit: int = 20
+        self, user_id: str, limit: int = 20, before: str | None = None
     ) -> list[dict[str, Any]]:
         client = await self._get_client()
         try:
-            response = (
-                await client.table("scans")
+            query = (
+                client.table("scans")
                 .select("scan_id, user_id, scanned_at, product_name, brand, score, suitability, image_url")
                 .eq("user_id", user_id)
-                .order("scanned_at", desc=True)
-                .limit(limit)
-                .execute()
             )
+            if before:
+                query = query.lt("scanned_at", before)
+            response = await query.order("scanned_at", desc=True).limit(limit).execute()
             return response.data or []
         except Exception as exc:
             logger.error("Get scan history failed: %s", exc)
+            raise
+
+    async def get_scan_stats(self, user_id: str) -> dict[str, Any]:
+        client = await self._get_client()
+        try:
+            # count="exact" gives the true total; the score list is capped by
+            # the server (1000 rows), which is plenty for an average and best.
+            response = (
+                await client.table("scans")
+                .select("score", count="exact")
+                .eq("user_id", user_id)
+                .execute()
+            )
+            scores = [int(r["score"]) for r in response.data or []]
+            return {
+                "total": response.count if response.count is not None else len(scores),
+                "average": round(sum(scores) / len(scores)) if scores else None,
+                "best": max(scores) if scores else None,
+            }
+        except Exception as exc:
+            logger.error("Get scan stats failed: %s", type(exc).__name__)
             raise
 
     async def get_scan(self, user_id: str, scan_id: str) -> dict[str, Any] | None:
@@ -187,6 +209,8 @@ class SupabaseDBProvider(SupabaseProvider):
     async def delete_user_data(self, user_id: str) -> int:
         client = await self._get_client()
         try:
+            await client.table("scan_feedback").delete().eq("user_id", user_id).execute()
+            await client.table("serving_memory").delete().eq("user_id", user_id).execute()
             scans = await client.table("scans").delete().eq("user_id", user_id).execute()
             # Scan counter and the prescription counter (keyed "rx:<user_id>").
             await client.table("scan_usage").delete().in_(
@@ -213,6 +237,81 @@ class SupabaseDBProvider(SupabaseProvider):
             return response.data or []
         except Exception as exc:
             logger.error("Get scans for insights failed: %s", type(exc).__name__)
+            raise
+
+    async def save_scan_feedback(
+        self, user_id: str, scan_id: str, accurate: bool, issues: list[str]
+    ) -> None:
+        client = await self._get_client()
+        try:
+            await client.table("scan_feedback").upsert({
+                "scan_id": scan_id,
+                "user_id": user_id,
+                "accurate": accurate,
+                "issues": issues,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }).execute()
+        except Exception as exc:
+            logger.error("Save scan feedback failed: %s", type(exc).__name__)
+            raise
+
+    async def get_feedback_summary(self, since: datetime | None = None) -> dict[str, Any]:
+        client = await self._get_client()
+        try:
+            rows: list[dict[str, Any]] = []
+            page = 1000
+            while True:
+                query = client.table("scan_feedback").select("accurate, issues")
+                if since:
+                    query = query.gte("created_at", since.astimezone(timezone.utc).isoformat())
+                batch = (await query.range(len(rows), len(rows) + page - 1).execute()).data or []
+                rows.extend(batch)
+                if len(batch) < page:
+                    break
+            return summarize_feedback(rows)
+        except Exception as exc:
+            logger.error("Feedback summary failed: %s", type(exc).__name__)
+            raise
+
+    async def delete_scan(self, user_id: str, scan_id: str) -> bool:
+        client = await self._get_client()
+        try:
+            # scan_feedback rows go with it (ON DELETE CASCADE).
+            res = await client.table("scans").delete().eq("scan_id", scan_id) \
+                .eq("user_id", user_id).execute()
+            return bool(res.data)
+        except Exception as exc:
+            logger.error("Delete scan failed: %s", type(exc).__name__)
+            raise
+
+    async def get_serving_memory(self, user_id: str, product_key: str) -> dict[str, Any] | None:
+        client = await self._get_client()
+        try:
+            res = await client.table("serving_memory").select("serving_size_g, label_basis") \
+                .eq("user_id", user_id).eq("product_key", product_key).limit(1).execute()
+        except Exception as exc:
+            # A missing memory must not stop a scan; it just isn't applied.
+            logger.warning("Serving memory lookup failed: %s", type(exc).__name__)
+            return None
+        if not res.data:
+            return None
+        row = res.data[0]
+        return {"serving_size_g": float(row["serving_size_g"]), "label_basis": row["label_basis"]}
+
+    async def save_serving_memory(
+        self, user_id: str, product_key: str, serving_size_g: float, label_basis: str
+    ) -> None:
+        client = await self._get_client()
+        try:
+            await client.table("serving_memory").upsert({
+                "user_id": user_id,
+                "product_key": product_key,
+                "serving_size_g": serving_size_g,
+                "label_basis": label_basis,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).execute()
+        except Exception as exc:
+            logger.error("Save serving memory failed: %s", type(exc).__name__)
             raise
 
 
@@ -244,8 +343,28 @@ class SupabaseStorageProvider(StorageProvider):
             # serve signed URLs before showing photos in the app.
             return await client.storage.from_(bucket).get_public_url(path)
         except Exception as exc:
-            logger.error("Image upload failed (bucket=%s, path=%s): %s", bucket, path, exc)
+            # No path (it holds the user id) and no error text, per the logging rule.
+            logger.error("Image upload failed: %s", type(exc).__name__)
             raise
+
+    async def signed_urls(
+        self, bucket: str, paths: list[str], expires_in: int
+    ) -> dict[str, str | None]:
+        if not paths:
+            return {}
+        client = await self._get_client()
+        try:
+            signed = await client.storage.from_(bucket).create_signed_urls(paths, expires_in)
+        except Exception as exc:
+            # No photo is better than a failed history page.
+            logger.warning("Signing photo links failed: %s", type(exc).__name__)
+            return {p: None for p in paths}
+        out: dict[str, str | None] = {p: None for p in paths}
+        for item in signed or []:
+            url = item.get("signedURL") or item.get("signedUrl")
+            if item.get("path") in out and url and not item.get("error"):
+                out[item["path"]] = url
+        return out
 
     async def delete_folder(self, bucket: str, prefix: str) -> int:
         if not prefix.strip("/") or ".." in prefix:
@@ -265,6 +384,12 @@ class SupabaseStorageProvider(StorageProvider):
                 raise RuntimeError("Storage reported nothing removed; stopping to avoid a loop.")
             removed += len(deleted)
         raise RuntimeError("Too many photos to delete in one request.")
+
+    async def delete_object(self, bucket: str, path: str) -> None:
+        if not path.strip("/") or ".." in path:
+            raise ValueError("Refusing to delete outside the bucket.")
+        client = await self._get_client()
+        await client.storage.from_(bucket).remove([path])
 
 
 # ---------------------------------------------------------------------------

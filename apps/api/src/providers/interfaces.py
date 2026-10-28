@@ -1,6 +1,7 @@
 """Provider interfaces for external services."""
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Any
 
 from src.domain.models import KnowledgeEntry, ProductObservation, UserProfile
@@ -78,8 +79,15 @@ class SupabaseProvider(ABC):
         ...
 
     @abstractmethod
-    async def get_scan_history(self, user_id: str, limit: int = 20) -> list[dict[str, Any]]:
-        """Retrieve scan history for a user."""
+    async def get_scan_history(
+        self, user_id: str, limit: int = 20, before: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Newest-first scan history; `before` (ISO time, UTC) pages backwards."""
+        ...
+
+    @abstractmethod
+    async def get_scan_stats(self, user_id: str) -> dict[str, Any]:
+        """{"total", "average", "best"} over all of the user's scans."""
         ...
 
     @abstractmethod
@@ -99,6 +107,35 @@ class SupabaseProvider(ABC):
         """Recent scans with their score_json, newest first."""
         ...
 
+    @abstractmethod
+    async def save_scan_feedback(
+        self, user_id: str, scan_id: str, accurate: bool, issues: list[str]
+    ) -> None:
+        """Record "was this right?" for one of the user's scans (latest answer wins)."""
+        ...
+
+    @abstractmethod
+    async def get_feedback_summary(self, since: datetime | None = None) -> dict[str, Any]:
+        """Counts over all users: total, accurate, and how often each issue was picked."""
+        ...
+
+    @abstractmethod
+    async def delete_scan(self, user_id: str, scan_id: str) -> bool:
+        """Delete one of the user's scans (and its feedback). False if not theirs."""
+        ...
+
+    @abstractmethod
+    async def get_serving_memory(self, user_id: str, product_key: str) -> dict[str, Any] | None:
+        """The serving size this user saved for a product: {serving_size_g, label_basis}."""
+        ...
+
+    @abstractmethod
+    async def save_serving_memory(
+        self, user_id: str, product_key: str, serving_size_g: float, label_basis: str
+    ) -> None:
+        """Remember (or replace) the user's serving size for a product."""
+        ...
+
 
 class StorageProvider(ABC):
     """Interface for file/image storage."""
@@ -109,6 +146,18 @@ class StorageProvider(ABC):
         ...
 
     @abstractmethod
+    async def signed_urls(
+        self, bucket: str, paths: list[str], expires_in: int
+    ) -> dict[str, str | None]:
+        """Short-lived links for private objects; None where a link can't be made."""
+        ...
+
+    @abstractmethod
     async def delete_folder(self, bucket: str, prefix: str) -> int:
         """Delete every object under `prefix` in `bucket`. Returns how many."""
+        ...
+
+    @abstractmethod
+    async def delete_object(self, bucket: str, path: str) -> None:
+        """Delete one object. Missing objects are not an error."""
         ...

@@ -38,6 +38,7 @@ class FoodProduct(BaseModel):
     ingredients: list[str] = Field(default_factory=list)
     nutrition: NutritionInfo = Field(default_factory=NutritionInfo)
     serving_size: Optional[str] = None
+    quantity: Optional[str] = None  # pack size as listed ("200 mL"); lookups only, not stored
     allergens: list[str] = Field(default_factory=list)
     image_url: Optional[str] = None
     source: str = "open_food_facts"
@@ -188,6 +189,25 @@ class ProductRepository:
                     best_row, best_shared = row, shared
 
         return _row_to_product(best_row) if best_row is not None else None
+
+    def search_by_words(self, words: set[str], limit: int = 200) -> list[FoodProduct]:
+        """Products whose name or brand contains any of the words.
+
+        A wide net: ranking which of these is the scanned product is done in
+        services/identification.py, not here.
+        """
+        picked = sorted(w for w in words if len(w) >= 3)[:6]
+        if not picked:
+            return []
+        clause = " OR ".join(["LOWER(product_name) LIKE ? OR LOWER(brand) LIKE ?"] * len(picked))
+        params: list[Any] = []
+        for w in picked:
+            params += [f"%{w}%", f"%{w}%"]
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM food_products WHERE {clause} LIMIT ?", (*params, limit)
+            ).fetchall()
+        return [_row_to_product(r) for r in rows]
 
     def find_by_calfit_category(
         self, calfit_category: str, limit: int = 300

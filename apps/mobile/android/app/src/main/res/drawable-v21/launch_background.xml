@@ -2,7 +2,7 @@
 <!-- API 21+ splash — same as the base one; we never want to inherit the OS
      colour because it would be white in light mode and clash with the brand. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/calfit_bg_dark" />
+    <item android:drawable="@color/ic_launcher_background" />
     <item>
         <bitmap
             android:gravity="center"

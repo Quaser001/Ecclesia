@@ -18,6 +18,7 @@ from src.prompts.prescription_extraction import (
     PRESCRIPTION_USER_INSTRUCTION,
     build_prescription_prompt,
 )
+from src.observability import note
 from src.providers.interfaces import GeminiProvider
 
 logger = logging.getLogger(__name__)
@@ -37,10 +38,24 @@ _FALLBACK_MODELS = [
 class GoogleGeminiProvider(GeminiProvider):
     """Production Gemini provider implementing both photo analysis and text explanation."""
 
-    def __init__(self, api_key: str = "", model: str = "") -> None:
-        self._key = (api_key or getattr(settings, "GEMINI_API_KEY", "")).strip()
+    def __init__(
+        self,
+        api_key: str = "",
+        model: str = "",
+        *,
+        vertex_project: str = "",
+        vertex_location: str = "",
+    ) -> None:
         self._model = (model or getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash")).strip()
-        self._client = genai.Client(api_key=self._key)
+        if vertex_project:
+            # Vertex AI: the service account's credentials, a regional endpoint.
+            self._key = ""
+            self._client = genai.Client(
+                vertexai=True, project=vertex_project, location=vertex_location
+            )
+        else:
+            self._key = (api_key or getattr(settings, "GEMINI_API_KEY", "")).strip()
+            self._client = genai.Client(api_key=self._key)
 
     async def analyze_photo(
         self, photo_bytes: bytes, mime_type: str = "image/jpeg"
@@ -56,7 +71,7 @@ class GoogleGeminiProvider(GeminiProvider):
         # regex-rescue parser as the primary path. The regex parser is still
         # called as a fallback for responses that slip through (older SDKs,
         # structured-output rejection, etc.).
-        for model_name in candidate_models:
+        for attempt, model_name in enumerate(candidate_models, start=1):
             try:
                 logger.info("Attempting photo analysis with model: %s", model_name)
                 response = await self._client.aio.models.generate_content(
@@ -71,12 +86,18 @@ class GoogleGeminiProvider(GeminiProvider):
                 )
                 raw_text = response.text or ""
                 parsed = _parse_extraction_json(raw_text)
-                return _dict_to_product_observation(parsed)
+                observation = _dict_to_product_observation(parsed)
+                note(model=model_name, model_attempts=attempt)
+                return observation
             except Exception as exc:
-                logger.warning("Photo analysis with model %s failed: %s", model_name, exc)
+                # Class name only: SDK errors can echo request content.
+                logger.warning(
+                    "Photo analysis with model %s failed: %s", model_name, type(exc).__name__)
                 last_exception = exc
 
-        logger.error("All Gemini vision models failed. Last error: %s", last_exception)
+        note(model=None, model_attempts=len(candidate_models))
+        logger.error(
+            "All Gemini vision models failed. Last error: %s", type(last_exception).__name__)
         if last_exception:
             raise last_exception
         raise RuntimeError("Photo analysis failed on all models.")
@@ -131,7 +152,7 @@ class GoogleGeminiProvider(GeminiProvider):
         candidate_models = [self._model] + [m for m in _FALLBACK_MODELS if m != self._model]
         last_exception: Exception | None = None
 
-        for model_name in candidate_models:
+        for attempt, model_name in enumerate(candidate_models, start=1):
             try:
                 response = await self._client.aio.models.generate_content(
                     model=model_name,
@@ -141,14 +162,18 @@ class GoogleGeminiProvider(GeminiProvider):
                         temperature=0.1,
                     ),
                 )
+                note(explanation_model=model_name, explanation_attempts=attempt)
                 return (response.text or "").strip()
             except Exception as exc:
+                # The prompt holds health conditions; never log the error text.
                 logger.warning(
-                    "Explanation generation with model %s failed: %s", model_name, exc
+                    "Explanation generation with model %s failed: %s",
+                    model_name, type(exc).__name__,
                 )
                 last_exception = exc
 
-        logger.error("All Gemini text models failed. Last error: %s", last_exception)
+        logger.error(
+            "All Gemini text models failed. Last error: %s", type(last_exception).__name__)
         if last_exception:
             raise last_exception
         return ""
@@ -173,6 +198,10 @@ _EXTRACTION_SCHEMA: dict[str, Any] = {
         "brand": {"type": "STRING", "nullable": True},
         "product_name": {"type": "STRING", "nullable": True},
         "category": {"type": "STRING", "nullable": True},
+        "variant": {"type": "STRING", "nullable": True},
+        "net_quantity": {"type": "STRING", "nullable": True},
+        "mrp": {"type": "STRING", "nullable": True},
+        "identity_confidence": {"type": "NUMBER", "nullable": True},
         "ingredients": _STR_ARR,
         "nutrition": {
             "type": "OBJECT",
@@ -309,6 +338,20 @@ def _clean_confidence(raw: Any) -> float:
     return max(0.0, min(1.0, parsed))
 
 
+def _optional_confidence(raw: Any) -> float | None:
+    """Identity confidence: missing stays None (unknown), never 0 or 1."""
+    parsed = _parse_float(raw)
+    return None if parsed is None else max(0.0, min(1.0, parsed))
+
+
+def _clean_text(raw: Any) -> str | None:
+    """A short printed string, or None. Anything that isn't text is dropped."""
+    if not isinstance(raw, str):
+        return None
+    text = " ".join(raw.split())
+    return text[:80] or None
+
+
 def _clean_strings(raw: Any) -> list[str]:
     """Keep only non-empty strings; anything else the model sent is dropped."""
     if not isinstance(raw, list):
@@ -401,6 +444,10 @@ def _dict_to_product_observation(data: dict) -> ProductObservation:
         brand=data.get("brand"),
         product_name=data.get("product_name") or data.get("name") or data.get("title"),
         category=data.get("category"),
+        variant=_clean_text(data.get("variant")),
+        net_quantity=_clean_text(data.get("net_quantity")),
+        mrp=_clean_text(data.get("mrp")),
+        identity_confidence=_optional_confidence(data.get("identity_confidence")),
         ingredients=data.get("ingredients") or [],
         nutrition=nutrition,
         allergens_declared=data.get("allergens_declared") or data.get("allergens") or [],

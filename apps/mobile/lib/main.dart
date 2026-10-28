@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app/app_theme.dart';
 import 'app/theme_controller.dart';
+import 'features/onboarding/onboarding_screen.dart';
 import 'l10n/l10n.dart';
 import 'navigation/bottom_navigation.dart';
 import 'services/api_service.dart';
@@ -11,17 +12,25 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ThemeController.init();
   final deviceId = await DeviceIdService.load();
-  runApp(CalFitApp(deviceId: deviceId));
+  final onboard = await Onboarding.shouldShow();
+  runApp(CalFitApp(deviceId: deviceId, showOnboarding: onboard));
 }
 
-class CalFitApp extends StatelessWidget {
+class CalFitApp extends StatefulWidget {
   final DeviceIdService deviceId;
-  const CalFitApp({super.key, required this.deviceId});
+  final bool showOnboarding;
+  const CalFitApp({super.key, required this.deviceId, this.showOnboarding = false});
+
+  @override
+  State<CalFitApp> createState() => _CalFitAppState();
+}
+
+class _CalFitAppState extends State<CalFitApp> {
+  final apiService = ApiService();
+  late bool _onboarding = widget.showOnboarding;
 
   @override
   Widget build(BuildContext context) {
-    final apiService = ApiService();
-
     return ListenableBuilder(
       listenable: Listenable.merge([
         ThemeController.themeMode,
@@ -47,7 +56,15 @@ class CalFitApp extends StatelessWidget {
               child: child!,
             );
           },
-          home: BottomNavigation(apiService: apiService, userId: deviceId.deviceId),
+          home: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 350),
+            child: _onboarding
+                ? OnboardingScreen(
+                    apiService: apiService,
+                    onDone: () => setState(() => _onboarding = false),
+                  )
+                : BottomNavigation(apiService: apiService, userId: widget.deviceId.deviceId),
+          ),
         );
       },
     );

@@ -1,5 +1,7 @@
 """CalFit configuration settings."""
 
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,6 +41,15 @@ class Settings(BaseSettings):
     GEMINI_API_KEYS: str = ""
     GEMINI_MODEL: str = "gemini-2.5-flash"
 
+    # Where Gemini runs (docs/AI_PROVIDER_OPTIONS.md).
+    #   developer_api: AI Studio, authenticated with GEMINI_API_KEY.
+    #   vertex: Vertex AI in GOOGLE_CLOUD_LOCATION, authenticated with the
+    #     service account (no API key). Processing stays in that region and
+    #     Google does not train on the data.
+    GEMINI_BACKEND: Literal["developer_api", "vertex"] = "developer_api"
+    GOOGLE_CLOUD_PROJECT: str = ""
+    GOOGLE_CLOUD_LOCATION: str = "asia-south1"
+
     # Grok (xAI)
     GROK_API_KEY: str = ""
     GROK_BASE_URL: str = "https://api.groq.com/openai/v1"
@@ -63,6 +74,15 @@ class Settings(BaseSettings):
 
     # Storage
     STORAGE_BUCKET: str = "calfit-scans"
+
+    # Online product lookup (Open Food Facts) when a front-of-pack photo names a
+    # product that isn't in food.db. Only the product name is sent.
+    FOOD_LOOKUP_ENABLED: bool = True
+    FOOD_LOOKUP_USER_AGENT: str = "CalFit/0.1 (+https://github.com/Quaser001/Ecclesia)"
+
+    # "json" on Cloud Run (one JSON object per line, parsed by Cloud Logging);
+    # "text" locally. See docs/EVALS_AND_OBSERVABILITY.md.
+    LOG_FORMAT: Literal["text", "json"] = "text"
 
     # Dev convenience — default user ID when no auth system is connected.
     # Not used for authorization: endpoints still take user_id explicitly.

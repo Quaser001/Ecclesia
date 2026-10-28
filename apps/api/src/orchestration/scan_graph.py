@@ -25,6 +25,7 @@ Design rule (see agents.md):
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 from datetime import datetime, timezone
 from functools import partial
@@ -33,6 +34,7 @@ from typing import Any, Literal
 from langgraph.graph import END, StateGraph
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.config.settings import settings
 from src.domain.models import (
     Alternative,
     KnowledgeEntry,
@@ -45,12 +47,25 @@ from src.domain.models import (
     UserProfile,
 )
 from src.domain.rule_catalog import MIN_EXTRACTION_CONFIDENCE
+from src.domain.identity import Identification, IdStatus
+from src.observability import log_scan_summary, note, start_scan_trace, timed
+from src.providers.food_lookup import FoodLookupProvider, LookupUnavailable
 from src.providers.interfaces import GeminiProvider, StorageProvider, SupabaseProvider
-from src.repositories.product_repository import ProductRepository
+from src.repositories.product_repository import FoodProduct, ProductRepository, _tokens
 from src.services.alternative_service import AlternativeService
 from src.services.explanation_service import ExplanationService
+from src.services.identification import (
+    MIN_CONFIDENCE,
+    Source,
+    decide,
+    message_for,
+    observation_from_product,
+    rank,
+    search_query,
+)
 from src.services.nutrition_merge import merge_reference_nutrition
 from src.services.scoring_service import ScoringService
+from src.services.serving_memory import apply_serving, product_key
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +92,9 @@ class ScanState(BaseModel):
     explanation: str = ""
     alternatives: list[Alternative] = Field(default_factory=list)
     image_url: str | None = None
+
+    # Which product a front-of-pack photo shows (services/identification.py).
+    identification: Identification | None = None
 
     # Control flow
     insufficient_data: bool = False
@@ -151,7 +169,10 @@ async def node_validate_extraction(state: ScanState) -> dict[str, Any]:
     # wasn't sure (extraction_confidence < threshold), refuse to score. Giving
     # a confident "Not Suitable" or "Good" verdict from a bad read is the
     # worst possible failure for a health app.
-    if product.extraction_confidence < MIN_EXTRACTION_CONFIDENCE:
+    # Front of pack only (nothing to score on the photo): extraction_confidence
+    # is about ingredients and nutrition, so it says nothing here. Identity is
+    # judged by identity_confidence in node_identify_product instead.
+    if has_scoreable_data(product) and product.extraction_confidence < MIN_EXTRACTION_CONFIDENCE:
         return {
             "insufficient_data": True,
             "pipeline_message": (
@@ -170,6 +191,11 @@ async def node_match_product(
     product = state.product
     if not product:
         return {}
+
+    front_only = not has_scoreable_data(product)
+    if front_only and product.identity_confidence is not None \
+            and product.identity_confidence < MIN_CONFIDENCE:
+        return {}  # the name itself is doubtful: let identification ask for a retake
 
     try:
         matched = product_repo.match_product(
@@ -196,9 +222,18 @@ async def node_match_product(
             "ingredients": product.ingredients or matched.ingredients,
             "nutrition": merged_nutrition,
             "allergens_declared": product.allergens_declared or matched.allergens,
+            "data_source": "calfit_database",
+            "source_code": matched.code,
+            "source_date": matched.imported_at,
         }
     )
-    return {"product": enriched_product}
+    update: dict[str, Any] = {"product": enriched_product}
+    if front_only:
+        # Everything scored came from the database: say which product it was.
+        ident = decide(product, [(matched, "calfit_database")])
+        if ident.status is IdStatus.CONFIDENT:
+            update["identification"] = ident
+    return update
 
 
 # Calories are excluded: a front-of-pack "75 kcal" badge is often the only
@@ -224,17 +259,74 @@ def has_scoreable_data(product: ProductObservation) -> bool:
 
 
 async def node_check_scoreable(state: ScanState) -> dict[str, Any]:
-    """After matching: refuse to score a product we know nothing about."""
-    if state.product is not None and has_scoreable_data(state.product):
+    """After matching: is there anything to score? Routing acts on the answer:
+    yes -> score; no -> find out which real product this is (identification)."""
+    return {}
+
+
+async def node_identify_product(
+    state: ScanState,
+    product_repo: ProductRepository,
+    lookup: FoodLookupProvider | None,
+) -> dict[str, Any]:
+    """Front of pack only: find the real product, or ask the user.
+
+    Local database first; Open Food Facts once, only if nothing local fits.
+    The model's reading is never a source of nutrition (AGENTS.md).
+    """
+    obs = state.product
+    if obs is None:
+        return {"insufficient_data": True}
+    if not obs.product_name or (obs.identity_confidence is not None
+                                and obs.identity_confidence < MIN_CONFIDENCE):
+        # A doubtful reading: ask for a retake without spending a search on it.
+        ident = decide(obs, [])
+        note(identification=ident.status.value, identification_options=0)
+        return {"identification": ident, "insufficient_data": True,
+                "pipeline_message": message_for(ident)}
+    words = _tokens(obs.brand) | _tokens(obs.product_name) | _tokens(obs.variant)
+    candidates: list[tuple[FoodProduct, Source]] = [
+        (p, "calfit_database") for p in product_repo.search_by_words(words)]
+    ranked = rank(obs, candidates)
+    lookup_failed = False
+    if not ranked and lookup is not None and obs.product_name:
+        try:
+            online = await lookup.search(search_query(obs))
+            ranked = rank(obs, [(p, "open_food_facts") for p in online])
+        except LookupUnavailable:
+            lookup_failed = True
+
+    ident = decide(obs, ranked, lookup_failed=lookup_failed)
+    note(identification=ident.status.value, identification_options=len(ident.options))
+    if ident.status is IdStatus.CONFIDENT:
+        product, source = ranked[0]
+        return {"product": observation_from_product(product, source, obs),
+                "identification": ident}
+    return {"identification": ident, "insufficient_data": True,
+            "pipeline_message": message_for(ident)}
+
+
+async def node_apply_serving_memory(
+    state: ScanState, supabase: SupabaseProvider
+) -> dict[str, Any]:
+    """Use the serving size this user saved for this product, if any."""
+    product = state.product
+    key = product_key(product.brand, product.product_name) if product else None
+    if not key:
         return {}
-    return {
-        "insufficient_data": True,
-        "pipeline_message": (
-            "We could read the product's name but not its ingredients or nutrition, "
-            "and it isn't in our product database yet. Take a photo of the back of "
-            "the pack showing the ingredients and nutrition table."
-        ),
-    }
+    try:
+        saved = await supabase.get_serving_memory(state.user_id, key)
+    except Exception as exc:  # noqa: BLE001 - a missing memory never blocks a scan
+        logger.warning("Serving memory unavailable: %s", type(exc).__name__)
+        return {}
+    if not saved:
+        return {}
+    nutrition = apply_serving(product.nutrition, float(saved["serving_size_g"]),
+                              saved["label_basis"])
+    if nutrition is product.nutrition:
+        return {}
+    note(serving_from_memory=True)
+    return {"product": product.model_copy(update={"nutrition": nutrition})}
 
 
 async def node_retrieve_knowledge(
@@ -383,10 +475,24 @@ def route_after_validation(
 
 def route_after_scoreable_check(
     state: ScanState,
-) -> Literal["retrieve_knowledge", "assemble_insufficient"]:
-    if state.insufficient_data:
+) -> Literal["apply_serving_memory", "identify_product"]:
+    if state.product is not None and has_scoreable_data(state.product):
+        return "apply_serving_memory"
+    return "identify_product"
+
+
+def route_after_identification(
+    state: ScanState,
+) -> Literal["apply_serving_memory", "assemble_insufficient"]:
+    if state.insufficient_data or state.product is None \
+            or not has_scoreable_data(state.product):
         return "assemble_insufficient"
-    return "retrieve_knowledge"
+    return "apply_serving_memory"
+
+
+def route_entry(state: ScanState) -> Literal["analyze_photo", "apply_serving_memory"]:
+    """A product the user already picked skips reading the photo."""
+    return "apply_serving_memory" if state.product is not None else "analyze_photo"
 
 
 # ---------------------------------------------------------------------------
@@ -400,27 +506,34 @@ def build_scan_graph(
     storage: StorageProvider,
     storage_bucket: str,
     product_repo: ProductRepository | None = None,
+    lookup: FoodLookupProvider | None = None,
 ) -> Any:
     """Build and compile the LangGraph scan pipeline."""
     repo = product_repo or ProductRepository()
     graph = StateGraph(ScanState)
 
-    graph.add_node("analyze_photo", partial(node_analyze_photo, gemini=gemini))
-    graph.add_node("validate_extraction", node_validate_extraction)
-    graph.add_node("match_product", partial(node_match_product, product_repo=repo))
-    graph.add_node("check_scoreable", node_check_scoreable)
-    graph.add_node("retrieve_knowledge", partial(node_retrieve_knowledge, supabase=supabase))
-    graph.add_node("load_profile", partial(node_load_profile, supabase=supabase))
-    graph.add_node("score_product", node_score_product)
-    graph.add_node("generate_explanation", partial(node_generate_explanation, gemini=gemini))
-    graph.add_node("find_alternatives", partial(node_find_alternatives, product_repo=repo))
-    graph.add_node(
-        "upload_image",
-        partial(node_upload_image, storage=storage, bucket=storage_bucket),
-    )
-    graph.add_node("assemble_insufficient", node_assemble_insufficient_result)
+    def add(name: str, node: Any) -> None:
+        # Every node is timed into the scan's trace (src/observability.py).
+        graph.add_node(name, timed(name, node))
 
-    graph.set_entry_point("analyze_photo")
+    add("analyze_photo", partial(node_analyze_photo, gemini=gemini))
+    add("validate_extraction", node_validate_extraction)
+    add("match_product", partial(node_match_product, product_repo=repo))
+    add("check_scoreable", node_check_scoreable)
+    add("identify_product", partial(node_identify_product, product_repo=repo, lookup=lookup))
+    add("apply_serving_memory", partial(node_apply_serving_memory, supabase=supabase))
+    add("retrieve_knowledge", partial(node_retrieve_knowledge, supabase=supabase))
+    add("load_profile", partial(node_load_profile, supabase=supabase))
+    add("score_product", node_score_product)
+    add("generate_explanation", partial(node_generate_explanation, gemini=gemini))
+    add("find_alternatives", partial(node_find_alternatives, product_repo=repo))
+    add("upload_image", partial(node_upload_image, storage=storage, bucket=storage_bucket))
+    add("assemble_insufficient", node_assemble_insufficient_result)
+
+    graph.set_conditional_entry_point(
+        route_entry,
+        {"analyze_photo": "analyze_photo", "apply_serving_memory": "apply_serving_memory"},
+    )
     graph.add_edge("analyze_photo", "validate_extraction")
     graph.add_conditional_edges(
         "validate_extraction",
@@ -435,10 +548,19 @@ def build_scan_graph(
         "check_scoreable",
         route_after_scoreable_check,
         {
-            "retrieve_knowledge": "retrieve_knowledge",
+            "apply_serving_memory": "apply_serving_memory",
+            "identify_product": "identify_product",
+        },
+    )
+    graph.add_conditional_edges(
+        "identify_product",
+        route_after_identification,
+        {
+            "apply_serving_memory": "apply_serving_memory",
             "assemble_insufficient": "assemble_insufficient",
         },
     )
+    graph.add_edge("apply_serving_memory", "retrieve_knowledge")
     graph.add_edge("retrieve_knowledge", "load_profile")
     graph.add_edge("load_profile", "score_product")
     graph.add_edge("score_product", "generate_explanation")
@@ -464,8 +586,11 @@ class ScanOrchestrator:
         supabase: SupabaseProvider,
         storage: StorageProvider,
         storage_bucket: str = "calfit-scans",
+        lookup: FoodLookupProvider | None = None,
+        product_repo: ProductRepository | None = None,
     ) -> None:
-        self._graph = build_scan_graph(gemini, supabase, storage, storage_bucket)
+        self._graph = build_scan_graph(gemini, supabase, storage, storage_bucket,
+                                       product_repo=product_repo, lookup=lookup)
         self._supabase = supabase
 
     async def run(
@@ -480,7 +605,30 @@ class ScanOrchestrator:
             photo_bytes=photo_bytes,
             mime_type=mime_type,
         )
+        return await self._execute(initial_state)
 
+    async def run_with_product(
+        self,
+        user_id: str,
+        product: ProductObservation,
+        identification: Identification,
+        photo_bytes: bytes,
+        mime_type: str = "image/jpeg",
+    ) -> ScanResponse:
+        """Score a product the user picked (confirm / choose): no photo reading."""
+        initial_state = ScanState(
+            user_id=user_id,
+            photo_bytes=photo_bytes,
+            mime_type=mime_type,
+            product=product,
+            identification=identification,
+        )
+        return await self._execute(initial_state)
+
+    async def _execute(self, initial_state: ScanState) -> ScanResponse:
+        user_id = initial_state.user_id
+        trace = start_scan_trace()
+        started = time.perf_counter()
         result_raw = await self._graph.ainvoke(initial_state)
         final_state = ScanState(**result_raw) if isinstance(result_raw, dict) else result_raw
 
@@ -504,16 +652,36 @@ class ScanOrchestrator:
             image_url=final_state.image_url,
             insufficient_data=final_state.insufficient_data,
             pipeline_message=final_state.pipeline_message,
+            identification=final_state.identification,
         )
 
         # Only persist scans that produced a real result; skip insufficient-data entries
         # so a user's history isn't polluted with "unknown product" placeholders.
+        saved = False
         if not response.insufficient_data:
-            await self._persist_scan(response)
+            saved = await self._persist_scan(response)
 
+        log_scan_summary(
+            trace,
+            round((time.perf_counter() - started) * 1000),
+            scan_id=response.scan_id,
+            outcome="insufficient_data" if response.insufficient_data else "scored",
+            ai_backend=settings.GEMINI_BACKEND,
+            suitability=None if response.insufficient_data
+            else response.score_result.suitability.value,
+            findings=len(response.score_result.findings),
+            alternatives=len(response.alternatives),
+            verified_alternatives=sum(1 for a in response.alternatives if a.verified),
+            extraction_confidence=round(response.product.extraction_confidence, 2),
+            nutrient_levels=len(response.nutrient_levels),
+            identification=(response.identification.status.value
+                            if response.identification else None),
+            data_source=response.product.data_source,
+            saved=saved,
+        )
         return response
 
-    async def _persist_scan(self, response: ScanResponse) -> None:
+    async def _persist_scan(self, response: ScanResponse) -> bool:
         try:
             scan_data = {
                 "scan_id": response.scan_id,
@@ -534,5 +702,9 @@ class ScanOrchestrator:
             # user opens the profile screen, so create an empty one here.
             await self._supabase.ensure_profile_exists(response.user_id)
             await self._supabase.save_scan(scan_data)
+            return True
         except Exception as exc:
-            logger.warning("Failed to persist scan %s: %s", response.scan_id, exc)
+            # Class name only: a database error can echo the row, which holds
+            # the explanation (and so the user's conditions).
+            logger.warning("Failed to persist scan %s: %s", response.scan_id, type(exc).__name__)
+            return False

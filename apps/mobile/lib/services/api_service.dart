@@ -183,6 +183,67 @@ class ApiService {
     });
   }
 
+  /// Scores the product the user confirmed or picked after a front-of-pack
+  /// scan. Only its code goes up; the server fetches the product's data
+  /// itself. The photo is sent again so it is saved with the scan.
+  Future<ScanResult> confirmScan({
+    required Uint8List photoBytes,
+    required ProductOption option,
+    String filename = 'product_photo.jpg',
+  }) async {
+    return _run(() async {
+      final response = await _authed((h) async {
+        final request = http.MultipartRequest('POST', _uri('/api/v1/scans/confirm'));
+        request.headers.addAll(h);
+        request.fields['product_code'] = option.code;
+        request.fields['source'] = option.source;
+        request.files.add(http.MultipartFile.fromBytes(
+          'photo',
+          photoBytes,
+          filename: filename,
+          contentType: _contentTypeFor(filename),
+        ));
+        final streamed = await client.send(request).timeout(ApiConfig.scanTimeout);
+        return http.Response.fromStream(streamed);
+      });
+      if (response.statusCode == 200) {
+        return ScanResult.fromJson(jsonDecode(response.body));
+      }
+      throw _fromResponse('check this product', response);
+    });
+  }
+
+  /// Remembers the serving size for this scan's product; used next time.
+  /// [labelBasis] is 'per_100' or 'per_serving'.
+  Future<void> saveServingSize(
+    String scanId, {
+    required double servingSizeG,
+    required String labelBasis,
+  }) async {
+    return _run(() async {
+      final res = await _authed((h) => client
+          .put(
+            _uri('/api/v1/scans/${Uri.encodeComponent(scanId)}/serving'),
+            headers: {...h, 'Content-Type': 'application/json'},
+            body: jsonEncode({'serving_size_g': servingSizeG, 'label_basis': labelBasis}),
+          )
+          .timeout(ApiConfig.lightTimeout));
+      if (res.statusCode == 204 || res.statusCode == 200) return;
+      throw _fromResponse('save the serving size', res);
+    });
+  }
+
+  /// Deletes one of the user's scans and its photo.
+  Future<void> deleteScan(String scanId) async {
+    return _run(() async {
+      final res = await _authed((h) => client
+          .delete(_uri('/api/v1/scans/${Uri.encodeComponent(scanId)}'), headers: h)
+          .timeout(ApiConfig.lightTimeout));
+      if (res.statusCode == 204 || res.statusCode == 200) return;
+      throw _fromResponse('remove this scan', res);
+    });
+  }
+
   /// Sends a prescription photo for reading and returns *suggestions only*.
   /// The server does not store the photo or what it read.
   Future<PrescriptionSuggestions> analyzePrescription({
@@ -227,10 +288,16 @@ class ApiService {
     }
   }
 
-  Future<List<ScanHistoryItem>> getScanHistory() async {
+  /// One page of history, newest first. Pass the oldest [before] time you
+  /// already have to get the next page.
+  Future<List<ScanHistoryItem>> getScanHistory({int limit = 20, DateTime? before}) async {
     return _run(() async {
+      final query = <String, String>{
+        'limit': '$limit',
+        if (before != null) 'before': before.toUtc().toIso8601String(),
+      };
       final res = await _authed((h) => client
-          .get(_uri('/api/v1/scans/history'), headers: h)
+          .get(_uri('/api/v1/scans/history', query), headers: h)
           .timeout(ApiConfig.lightTimeout));
       if (res.statusCode == 200) {
         final List<dynamic> list = jsonDecode(res.body);
@@ -257,6 +324,19 @@ class ApiService {
     await tokenStore.clear();
   }
 
+  /// Totals across every scan (Home's numbers), not just the latest page.
+  Future<ScanStats> getScanStats() async {
+    return _run(() async {
+      final res = await _authed((h) => client
+          .get(_uri('/api/v1/scans/stats'), headers: h)
+          .timeout(ApiConfig.lightTimeout));
+      if (res.statusCode == 200) {
+        return ScanStats.fromJson(jsonDecode(res.body));
+      }
+      throw _fromResponse('load your scan totals', res);
+    });
+  }
+
   /// One past scan in full (findings, nutrition, explanation).
   Future<ScanResult> getScan(String scanId) async {
     return _run(() async {
@@ -267,6 +347,26 @@ class ApiService {
         return ScanResult.fromJson(jsonDecode(res.body));
       }
       throw _fromResponse('open this scan', res);
+    });
+  }
+
+  /// "Was this result right?" for one of the user's scans. [issues] are the
+  /// backend's fixed keys (wrong_product, wrong_nutrition, ...); no free text.
+  Future<void> sendScanFeedback(
+    String scanId, {
+    required bool accurate,
+    List<String> issues = const [],
+  }) async {
+    return _run(() async {
+      final res = await _authed((h) => client
+          .post(
+            _uri('/api/v1/scans/${Uri.encodeComponent(scanId)}/feedback'),
+            headers: {...h, 'Content-Type': 'application/json'},
+            body: jsonEncode({'accurate': accurate, 'issues': accurate ? [] : issues}),
+          )
+          .timeout(ApiConfig.lightTimeout));
+      if (res.statusCode == 204 || res.statusCode == 200) return;
+      throw _fromResponse('send your feedback', res);
     });
   }
 

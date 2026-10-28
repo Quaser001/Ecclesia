@@ -31,6 +31,7 @@ from src.domain.models import (
     ScoreResult,
     UserProfile,
 )
+from src.domain.nutrient_levels import is_drink
 from src.domain.scoring_rules import calculate_score
 
 logger = logging.getLogger(__name__)
@@ -136,9 +137,14 @@ class AlternativeService:
                 ingredient_rules.add(f.rule_id)
 
         wanted_flavours = set(flavours_of(product.product_name))
+        # One CalFit category can hold drinks and foods (lassi and ice cream):
+        # a drink is only ever replaced by a drink, a food by a food.
+        drink = is_drink(product.category, product.product_name)
         ranked: list[tuple[tuple, Alternative]] = []
         for cand in product_repo.find_by_calfit_category(category):
             if _same_product(product, cand.product_name, cand.brand):
+                continue
+            if is_drink(" ".join(cand.categories), cand.product_name) != drink:
                 continue
             if profile.allergies and not cand.ingredients:
                 continue  # allergens can't be checked without an ingredient list

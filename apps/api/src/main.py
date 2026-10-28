@@ -9,11 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.v1.endpoints import router as api_router
 from src.config.settings import settings
+from src.observability import configure_logging, request_context_middleware
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s - %(message)s",
-)
+configure_logging(settings.LOG_FORMAT)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
@@ -43,6 +41,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Added after CORS, so it runs first: every request (CORS preflights too) gets an id.
+app.middleware("http")(request_context_middleware)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 

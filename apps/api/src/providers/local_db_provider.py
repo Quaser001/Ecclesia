@@ -18,6 +18,7 @@ from src.domain.models import (
     Sex,
     UserProfile,
 )
+from src.domain.feedback import summarize_feedback
 from src.providers.interfaces import StorageProvider, SupabaseProvider
 
 logger = logging.getLogger(__name__)
@@ -116,6 +117,25 @@ class LocalDBProvider(SupabaseProvider):
                     product_json TEXT,
                     score_json TEXT,
                     explanation TEXT
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS serving_memory (
+                    user_id TEXT NOT NULL,
+                    product_key TEXT NOT NULL,
+                    serving_size_g REAL NOT NULL,
+                    label_basis TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (user_id, product_key)
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS scan_feedback (
+                    scan_id TEXT PRIMARY KEY REFERENCES scans(scan_id) ON DELETE CASCADE,
+                    user_id TEXT NOT NULL,
+                    accurate INTEGER NOT NULL,
+                    issues TEXT NOT NULL DEFAULT '[]',
+                    created_at TEXT NOT NULL
                 )
             """)
             conn.commit()
@@ -273,19 +293,32 @@ class LocalDBProvider(SupabaseProvider):
         return scan_data["scan_id"]
 
     async def get_scan_history(
-        self, user_id: str, limit: int = 20
+        self, user_id: str, limit: int = 20, before: str | None = None
     ) -> list[dict[str, Any]]:
         with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
+            rows = conn.execute(
+                """
                 SELECT scan_id, user_id, scanned_at, product_name, brand, score, suitability, image_url
                 FROM scans
-                WHERE user_id = ?
+                WHERE user_id = ? AND (? IS NULL OR scanned_at < ?)
                 ORDER BY scanned_at DESC
                 LIMIT ?
-            """, (user_id, limit))
-            rows = cursor.fetchall()
+                """,
+                (user_id, before, before, limit),
+            ).fetchall()
             return [dict(r) for r in rows]
+
+    async def get_scan_stats(self, user_id: str) -> dict[str, Any]:
+        with self._get_connection() as conn:
+            total, avg, best = conn.execute(
+                "SELECT COUNT(*), AVG(score), MAX(score) FROM scans WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+        return {
+            "total": total,
+            "average": round(avg) if avg is not None else None,
+            "best": best,
+        }
 
     async def get_scan(self, user_id: str, scan_id: str) -> dict[str, Any] | None:
         with self._get_connection() as conn:
@@ -297,6 +330,8 @@ class LocalDBProvider(SupabaseProvider):
 
     async def delete_user_data(self, user_id: str) -> int:
         with self._get_connection() as conn:
+            conn.execute("DELETE FROM scan_feedback WHERE user_id = ?", (user_id,))
+            conn.execute("DELETE FROM serving_memory WHERE user_id = ?", (user_id,))
             deleted = conn.execute("DELETE FROM scans WHERE user_id = ?", (user_id,)).rowcount
             # Scan counter and the prescription counter (keyed "rx:<user_id>").
             conn.execute("DELETE FROM scan_usage WHERE user_id IN (?, ?)", (user_id, f"rx:{user_id}"))
@@ -319,6 +354,69 @@ class LocalDBProvider(SupabaseProvider):
                 (user_id, limit),
             ).fetchall()
             return [dict(r) for r in rows]
+
+    async def save_scan_feedback(
+        self, user_id: str, scan_id: str, accurate: bool, issues: list[str]
+    ) -> None:
+        with self._get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO scan_feedback (scan_id, user_id, accurate, issues, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(scan_id) DO UPDATE SET
+                    accurate = excluded.accurate,
+                    issues = excluded.issues,
+                    created_at = excluded.created_at
+                """,
+                (scan_id, user_id, int(accurate), json.dumps(issues),
+                 datetime.now(timezone.utc).isoformat()),
+            )
+            conn.commit()
+
+    async def get_feedback_summary(self, since: datetime | None = None) -> dict[str, Any]:
+        cutoff = since.astimezone(timezone.utc).isoformat() if since else None
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                "SELECT accurate, issues FROM scan_feedback WHERE (? IS NULL OR created_at >= ?)",
+                (cutoff, cutoff),
+            ).fetchall()
+        return summarize_feedback(
+            [{"accurate": bool(r["accurate"]), "issues": json.loads(r["issues"] or "[]")} for r in rows]
+        )
+
+    async def delete_scan(self, user_id: str, scan_id: str) -> bool:
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM scan_feedback WHERE scan_id = ? AND user_id = ?",
+                         (scan_id, user_id))
+            gone = conn.execute("DELETE FROM scans WHERE scan_id = ? AND user_id = ?",
+                                (scan_id, user_id)).rowcount
+            conn.commit()
+        return gone > 0
+
+    async def get_serving_memory(self, user_id: str, product_key: str) -> dict[str, Any] | None:
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT serving_size_g, label_basis FROM serving_memory "
+                "WHERE user_id = ? AND product_key = ?", (user_id, product_key)).fetchone()
+        return dict(row) if row else None
+
+    async def save_serving_memory(
+        self, user_id: str, product_key: str, serving_size_g: float, label_basis: str
+    ) -> None:
+        with self._get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO serving_memory (user_id, product_key, serving_size_g, label_basis, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, product_key) DO UPDATE SET
+                    serving_size_g = excluded.serving_size_g,
+                    label_basis = excluded.label_basis,
+                    updated_at = excluded.updated_at
+                """,
+                (user_id, product_key, serving_size_g, label_basis,
+                 datetime.now(timezone.utc).isoformat()),
+            )
+            conn.commit()
 
 
 class LocalStorageProvider(StorageProvider):
@@ -345,6 +443,13 @@ class LocalStorageProvider(StorageProvider):
             f.write(data)
         return f"/uploads/{bucket}/{path}"
 
+    async def signed_urls(
+        self, bucket: str, paths: list[str], expires_in: int
+    ) -> dict[str, str | None]:
+        # Local development has no file server for uploads, so there is no
+        # link to give; the app shows its placeholder instead.
+        return {p: None for p in paths}
+
     async def delete_folder(self, bucket: str, prefix: str) -> int:
         base = self._base_dir.resolve()
         bucket_dir = (base / bucket).resolve()
@@ -362,6 +467,14 @@ class LocalStorageProvider(StorageProvider):
                 f.rmdir()
         folder.rmdir()
         return removed
+
+    async def delete_object(self, bucket: str, path: str) -> None:
+        base = self._base_dir.resolve()
+        bucket_dir = (base / bucket).resolve()
+        target = (bucket_dir / path).resolve()
+        if not target.is_relative_to(bucket_dir) or target == bucket_dir:
+            raise ValueError("Refusing to delete outside the bucket.")
+        target.unlink(missing_ok=True)
 
 
 def _row_to_profile(row: sqlite3.Row) -> UserProfile:

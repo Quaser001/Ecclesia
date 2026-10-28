@@ -91,6 +91,11 @@ class ScanFinding {
 }
 
 class NutritionInfo {
+  /// Grams or ml the numbers below are for; null when the label didn't say.
+  final double? servingSizeG;
+
+  /// 'you' when the serving size is the user's saved answer for this product.
+  final String? servingSizeSource;
   final double? caloriesKcal;
   final double? totalFatG;
   final double? saturatedFatG;
@@ -102,6 +107,8 @@ class NutritionInfo {
   final double? proteinG;
 
   NutritionInfo({
+    this.servingSizeG,
+    this.servingSizeSource,
     this.caloriesKcal,
     this.totalFatG,
     this.saturatedFatG,
@@ -116,6 +123,8 @@ class NutritionInfo {
   factory NutritionInfo.fromJson(Map<String, dynamic>? json) {
     if (json == null) return NutritionInfo();
     return NutritionInfo(
+      servingSizeG: (json['serving_size_g'] as num?)?.toDouble(),
+      servingSizeSource: json['serving_size_source'] as String?,
       caloriesKcal: (json['calories_kcal'] as num?)?.toDouble(),
       totalFatG: (json['total_fat_g'] as num?)?.toDouble(),
       saturatedFatG: (json['saturated_fat_g'] as num?)?.toDouble(),
@@ -141,6 +150,10 @@ class ProductObservation {
   final bool insufficientData;
   final String? extractionNotes;
 
+  /// Where ingredients and nutrition came from: 'open_food_facts',
+  /// 'calfit_database', or null when they were read from the photo.
+  final String? dataSource;
+
   ProductObservation({
     this.brand,
     this.productName,
@@ -152,6 +165,7 @@ class ProductObservation {
     required this.extractionConfidence,
     required this.insufficientData,
     this.extractionNotes,
+    this.dataSource,
   });
 
   factory ProductObservation.fromJson(Map<String, dynamic>? json) {
@@ -176,6 +190,7 @@ class ProductObservation {
       extractionConfidence: (json['extraction_confidence'] as num?)?.toDouble() ?? 0.0,
       insufficientData: json['insufficient_data'] ?? false,
       extractionNotes: json['extraction_notes'],
+      dataSource: json['data_source'] as String?,
     );
   }
 }
@@ -247,6 +262,123 @@ class AlternativeItem {
   }
 }
 
+/// What the server worked out about which product a front-of-pack photo shows.
+enum IdentificationStatus { confident, confirm, choose, retake, notFound, unavailable }
+
+/// A real product (CalFit database or Open Food Facts) the user can pick.
+class ProductOption {
+  final String code;
+  final String source; // 'calfit_database' or 'open_food_facts'
+  final String name;
+  final String? brand;
+  final String? quantity;
+  final String? imageUrl;
+
+  const ProductOption({
+    required this.code,
+    required this.source,
+    required this.name,
+    this.brand,
+    this.quantity,
+    this.imageUrl,
+  });
+
+  bool get fromOpenFoodFacts => source == 'open_food_facts';
+
+  static ProductOption? fromJson(Map<String, dynamic>? json) {
+    if (json == null || json['code'] == null || json['name'] == null) return null;
+    return ProductOption(
+      code: json['code'] as String,
+      source: (json['source'] as String?) ?? 'calfit_database',
+      name: json['name'] as String,
+      brand: json['brand'] as String?,
+      quantity: json['quantity'] as String?,
+      imageUrl: json['image_url'] as String?,
+    );
+  }
+}
+
+class Identification {
+  final IdentificationStatus status;
+  final String? readAs; // what was read on the pack ("Amul Lassi 200 ml")
+  final List<ProductOption> options;
+  final ProductOption? chosen; // the product the scan used
+
+  const Identification({
+    required this.status,
+    this.readAs,
+    this.options = const [],
+    this.chosen,
+  });
+
+  /// "Is this it?" or "Which one is it?": the user has to pick before scoring.
+  bool get needsChoice =>
+      (status == IdentificationStatus.confirm || status == IdentificationStatus.choose) &&
+      options.isNotEmpty;
+
+  static Identification? fromJson(Map<String, dynamic>? json) {
+    if (json == null) return null;
+    final status = switch (json['status']) {
+      'confident' => IdentificationStatus.confident,
+      'confirm' => IdentificationStatus.confirm,
+      'choose' => IdentificationStatus.choose,
+      'retake' => IdentificationStatus.retake,
+      'not_found' => IdentificationStatus.notFound,
+      'unavailable' => IdentificationStatus.unavailable,
+      _ => null,
+    };
+    if (status == null) return null;
+    return Identification(
+      status: status,
+      readAs: json['read_as'] as String?,
+      options: (json['options'] as List<dynamic>?)
+              ?.map((e) => ProductOption.fromJson(e as Map<String, dynamic>))
+              .whereType<ProductOption>()
+              .toList() ??
+          const [],
+      chosen: ProductOption.fromJson(json['chosen'] as Map<String, dynamic>?),
+    );
+  }
+}
+
+/// Low / medium / high for one nutrient per 100 g (or 100 ml for drinks).
+/// Worked out on the server from the label; the same for everyone.
+enum NutrientLevelBand { low, medium, high }
+
+class NutrientLevel {
+  final String nutrient; // fat, saturated_fat, sugars, salt
+  final double per100;
+  final String unit;
+  final bool perMl;
+  final NutrientLevelBand level;
+
+  NutrientLevel({
+    required this.nutrient,
+    required this.per100,
+    required this.unit,
+    required this.perMl,
+    required this.level,
+  });
+
+  static NutrientLevel? fromJson(Map<String, dynamic> json) {
+    final level = switch (json['level']) {
+      'low' => NutrientLevelBand.low,
+      'medium' => NutrientLevelBand.medium,
+      'high' => NutrientLevelBand.high,
+      _ => null,
+    };
+    final per100 = (json['per_100'] as num?)?.toDouble();
+    if (level == null || per100 == null || json['nutrient'] == null) return null;
+    return NutrientLevel(
+      nutrient: json['nutrient'] as String,
+      per100: per100,
+      unit: (json['unit'] as String?) ?? 'g',
+      perMl: json['basis'] == '100ml',
+      level: level,
+    );
+  }
+}
+
 class ScanResult {
   final String scanId;
   final String userId;
@@ -255,9 +387,14 @@ class ScanResult {
   final ScoreResult scoreResult;
   final String explanation;
   final List<AlternativeItem> alternatives;
+  final List<NutrientLevel> nutrientLevels;
   final String? imageUrl;
   final bool insufficientData;
   final String? pipelineMessage;
+  final Identification? identification;
+
+  /// The label's numbers have no serving size: ask the user to check the pack.
+  final bool servingSizeUnknown;
 
   ScanResult({
     required this.scanId,
@@ -267,6 +404,9 @@ class ScanResult {
     required this.scoreResult,
     required this.explanation,
     required this.alternatives,
+    this.nutrientLevels = const [],
+    this.identification,
+    this.servingSizeUnknown = false,
     this.imageUrl,
     required this.insufficientData,
     this.pipelineMessage,
@@ -281,6 +421,13 @@ class ScanResult {
       scoreResult: ScoreResult.fromJson(json['score_result']),
       explanation: json['explanation'] ?? '',
       alternatives: (json['alternatives'] as List<dynamic>?)?.map((e) => AlternativeItem.fromJson(e)).toList() ?? [],
+      nutrientLevels: (json['nutrient_levels'] as List<dynamic>?)
+              ?.map((e) => NutrientLevel.fromJson(e as Map<String, dynamic>))
+              .whereType<NutrientLevel>()
+              .toList() ??
+          const [],
+      identification: Identification.fromJson(json['identification'] as Map<String, dynamic>?),
+      servingSizeUnknown: json['serving_size_unknown'] == true,
       imageUrl: json['image_url'],
       insufficientData: json['insufficient_data'] ?? false,
       pipelineMessage: json['pipeline_message'],
@@ -321,4 +468,19 @@ class ScanHistoryItem {
       imageUrl: json['image_url'],
     );
   }
+}
+
+/// Totals across all of the user's scans.
+class ScanStats {
+  final int total;
+  final int? average;
+  final int? best;
+
+  const ScanStats({required this.total, this.average, this.best});
+
+  factory ScanStats.fromJson(Map<String, dynamic> json) => ScanStats(
+        total: (json['total'] as num?)?.toInt() ?? 0,
+        average: (json['average'] as num?)?.toInt(),
+        best: (json['best'] as num?)?.toInt(),
+      );
 }

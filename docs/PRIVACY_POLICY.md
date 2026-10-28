@@ -34,7 +34,11 @@ When you scan a product, we receive:
 
 We send the photo to Google's Gemini API so Gemini can transcribe what is printed on the label. The transcribed label is scored on our server by deterministic rules — a reviewable list of thresholds — not by an AI model. We then send Gemini the label details, the score and findings, and your profile's conditions, allergies, dietary preferences and goals, so it can write a short plain-language explanation; that explanation is checked against the findings before you see it. Your name and body details are not sent to Gemini. We keep the scan (photo, label details, score, findings and explanation) so you can see it in your history.
 
-Product information shown as alternatives comes from Open Food Facts (openfoodfacts.org), an open database of food products. It contains no personal data, and nothing about you is sent to Open Food Facts.
+If you answer "Was this result right?" under a scan, we store your answer with that scan: yes or no, and which of a fixed list of problems you picked (for example "wrong product" or "missed an allergen"). There is no free-text box, so nothing else is collected. We use the answers, counted across all users, to measure and improve how accurate CalFit is. They are deleted with your scans.
+
+Product information shown as alternatives comes from Open Food Facts (openfoodfacts.org), an open database of food products. It contains no personal data. When a photo shows only the front of a pack and the product isn't in our own database, our server searches Open Food Facts by the product's name as printed (for example "Amul Lassi") to find its ingredients and nutrition. Only that product name or barcode is sent, from our server; nothing about you is sent to Open Food Facts.
+
+If you add a serving size to a scan (when the label doesn't say what its numbers are per), we store that serving size with your account and use it the next time you scan the same product. It is deleted with your data.
 
 ### 2.4 Prescription reading (optional)
 
@@ -60,7 +64,7 @@ If you choose "Prescription" in your profile, you can photograph a prescription 
 - **Scan evaluation.** Legal basis: your consent, given each time you tap "scan" and in advance by setting a profile.
 - **Daily scan cap.** Legal basis: our legitimate business interest in keeping the service affordable and resistant to abuse.
 - **Scan history (if enabled).** Legal basis: your consent — history is bound to the device identifier you control.
-- **Service health and errors.** Legal basis: legitimate interest in keeping the service running. Logs include request paths, status codes, and error messages. They do not include the content of your profile or the content of your photo.
+- **Service health and errors.** Legal basis: legitimate interest in keeping the service running. Logs include a random request id, which part of the app was called, status codes, timings, which AI model answered, and the type of any error. They never include your photo, the label text, your profile, your explanation or error messages (which can repeat what was sent).
 
 ## 4. Processing — who touches what
 
@@ -72,7 +76,7 @@ Each of these is a **data processor** under the DPDP Act. CalFit is the **data f
 
 ## 5. Retention
 
-- **Profile, body details, scan history and photos:** kept until you delete them. Use **Settings → Delete my data** in the app to remove your profile, every scan and every photo from our servers immediately. An automatic retention limit will be added before public launch and stated here.
+- **Profile, body details, scan history, photos, saved serving sizes and your "Was this result right?" answers:** kept until you delete them. You can remove a single scan from its result screen. Use **Settings → Delete my data** to remove your profile, every scan, every photo, every saved serving size and every answer from our servers immediately. An automatic retention limit will be added before public launch and stated here.
 - **Logs:** 30 days.
 
 ## 6. International transfers

@@ -54,4 +54,4 @@ EXPOSE 8080
 
 # Single worker: one Gemini call at a time per instance keeps the memory
 # footprint predictable, and Cloud Run scales horizontally anyway.
-CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port ${PORT} --workers 1 --proxy-headers"]
+CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port ${PORT} --workers 1 --proxy-headers --no-access-log"]

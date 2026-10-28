@@ -47,30 +47,36 @@ class HealthScoreRing extends StatelessWidget {
               trackColor: trackColor,
               strokeWidth: strokeWidth,
             ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '$current',
-                    style: AppTheme.display(
-                      size * 0.36,
-                      weight: FontWeight.w500,
-                      color: theme.textTheme.displayLarge?.color,
-                      height: 1.0,
+            // The ring has a fixed size, so its text shrinks to fit rather
+            // than spilling out at very large system text sizes.
+            child: Padding(
+              padding: EdgeInsets.all(strokeWidth * 1.6),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$current',
+                      style: AppTheme.display(
+                        size * 0.36,
+                        weight: FontWeight.w500,
+                        color: theme.textTheme.displayLarge?.color,
+                        height: 1.0,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    context.l10n.outOf100,
-                    style: AppTheme.ui(
-                      (size * 0.075).clamp(12.0, 16.0),
-                      weight: FontWeight.w500,
-                      color: theme.textTheme.bodyMedium?.color,
+                    const SizedBox(height: 2),
+                    Text(
+                      context.l10n.outOf100,
+                      style: AppTheme.ui(
+                        (size * 0.075).clamp(12.0, 16.0),
+                        weight: FontWeight.w500,
+                        color: theme.textTheme.bodyMedium?.color,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

@@ -5,7 +5,7 @@
   nothing to distract from the hand-off into the app itself.
 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/calfit_bg_dark" />
+    <item android:drawable="@color/ic_launcher_background" />
     <item>
         <bitmap
             android:gravity="center"

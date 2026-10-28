@@ -23,7 +23,15 @@ class InsightsScreen extends StatefulWidget {
   final ApiService apiService;
   final VoidCallback? onStartScan;
 
-  const InsightsScreen({super.key, required this.apiService, this.onStartScan});
+  /// Bumped by the tab bar to refresh quietly when the tab is shown again.
+  final int refreshTick;
+
+  const InsightsScreen({
+    super.key,
+    this.refreshTick = 0,
+    required this.apiService,
+    this.onStartScan,
+  });
 
   @override
   State<InsightsScreen> createState() => _InsightsScreenState();
@@ -36,16 +44,25 @@ class _InsightsScreenState extends State<InsightsScreen> {
   bool _loading = true;
 
   @override
+  void didUpdateWidget(covariant InsightsScreen old) {
+    super.didUpdateWidget(old);
+    if (widget.refreshTick != old.refreshTick) _load(silent: true);
+  }
+
+  @override
   void initState() {
     super.initState();
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  /// [silent]: refresh in the background, keeping what's on screen.
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final insights = await widget.apiService.getInsights();
       UserProfile? profile;
@@ -62,6 +79,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
       });
     } catch (e) {
       if (!mounted) return;
+      if (silent && _insights != null) return; // keep what's on screen
       setState(() {
         _error = UserMessage.of(context, e);
         _loading = false;
@@ -73,7 +91,8 @@ class _InsightsScreenState extends State<InsightsScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ScanDetailScreen(apiService: widget.apiService, scanId: scanId),
+        builder: (_) =>
+            ScanDetailScreen(apiService: widget.apiService, scanId: scanId),
       ),
     );
   }
@@ -167,8 +186,11 @@ class _InsightsScreenState extends State<InsightsScreen> {
             ],
           ],
           const SizedBox(height: 8),
-          Text(l.basedOnScans(data.totalScans),
-              textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
+          Text(
+            l.basedOnScans(data.totalScans),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall,
+          ),
         ],
       ),
     );
@@ -193,35 +215,42 @@ class _SummaryCard extends StatelessWidget {
       SuitabilityStatus.notSuitable,
     ];
     Color tone(SuitabilityStatus s) => switch (s) {
-          SuitabilityStatus.excellent => c.excellent,
-          SuitabilityStatus.good => c.good,
-          SuitabilityStatus.fair => c.fair,
-          SuitabilityStatus.poor => c.poor,
-          _ => c.notSuitable,
-        };
-    final present = order.where((s) => (data.suitabilityCounts[s] ?? 0) > 0).toList();
+      SuitabilityStatus.excellent => c.excellent,
+      SuitabilityStatus.good => c.good,
+      SuitabilityStatus.fair => c.fair,
+      SuitabilityStatus.poor => c.poor,
+      _ => c.notSuitable,
+    };
+    final present = order
+        .where((s) => (data.suitabilityCounts[s] ?? 0) > 0)
+        .toList();
 
     return SurfaceCard(
       padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          // Wraps onto two lines at large text sizes instead of overflowing.
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.end,
+            spacing: 8,
+            runSpacing: 4,
             children: [
-              Text('$avg',
-                  style: AppTheme.display(44, weight: FontWeight.w700, color: c.score(avg), height: 1)),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(l.averageScore, style: theme.textTheme.bodyMedium),
+              Text(
+                '$avg',
+                style: AppTheme.display(
+                  44,
+                  weight: FontWeight.w700,
+                  color: c.score(avg),
+                  height: 1,
                 ),
               ),
-              const Spacer(),
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: Text(l.scanCount(data.totalScans), style: theme.textTheme.labelMedium),
+                child: Text(
+                  '${l.averageScore} · ${l.scanCount(data.totalScans)}',
+                  style: theme.textTheme.bodyMedium,
+                ),
               ),
             ],
           ),
@@ -233,7 +262,10 @@ class _SummaryCard extends StatelessWidget {
               child: Row(
                 children: [
                   for (final s in present)
-                    Expanded(flex: data.suitabilityCounts[s]!, child: Container(color: tone(s))),
+                    Expanded(
+                      flex: data.suitabilityCounts[s]!,
+                      child: Container(color: tone(s)),
+                    ),
                 ],
               ),
             ),
@@ -250,11 +282,18 @@ class _SummaryCard extends StatelessWidget {
                     Container(
                       width: 10,
                       height: 10,
-                      decoration: BoxDecoration(color: tone(s), shape: BoxShape.circle),
+                      decoration: BoxDecoration(
+                        color: tone(s),
+                        shape: BoxShape.circle,
+                      ),
                     ),
                     const SizedBox(width: 6),
-                    Text('${l.suitabilityLabel(s)} ${data.suitabilityCounts[s]}',
-                        style: theme.textTheme.bodySmall),
+                    Flexible(
+                      child: Text(
+                        '${l.suitabilityLabel(s)} ${data.suitabilityCounts[s]}',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ),
                   ],
                 ),
             ],
@@ -285,47 +324,67 @@ class _WeeklyCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(l.weekByWeekBody, style: theme.textTheme.bodySmall),
           const SizedBox(height: 16),
-          SizedBox(
-            height: chartHeight + 52,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                for (final w in weeks)
-                  Expanded(
-                    child: Semantics(
-                      label: w.averageScore == null
-                          ? l.weekNoScans(l.shortDate(w.weekStart))
-                          : l.weekSummary(l.shortDate(w.weekStart), w.averageScore!, w.scans),
-                      excludeSemantics: true,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Text(w.averageScore?.toString() ?? '',
+          // A fixed-height chart: labels grow up to 1.3x with the text-size
+          // setting; each bar's full value is in its screen-reader label.
+          MediaQuery.withClampedTextScaling(
+            maxScaleFactor: 1.3,
+            child: SizedBox(
+              height: chartHeight + 52,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  for (final w in weeks)
+                    Expanded(
+                      child: Semantics(
+                        label: w.averageScore == null
+                            ? l.weekNoScans(l.shortDate(w.weekStart))
+                            : l.weekSummary(
+                                l.shortDate(w.weekStart),
+                                w.averageScore!,
+                                w.scans,
+                              ),
+                        excludeSemantics: true,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              w.averageScore?.toString() ?? '',
                               style: theme.textTheme.labelSmall?.copyWith(
-                                  color: w.averageScore == null ? null : c.score(w.averageScore!))),
-                          const SizedBox(height: 4),
-                          Container(
-                            width: 18,
-                            height: w.averageScore == null
-                                ? 4
-                                : (chartHeight * (w.averageScore!.clamp(4, 100) / 100)),
-                            decoration: BoxDecoration(
-                              color: w.averageScore == null ? c.divider : c.score(w.averageScore!),
-                              borderRadius: BorderRadius.circular(6),
+                                color: w.averageScore == null
+                                    ? null
+                                    : c.score(w.averageScore!),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            l.shortDate(w.weekStart).replaceFirst(' ', '\n'),
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            style: theme.textTheme.bodySmall?.copyWith(fontSize: 12, height: 1.15),
-                          ),
-                        ],
+                            const SizedBox(height: 4),
+                            Container(
+                              width: 18,
+                              height: w.averageScore == null
+                                  ? 4
+                                  : (chartHeight *
+                                        (w.averageScore!.clamp(4, 100) / 100)),
+                              decoration: BoxDecoration(
+                                color: w.averageScore == null
+                                    ? c.divider
+                                    : c.score(w.averageScore!),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              l.shortDate(w.weekStart).replaceFirst(' ', '\n'),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontSize: 12,
+                                height: 1.15,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -359,7 +418,9 @@ class _GoalsSection extends StatelessWidget {
           children: [
             Icon(Icons.flag_outlined, color: c.muted),
             const SizedBox(width: 12),
-            Expanded(child: Text(l.addGoalsPrompt, style: theme.textTheme.bodyMedium)),
+            Expanded(
+              child: Text(l.addGoalsPrompt, style: theme.textTheme.bodyMedium),
+            ),
           ],
         ),
       );
@@ -377,11 +438,21 @@ class _GoalsSection extends StatelessWidget {
                   children: [
                     Icon(Icons.flag_rounded, size: 20, color: c.brand),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(l.goalLabel(g.goal), style: theme.textTheme.titleMedium)),
+                    Expanded(
+                      child: Text(
+                        l.goalLabel(g.goal),
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    ),
                     if (g.tracked && g.checked > 0)
-                      Text(l.countOfTotal(g.fits, g.checked),
-                          style: AppTheme.ui(14, weight: FontWeight.w700,
-                              color: c.score((g.fits * 100 / g.checked).round()))),
+                      Text(
+                        l.countOfTotal(g.fits, g.checked),
+                        style: AppTheme.ui(
+                          14,
+                          weight: FontWeight.w700,
+                          color: c.score((g.fits * 100 / g.checked).round()),
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -400,28 +471,46 @@ class _GoalsSection extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(l.goalFits(g.fits, g.checked), style: theme.textTheme.bodyMedium),
+                  Text(
+                    l.goalFits(g.fits, g.checked),
+                    style: theme.textTheme.bodyMedium,
+                  ),
                   if (g.mainIssue != null) ...[
                     const SizedBox(height: 2),
-                    Text(l.goalMainIssue(g.mainIssue!), style: theme.textTheme.bodySmall),
+                    Text(
+                      l.goalMainIssue(g.mainIssue!),
+                      style: theme.textTheme.bodySmall,
+                    ),
                   ],
                 ],
                 if (weightLine != null &&
-                    (g.goal == 'weight_loss' || g.goal == 'maintain_weight' ||
+                    (g.goal == 'weight_loss' ||
+                        g.goal == 'maintain_weight' ||
                         g.goal == 'muscle_gain')) ...[
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.monitor_weight_outlined, size: 18, color: c.accent),
+                      Icon(
+                        Icons.monitor_weight_outlined,
+                        size: 18,
+                        color: c.accent,
+                      ),
                       const SizedBox(width: 6),
-                      Expanded(child: Text(weightLine, style: theme.textTheme.bodySmall)),
+                      Expanded(
+                        child: Text(
+                          weightLine,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
                     ],
                   ),
                 ],
                 if (g.tracked && g.basis.isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  Text(l.goalChecks(g.basis),
-                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 12)),
+                  Text(
+                    l.goalChecks(g.basis),
+                    style: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
+                  ),
                 ],
               ],
             ),
@@ -473,10 +562,14 @@ class _FlagList extends StatelessWidget {
                     },
                   ),
                   const SizedBox(width: 12),
-                  Expanded(child: Text(f.title, style: theme.textTheme.titleMedium)),
+                  Expanded(
+                    child: Text(f.title, style: theme.textTheme.titleMedium),
+                  ),
                   const SizedBox(width: 8),
-                  Text(context.l10n.countOfTotal(f.count, totalScans),
-                      style: theme.textTheme.labelMedium),
+                  Text(
+                    context.l10n.countOfTotal(f.count, totalScans),
+                    style: theme.textTheme.labelMedium,
+                  ),
                 ],
               ),
             ),

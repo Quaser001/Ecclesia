@@ -44,7 +44,11 @@ class _ScanDetailScreenState extends State<ScanDetailScreen> {
     final result = _result;
     if (result != null) {
       return ScanResultScreen(
-          scanResult: result, title: context.l10n.scanDetailsTitle, isPastScan: true);
+        scanResult: result,
+        title: context.l10n.scanDetailsTitle,
+        isPastScan: true,
+        apiService: widget.apiService,
+      );
     }
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.scanDetailsTitle)),

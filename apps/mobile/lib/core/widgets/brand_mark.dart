@@ -17,7 +17,7 @@ class BrandMark extends StatelessWidget {
     final c = context.colors;
     return SizedBox.square(
       dimension: size,
-      child: CustomPaint(painter: _MarkPainter(ring: c.brand, tick: c.accent)),
+      child: CustomPaint(painter: BrandMarkPainter(ring: c.brand, tick: c.accent)),
     );
   }
 }
@@ -49,10 +49,12 @@ class BrandLockup extends StatelessWidget {
   }
 }
 
-class _MarkPainter extends CustomPainter {
+/// Paints the mark into any square. Public so the launcher-icon generator
+/// (tool/generate_launcher_icons_test.dart) draws the exact same shape.
+class BrandMarkPainter extends CustomPainter {
   final Color ring;
   final Color tick;
-  _MarkPainter({required this.ring, required this.tick});
+  const BrandMarkPainter({required this.ring, required this.tick});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -91,5 +93,5 @@ class _MarkPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_MarkPainter old) => old.ring != ring || old.tick != tick;
+  bool shouldRepaint(BrandMarkPainter old) => old.ring != ring || old.tick != tick;
 }

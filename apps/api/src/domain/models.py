@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 
+from src.domain.identity import Identification
+from src.domain.nutrient_levels import NutrientLevel, nutrient_levels
 from src.services.body_metrics import bmi as _bmi, bmi_category as _bmi_category
 
 
@@ -179,6 +181,9 @@ class NutritionInfo(BaseModel):
     """Nutritional values extracted from a product package."""
 
     serving_size_g: Optional[float] = None
+    # "you" when the serving size came from the user's saved answer for this
+    # product (see services/serving_memory.py); None when read from the label.
+    serving_size_source: Optional[Literal["you"]] = None
     calories_kcal: Optional[float] = None
     total_fat_g: Optional[float] = None
     saturated_fat_g: Optional[float] = None
@@ -207,6 +212,19 @@ class ProductObservation(BaseModel):
     brand: Optional[str] = None
     product_name: Optional[str] = None
     category: Optional[str] = None  # e.g. "instant noodles", "biscuits", "juice"
+    variant: Optional[str] = None       # flavour or variant as printed ("Rose", "Masala")
+    net_quantity: Optional[str] = None  # as printed ("200 ml", "52 g")
+    mrp: Optional[str] = None           # price as printed ("Rs 20", "₹20")
+    # How sure the model is that brand and name were read correctly. None =
+    # not reported (old responses): unknown, never treated as zero.
+    identity_confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+
+    # Where the ingredients and nutrition came from (AGENTS.md: provenance).
+    # None = read from the photo; otherwise the database the data was taken
+    # from, with its product code and the date it was fetched.
+    data_source: Optional[Literal["calfit_database", "open_food_facts"]] = None
+    source_code: Optional[str] = None
+    source_date: Optional[str] = None
 
     # Ingredients & nutrition
     ingredients: list[str] = Field(default_factory=list)
@@ -315,6 +333,72 @@ class ScanResponse(BaseModel):
     image_url: Optional[str] = None
     insufficient_data: bool = False
     pipeline_message: Optional[str] = None
+    # Front-of-pack scans: which real product was used, or the choices to
+    # offer when the user has to confirm or pick (status confirm/choose).
+    identification: Optional[Identification] = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def serving_size_unknown(self) -> bool:
+        """Numbers without a serving size: the app asks the user to check the pack."""
+        n = self.product.nutrition
+        return n.serving_size_g is None and any(
+            getattr(n, f) is not None for f in NutritionInfo.model_fields
+            if f not in ("serving_size_g", "serving_size_source") and not f.endswith("_confidence"))
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def nutrient_levels(self) -> list[NutrientLevel]:
+        """Fat, saturates, sugars and salt per 100 g/ml as low/medium/high."""
+        n = self.product.nutrition
+        return nutrient_levels(
+            serving_size_g=n.serving_size_g,
+            fat_g=n.total_fat_g,
+            saturated_fat_g=n.saturated_fat_g,
+            sugars_g=n.sugars_g,
+            sodium_mg=n.sodium_mg,
+            category=self.product.category,
+            name=self.product.product_name,
+        )
+
+
+class FeedbackIssue(str, Enum):
+    """What a user says was wrong with a scan result."""
+
+    WRONG_PRODUCT = "wrong_product"
+    WRONG_NUTRITION = "wrong_nutrition"
+    WRONG_INGREDIENTS = "wrong_ingredients"
+    MISSED_ALLERGEN = "missed_allergen"
+    SCORE_UNFAIR = "score_unfair"
+    OTHER = "other"
+
+
+class ScanFeedbackRequest(BaseModel):
+    """"Was this right?" on a scan. No free text, so no health details leak in."""
+
+    accurate: bool
+    issues: list[FeedbackIssue] = Field(default_factory=list, max_length=len(FeedbackIssue))
+
+    @field_validator("issues")
+    @classmethod
+    def _unique(cls, v: list[FeedbackIssue]) -> list[FeedbackIssue]:
+        return list(dict.fromkeys(v))
+
+
+class ServingSizeRequest(BaseModel):
+    """The user's answer to "Serving size unknown, check the pack"."""
+
+    serving_size_g: float = Field(gt=0, le=5000, description="One serving, in g or ml.")
+    label_basis: Literal["per_100", "per_serving"] = Field(
+        description="Whether the label's numbers are per 100 g/ml or per serving.")
+
+
+class ScanStats(BaseModel):
+    """Totals over all of a user's scans (Home's numbers)."""
+
+    total: int
+    average: Optional[int] = None
+    best: Optional[int] = None
 
 
 class ScanHistoryItem(BaseModel):

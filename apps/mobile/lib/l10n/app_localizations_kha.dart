@@ -720,7 +720,7 @@ class AppLocalizationsKha extends AppLocalizations {
 
   @override
   String get tipBackOfPack =>
-      'Ka liang hadien jong ka packet, ym ka liang shaphrang';
+      'Ka liang khmat ka biang; ka liang shadien ka ai ia ka jingpeit kaba pura';
 
   @override
   String get tipLight => 'Shai bha, ym don jingphyrnai ha ka plastic';
@@ -947,4 +947,258 @@ class AppLocalizationsKha extends AppLocalizations {
 
   @override
   String get notMedicalAdviceTitle => 'Kam dei ka jingmut doktor';
+
+  @override
+  String get viewPhoto => 'Khmih ïa ka dur';
+
+  @override
+  String get onbWelcomeTitle => 'Tip ïa kaei ba don ha ka jingbam jong phi';
+
+  @override
+  String get onbWelcomeBody =>
+      'Shim dur ïa ka liang hadien jong ka packet jingbam. CalFit kan pule ïa ka label bad ong kumno ka biang ïa phi.';
+
+  @override
+  String get onbPointScan =>
+      'Ki packet na India: biscuit, namkeen, noodles, ki jingdih bad kiwei';
+
+  @override
+  String get onbPointPersonal =>
+      'Ki score ki kylla katkum ki jingpang, ki allergy bad ki thong jong phi';
+
+  @override
+  String get onbPointAlternatives =>
+      'Ka ai jingmut ïa ki mar shisha kiba kham biang ïa phi';
+
+  @override
+  String get onbChooseLanguage => 'Jied ïa ka ktien jong phi';
+
+  @override
+  String get onbProfileTitle => 'Ong khyndiat shaphang jong phi';
+
+  @override
+  String get onbProfileBody =>
+      'Jied ïa kaei kaei ba dei. Phi lah ban pynkylla ha Profile ha kano kano ka por.';
+
+  @override
+  String get onbAllergiesTitle => 'Ki allergy';
+
+  @override
+  String get onbConditionsTitle => 'Ki jingpang';
+
+  @override
+  String get onbDietTitle => 'Ka jingbam';
+
+  @override
+  String get onbSafetyTitle => 'Kawei ka jingtip kaba donkam';
+
+  @override
+  String get onbGetStarted => 'Sdang';
+
+  @override
+  String get onbNext => 'Shaphrang';
+
+  @override
+  String get onbSkip => 'Iehnoh';
+
+  @override
+  String onbStep(int current, int total) {
+    return 'Ka step $current na $total';
+  }
+
+  @override
+  String get allergy_peanut => 'Peanut';
+
+  @override
+  String get allergy_milk => 'Dud';
+
+  @override
+  String get allergy_gluten => 'Gluten';
+
+  @override
+  String get allergy_soy => 'Soy';
+
+  @override
+  String get allergy_egg => 'Pylleng';
+
+  @override
+  String get allergy_tree_nuts => 'Tree nuts';
+
+  @override
+  String get nutrientSalt => 'Mluh';
+
+  @override
+  String get atAGlance => 'Ha ka jingkhmih kawei';
+
+  @override
+  String get levelsPer100g =>
+      'Ha man ka 100 g, katkum ki kyrdan traffic-light. Kumjuh na ka bynta baroh.';
+
+  @override
+  String get levelsPer100ml =>
+      'Ha man ka 100 ml, katkum ki kyrdan traffic-light. Kumjuh na ka bynta baroh.';
+
+  @override
+  String get levelLow => 'Duna';
+
+  @override
+  String get levelMedium => 'Pdeng';
+
+  @override
+  String get levelHigh => 'Bun';
+
+  @override
+  String get feedbackQuestion => 'Hato ka jingmih ka biang?';
+
+  @override
+  String get feedbackWhy =>
+      'Ka jubab jong phi ka iarap ban peit katno ka CalFit ka dei.';
+
+  @override
+  String get feedbackYes => 'Hooid';
+
+  @override
+  String get feedbackNo => 'Ym pura';
+
+  @override
+  String get feedbackWhatWrong => 'Kaei ba bakla?';
+
+  @override
+  String get issueWrongProduct => 'Bakla ka product';
+
+  @override
+  String get issueWrongNutrition => 'Ki number nutrition';
+
+  @override
+  String get issueWrongIngredients => 'Ki ingredient';
+
+  @override
+  String get issueMissedAllergen => 'Ym shem ka allergen';
+
+  @override
+  String get issueScoreUnfair => 'Ka score kam biang';
+
+  @override
+  String get issueOther => 'Kiwei pat';
+
+  @override
+  String get feedbackSend => 'Phah';
+
+  @override
+  String get feedbackThanks => 'Khublei. Kane ka iarap ia ngi ban kham bha.';
+
+  @override
+  String get feedbackFailed =>
+      'Ym lah ban phah. Peit ia ka connection bad pyrshang sa shisien.';
+
+  @override
+  String get pickerConfirmTitle => 'Hato kane ka product?';
+
+  @override
+  String get pickerChooseTitle => 'Kaei kaba?';
+
+  @override
+  String pickerReadAs(String text) {
+    return 'Ngi la pule “$text” ha ka pack.';
+  }
+
+  @override
+  String get pickerYes => 'Hooid, kane';
+
+  @override
+  String get pickerNoRetake => 'Em, shim biang ka dur';
+
+  @override
+  String get pickerNoneRetake => 'Ym kawei na kine, shim biang';
+
+  @override
+  String get sourceOpenFoodFacts => 'Open Food Facts';
+
+  @override
+  String get sourceCalfitDb => 'CalFit database';
+
+  @override
+  String get retakeHint =>
+      'Shim biang ka dur ha kaba paw ka kyrteng product, lane shim ia ka liang shadien ka pack.';
+
+  @override
+  String identifiedAs(String name) {
+    return 'Lah ithuh: $name';
+  }
+
+  @override
+  String identifiedSource(String source) {
+    return 'Nutrition ha man ka 100 g/ml na $source';
+  }
+
+  @override
+  String get notThisProduct => 'Ym dei kane ka product?';
+
+  @override
+  String get removeScanTitle => 'Weng ia kane ka scan?';
+
+  @override
+  String get removeScanBody =>
+      'Yn weng na ka history jong phi ba phi lah ban shim biang ka dur.';
+
+  @override
+  String get remove => 'Weng';
+
+  @override
+  String get scanRemoved => 'La weng ia ka scan. Nion Scan ban pyrshang biang.';
+
+  @override
+  String get couldntRemove =>
+      'Ym lah ban weng ia ka scan. Pyrshang sa shisien.';
+
+  @override
+  String get servingUnknownTitle => 'Ym tip ia ka serving size';
+
+  @override
+  String get servingUnknownBody =>
+      'Ki number ha kane ka label ym ong lada ki long ha man ka 100 g/ml ne ha man ka serving. Peit ia ka pack bad bud ia ka serving size; ngin pyndonkam ha ka por ba phi scan biang ia kane ka product.';
+
+  @override
+  String get addServingSize => 'Bud ia ka serving size';
+
+  @override
+  String get servingSheetTitle => 'Serving size';
+
+  @override
+  String get servingAmountLabel => 'Kawei ka serving (g ne ml)';
+
+  @override
+  String get servingAmountHelp =>
+      'Ha ka pack, wad ia ka “serving size” ne ka net quantity.';
+
+  @override
+  String get servingBasisLabel => 'Ki number ha ka label ki long';
+
+  @override
+  String get basisPer100 => 'Ha man ka 100 g/ml';
+
+  @override
+  String get basisPerServing => 'Ha man ka serving';
+
+  @override
+  String servingSaved(String amount) {
+    return 'La save: $amount g/ml ha man ka serving. Ngin pyndonkam ha ka por ba phi scan biang ia kane ka product.';
+  }
+
+  @override
+  String get servingSaveFailed =>
+      'Ym lah ban save. Peit ia ka connection bad pyrshang sa shisien.';
+
+  @override
+  String labelNotePer100(String source) {
+    return 'Ha man ka 100 g/ml, na $source. Ka dash ka mut ym tip.';
+  }
+
+  @override
+  String labelNoteYourServing(String amount) {
+    return 'Ha ka serving $amount g/ml, ka serving size ba phi la save.';
+  }
+
+  @override
+  String get confirmingProduct => 'Dang peit ia kane ka product…';
 }

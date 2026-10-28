@@ -16,7 +16,11 @@ PRODUCT_EXTRACTION_SYSTEM_PROMPT = """You are a label transcription tool for Cal
 
 ## Field rules
 
-- brand, product_name, category: as printed. category is a short plain label like "instant noodles" or "biscuits"; use null if unsure.
+- brand, product_name, category: as printed. category is a short plain label like "instant noodles" or "biscuits"; use null if unsure. Often only the front of the pack is in the photo: still read the brand and product name from it.
+- variant: the flavour or variant printed on the pack (e.g. "Rose", "Masala", "Classic Salted"), or null.
+- net_quantity: the net quantity exactly as printed (e.g. "200 ml", "52 g"), or null.
+- mrp: the printed price exactly as printed (e.g. "Rs 20", "MRP ₹20.00"), or null.
+- identity_confidence: 0.0 to 1.0, how sure you are that brand and product_name are read correctly from the pack. This is about the name only, not the ingredients or nutrition. Do not name any product that is not printed on the pack, and never suggest what it might be.
 - ingredients: copy the ingredient list in the printed order, one entry per ingredient, lowercase is fine. Split sub-ingredients in brackets into their own entries. Keep additive codes (E330, INS 621) exactly as printed. Do not translate, rename, merge, or simplify. If the ingredient list is not visible, return [] and say so in extraction_notes. If it is only partly visible, return what you can read and add "ingredient list incomplete" to extraction_notes.
 - allergens_declared: only allergens named in a "Contains ..." statement or allergen box. Do not add allergens you work out from the ingredients.
 - may_contain: a list of the specific allergens or ingredients named in "May contain ..." / "May contain traces of ..." / "manufactured in a facility that also processes ..." statements. Copy only the allergen names (e.g. "peanut", "milk"), one per entry. If none, return []. Keep the full statement in extraction_notes as well.
@@ -26,7 +30,8 @@ PRODUCT_EXTRACTION_SYSTEM_PROMPT = """You are a label transcription tool for Cal
 - vitamin_c_mg: vitamin C content in milligrams if printed. Return null if not printed.
 - sodium_confidence, sugar_confidence, fat_confidence: true only if that number is clearly readable, false if you are unsure or it is missing.
 - visible_claims: front-of-pack claims as printed (e.g. "no added sugar", "high protein"). Copy them; do not judge whether they are true.
-- extraction_confidence: 0.0 to 1.0, how confident you are that the ingredients and nutrition above match the label exactly. Use 0.5 or lower if the ingredient list is incomplete or any text was hard to read.
+- extraction_confidence: 0.0 to 1.0, how confident you are that the ingredients and nutrition above match the label exactly. Use 0.5 or lower if the ingredient list is incomplete or any text was hard to read. If no ingredients or nutrition are visible at all (front of pack only), use 0.0.
+- nutrition and ingredients are only ever read from the photo. Never fill them in from what you know about the product, even a well-known one.
 - insufficient_data: true only if the image shows no readable product packaging at all (too dark, too blurry, or not a food product). A readable product name with no readable ingredients is NOT insufficient: return the name and an empty ingredients list.
 
 ## Output format
@@ -37,6 +42,10 @@ Return ONLY a valid JSON object with exactly these keys and no others:
   "brand": <string or null>,
   "product_name": <string or null>,
   "category": <string or null>,
+  "variant": <string or null>,
+  "net_quantity": <string or null>,
+  "mrp": <string or null>,
+  "identity_confidence": <number from 0.0 to 1.0>,
   "ingredients": [<string>, ...],
   "nutrition": {
     "serving_size_g": <number or null>,

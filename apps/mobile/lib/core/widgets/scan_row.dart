@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'scan_photo.dart';
 import 'score_badge.dart';
 import 'surface_card.dart';
 
@@ -10,6 +11,7 @@ class ScanRow extends StatelessWidget {
   final int score;
   final String? productName;
   final String subtitle;
+  final String? imageUrl;
   final VoidCallback? onTap;
 
   const ScanRow({
@@ -17,6 +19,7 @@ class ScanRow extends StatelessWidget {
     required this.score,
     required this.productName,
     required this.subtitle,
+    this.imageUrl,
     this.onTap,
   });
 
@@ -55,6 +58,10 @@ class ScanRow extends StatelessWidget {
               ],
             ),
           ),
+          if (imageUrl != null) ...[
+            const SizedBox(width: 8),
+            ScanPhoto(url: imageUrl!, size: 44),
+          ],
           if (onTap != null)
             Icon(Icons.chevron_right_rounded,
                 color: theme.colorScheme.onSurfaceVariant),

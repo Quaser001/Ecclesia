@@ -143,3 +143,45 @@ Detail: `docs/LAUNCH_CHECKLIST.md` sections 1–2, `docs/DEPLOY_CLOUD_RUN.md`.
 - 2026-10-28 — Decisions taken: centre Scan with Insights tab, warm light-first look, launch free, Google sign-in.
 - 2026-10-28 — Pass 2: Settings, five languages, body details + BMI, goal-linked Insights, delete my data, India food database (764 products), new alternatives engine, privacy policy corrected. Backend 310 tests, app 33 tests, analyze clean. Waiting on Supabase migration 007 before the backend restart and phone check.
 - 2026-10-28 — Redesign pass 1 done: new palette and theme, even bottom bar, Insights tab, scan detail, Home/History/Scan/Profile restyled. Backend 232 tests, Flutter 24 tests, analyze clean. Not yet checked on the phone.
+
+## Phase 1 progress (28 Oct 2026, not committed)
+
+- [x] History paging (`before` cursor) and real totals on Home (`GET /scans/stats`)
+- [x] Scan photos via 1-hour signed links; tap to view the photo on past scans
+- [x] Onboarding for new installs (language, allergies/conditions/diet, safety note)
+- [x] Smoother app: tabs stay alive, fade-forward page transitions, double-size text fits on a 360 dp phone (tests)
+- [x] Launcher icons for every density + round icons + 512 px Play Store icon (`apps/mobile/store/`)
+- [x] AI plan comparison: `docs/AI_PROVIDER_OPTIONS.md`; Vertex AI Mumbai mode (`GEMINI_BACKEND=vertex`) built and tested
+- [x] Backend: traffic-light nutrient levels per 100 g/ml on every scan response (UK FSA thresholds, as Open Food Facts uses)
+- [x] "Was this right?" feedback: `POST /scans/{id}/feedback`, no free text; migration 008 applied to Supabase (28 Oct)
+- [x] App: "At a glance" nutrient tiles (word + icon + colour) and the feedback card on every scan result, in all 5 languages
+- [x] Observability: request id on every response and log line; one JSON line per request and per scan (stage timings, model, fallbacks, grounding outcome); no photos, label text, profile or error text in logs (enforced by tests)
+- [x] Evals: `scripts/eval_report.py` (weekly accuracy from feedback, fails below 85% or on any missed allergen); `docs/EVALS_AND_OBSERVABILITY.md` with alert thresholds
+- [x] Privacy policy updated for feedback answers and the new logging rule (both copies)
+- [x] Live smoke test 24/24 with a throwaway account (paging, Home totals, signed photo download, nutrient levels, feedback, delete-my-data); phone account untouched
+- [x] Phone: new build installed; Home shows the right totals (31 scans) and signed-link photo thumbnails
+- [ ] Phone: open a scan with a known serving size (latest "Unnamed product" or "Good Day Butter Cookies"), scroll down, check "At a glance" and "Was this result right?"
+
+**Front-of-pack scanning and serving sizes (28 Oct, from your Amul Lassi test):**
+- [x] AI reads brand, name, variant, pack size, price and a separate "how sure of the name" confidence; never nutrition from memory
+- [x] Code decides: one real match -> result ("Identified as ... · Open Food Facts"); fairly sure -> "Is this the product?"; several -> pick from up to 3; unreadable -> retake; known but no data -> photograph the back; lookup down -> says so (not "not found")
+- [x] Options only ever real products (CalFit database, else Open Food Facts searched once), brand must match, pack size narrows; confirm re-fetches by code server-side
+- [x] Lassi/buttermilk added to the taxonomy; drinks only get drink alternatives
+- [x] "Serving size unknown, check the pack" note + optional input (size + per 100 / per serving); remembered per product (migration 009, applied); old scores unchanged
+- [x] "Not this product?" removes the scan (`DELETE /scans/{id}`, photo too)
+- [x] Tests: backend 404, app 59; live: 15/15 front-of-pack + 24/24 main smoke
+- [ ] Try it on the phone: front of the Amul Lassi pack, then a pack without size in view
+- [ ] Scale note: Open Food Facts search allows ~10 requests/min per server IP; import more products into food.db before launch
+
+**Found while checking real data (decide next):**
+- [x] 16 of 31 older scans have nutrition numbers with no serving size (Sting: 6.8 g/100 ml scored "good", 75). Decided: keep scores, show "Serving size unknown, check the pack" with an optional serving-size answer remembered per product
+- [ ] 7 imported scans are old test runs, not real scans: 6 identical "Amul Lassi 200ml" (6 Oct) + 1 "Masala Munch", each with an 85-332 byte stub photo (the phone's "Failed to decode image" errors). They inflate Home's count and average. Delete with your OK
+- [x] Logs: httpx printed Supabase URLs with user ids and uvicorn printed raw paths; both silenced (test added, `--no-access-log` in Dockerfile)
+- [ ] Tech debt: `product_json`/`score_json` are stored as JSON text inside `jsonb`, so SQL can't query inside them. Store real JSON objects (provider change + one data migration)
+
+**Your to-dos (only you can do these):**
+- [ ] Label 50-100 real pack photos for the extraction eval (`docs/EVALS_AND_OBSERVABILITY.md`, "extraction eval")
+- [ ] Ask a Khasi speaker to review the Khasi strings (machine-quality today)
+- [ ] When deploying: `LOG_FORMAT=json`, then the four log-based metrics and alerts from the evals doc
+- [ ] Buy the plan: Vertex AI in `asia-south1`, then follow `docs/AI_PROVIDER_OPTIONS.md` steps 1-7
+- Later (from competitor review: Yuka, TruthIn, FoodSwitch): product search in the food database, additive (INS) explanations from a sourced list, share a result, data export

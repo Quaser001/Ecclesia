@@ -8,6 +8,7 @@ import re
 from src.domain.models import KnowledgeEntry, ProductObservation, ScoreResult, UserProfile
 from src.prompts.explanation import build_explanation_messages
 from src.providers.interfaces import GeminiProvider
+from src.observability import note
 
 logger = logging.getLogger(__name__)
 
@@ -58,11 +59,14 @@ class ExplanationService:
             facts = f"{score_result.score} 100\n{findings_summary}\n{nutrition_summary}"
             if not is_explanation_grounded(explanation, facts):
                 logger.warning("Explanation rejected by guard; using rule-based fallback.")
+                note(explanation="fallback_ungrounded")
                 return _fallback_explanation(product, score_result)
+            note(explanation="llm")
             return explanation
 
         except Exception as exc:
-            logger.error("Explanation generation failed: %s", exc)
+            logger.error("Explanation generation failed: %s", type(exc).__name__)
+            note(explanation="fallback_error")
             # Provide a factual fallback rather than hiding the failure
             return _fallback_explanation(product, score_result)
 

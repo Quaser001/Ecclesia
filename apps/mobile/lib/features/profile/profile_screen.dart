@@ -54,8 +54,12 @@ class ProfileScreen extends StatefulWidget {
   final ApiService apiService;
   final String userId;
 
+  /// Bumped by the tab bar to refresh quietly when the tab is shown again.
+  final int refreshTick;
+
   const ProfileScreen({
     super.key,
+    this.refreshTick = 0,
     required this.apiService,
     required this.userId,
   });
@@ -72,16 +76,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final ImagePicker _picker = ImagePicker();
 
   @override
+  void didUpdateWidget(covariant ProfileScreen old) {
+    super.didUpdateWidget(old);
+    if (widget.refreshTick != old.refreshTick) _loadProfile(silent: true);
+  }
+
+  @override
   void initState() {
     super.initState();
     _loadProfile();
   }
 
-  Future<void> _loadProfile() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  /// [silent]: refresh in the background, keeping what's on screen.
+  Future<void> _loadProfile({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
     try {
       final profile = await widget.apiService.getProfile();
       if (!mounted) return;
@@ -91,6 +104,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
     } catch (e) {
       if (!mounted) return;
+      if (silent && _profile != null) return; // keep what's on screen
       setState(() {
         _error = UserMessage.of(context, e);
         _isLoading = false;
@@ -398,9 +412,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(l.profileSetup, style: theme.textTheme.labelMedium),
+                    Expanded(child: Text(l.profileSetup, style: theme.textTheme.labelMedium)),
                     Text(l.filledOf(filled, 4),
                         style: AppTheme.ui(13,
                             weight: FontWeight.w700, color: theme.colorScheme.primary)),
@@ -736,7 +749,9 @@ class _BodyCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             if (p.bmi != null)
-              Row(
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                runSpacing: 6,
                 children: [
                   Text('${l.bmi} ', style: theme.textTheme.labelMedium),
                   Text(p.bmi!.toStringAsFixed(1),

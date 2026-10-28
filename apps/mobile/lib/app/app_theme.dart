@@ -99,6 +99,10 @@ class AppTheme {
       iconTheme: IconThemeData(color: text),
       splashFactory: InkRipple.splashFactory,
       extensions: [colors],
+      pageTransitionsTheme: const PageTransitionsTheme(builders: {
+        TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      }),
       appBarTheme: AppBarTheme(
         backgroundColor: bg,
         surfaceTintColor: Colors.transparent,

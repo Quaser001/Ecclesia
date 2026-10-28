@@ -711,7 +711,8 @@ class AppLocalizationsHi extends AppLocalizations {
   String get tipsTitle => 'सबसे अच्छे नतीजे के लिए';
 
   @override
-  String get tipBackOfPack => 'पैक का पिछला हिस्सा, सामने का नहीं';
+  String get tipBackOfPack =>
+      'आगे की फ़ोटो चलेगी; पीछे की फ़ोटो से पूरी जाँच होती है';
 
   @override
   String get tipLight => 'अच्छी रोशनी, प्लास्टिक पर चमक न हो';
@@ -935,4 +936,258 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get notMedicalAdviceTitle => 'मेडिकल सलाह नहीं';
+
+  @override
+  String get viewPhoto => 'फ़ोटो देखें';
+
+  @override
+  String get onbWelcomeTitle => 'जानिए आपके खाने में क्या है';
+
+  @override
+  String get onbWelcomeBody =>
+      'किसी भी पैक्ड खाने के पीछे की फ़ोटो लें। CalFit लेबल पढ़कर बताता है कि यह आपके लिए कितना सही है।';
+
+  @override
+  String get onbPointScan =>
+      'भारतीय पैक के लिए: बिस्किट, नमकीन, नूडल्स, ड्रिंक्स और भी';
+
+  @override
+  String get onbPointPersonal =>
+      'स्कोर आपकी बीमारियों, एलर्जी और लक्ष्यों के हिसाब से बदलते हैं';
+
+  @override
+  String get onbPointAlternatives =>
+      'आपके लिए बेहतर, मिलते-जुलते असली प्रोडक्ट सुझाता है';
+
+  @override
+  String get onbChooseLanguage => 'अपनी भाषा चुनें';
+
+  @override
+  String get onbProfileTitle => 'अपने बारे में थोड़ा बताएँ';
+
+  @override
+  String get onbProfileBody =>
+      'जो भी लागू हो चुनें। आप इसे कभी भी प्रोफ़ाइल में बदल सकते हैं।';
+
+  @override
+  String get onbAllergiesTitle => 'एलर्जी';
+
+  @override
+  String get onbConditionsTitle => 'स्वास्थ्य समस्याएँ';
+
+  @override
+  String get onbDietTitle => 'डाइट';
+
+  @override
+  String get onbSafetyTitle => 'एक ज़रूरी बात';
+
+  @override
+  String get onbGetStarted => 'शुरू करें';
+
+  @override
+  String get onbNext => 'आगे';
+
+  @override
+  String get onbSkip => 'छोड़ें';
+
+  @override
+  String onbStep(int current, int total) {
+    return 'चरण $current / $total';
+  }
+
+  @override
+  String get allergy_peanut => 'मूँगफली';
+
+  @override
+  String get allergy_milk => 'दूध';
+
+  @override
+  String get allergy_gluten => 'ग्लूटेन';
+
+  @override
+  String get allergy_soy => 'सोया';
+
+  @override
+  String get allergy_egg => 'अंडा';
+
+  @override
+  String get allergy_tree_nuts => 'मेवे';
+
+  @override
+  String get nutrientSalt => 'नमक';
+
+  @override
+  String get atAGlance => 'एक नज़र में';
+
+  @override
+  String get levelsPer100g =>
+      'प्रति 100 ग्राम, मानक ट्रैफ़िक-लाइट पैमाने पर। सबके लिए एक जैसा।';
+
+  @override
+  String get levelsPer100ml =>
+      'प्रति 100 मिली, मानक ट्रैफ़िक-लाइट पैमाने पर। सबके लिए एक जैसा।';
+
+  @override
+  String get levelLow => 'कम';
+
+  @override
+  String get levelMedium => 'मध्यम';
+
+  @override
+  String get levelHigh => 'ज़्यादा';
+
+  @override
+  String get feedbackQuestion => 'क्या यह नतीजा सही था?';
+
+  @override
+  String get feedbackWhy =>
+      'आपके जवाब से हम जाँचते हैं कि CalFit कितना सटीक है।';
+
+  @override
+  String get feedbackYes => 'हाँ';
+
+  @override
+  String get feedbackNo => 'पूरी तरह नहीं';
+
+  @override
+  String get feedbackWhatWrong => 'क्या ग़लत था?';
+
+  @override
+  String get issueWrongProduct => 'ग़लत प्रोडक्ट';
+
+  @override
+  String get issueWrongNutrition => 'पोषण के आँकड़े';
+
+  @override
+  String get issueWrongIngredients => 'सामग्री';
+
+  @override
+  String get issueMissedAllergen => 'एलर्जन छूट गया';
+
+  @override
+  String get issueScoreUnfair => 'स्कोर ग़लत लगा';
+
+  @override
+  String get issueOther => 'कुछ और';
+
+  @override
+  String get feedbackSend => 'भेजें';
+
+  @override
+  String get feedbackThanks =>
+      'धन्यवाद। इससे हमें बेहतर बनने में मदद मिलती है।';
+
+  @override
+  String get feedbackFailed =>
+      'भेजा नहीं जा सका। कनेक्शन जाँचें और फिर कोशिश करें।';
+
+  @override
+  String get pickerConfirmTitle => 'क्या यही प्रोडक्ट है?';
+
+  @override
+  String get pickerChooseTitle => 'इनमें से कौन-सा है?';
+
+  @override
+  String pickerReadAs(String text) {
+    return 'हमने पैक पर “$text” पढ़ा।';
+  }
+
+  @override
+  String get pickerYes => 'हाँ, यही है';
+
+  @override
+  String get pickerNoRetake => 'नहीं, फिर से फ़ोटो लें';
+
+  @override
+  String get pickerNoneRetake => 'इनमें से कोई नहीं, फिर से लें';
+
+  @override
+  String get sourceOpenFoodFacts => 'Open Food Facts';
+
+  @override
+  String get sourceCalfitDb => 'CalFit डेटाबेस';
+
+  @override
+  String get retakeHint =>
+      'प्रोडक्ट का नाम साफ़ दिखाते हुए फिर से फ़ोटो लें, या पैक के पीछे की फ़ोटो लें।';
+
+  @override
+  String identifiedAs(String name) {
+    return 'पहचाना गया: $name';
+  }
+
+  @override
+  String identifiedSource(String source) {
+    return 'पोषण प्रति 100 ग्राम/मिली, स्रोत: $source';
+  }
+
+  @override
+  String get notThisProduct => 'यह प्रोडक्ट नहीं है?';
+
+  @override
+  String get removeScanTitle => 'यह स्कैन हटाएँ?';
+
+  @override
+  String get removeScanBody =>
+      'यह आपकी हिस्ट्री से हट जाएगा ताकि आप फिर से फ़ोटो ले सकें।';
+
+  @override
+  String get remove => 'हटाएँ';
+
+  @override
+  String get scanRemoved =>
+      'स्कैन हटा दिया गया। फिर से कोशिश करने के लिए स्कैन दबाएँ।';
+
+  @override
+  String get couldntRemove => 'स्कैन नहीं हट सका। फिर कोशिश करें।';
+
+  @override
+  String get servingUnknownTitle => 'सर्विंग साइज़ पता नहीं';
+
+  @override
+  String get servingUnknownBody =>
+      'इस लेबल के आँकड़ों से पता नहीं चलता कि वे प्रति 100 ग्राम/मिली हैं या प्रति सर्विंग। पैक देखें और सर्विंग साइज़ जोड़ें; अगली बार यह प्रोडक्ट स्कैन करने पर हम इसका इस्तेमाल करेंगे।';
+
+  @override
+  String get addServingSize => 'सर्विंग साइज़ जोड़ें';
+
+  @override
+  String get servingSheetTitle => 'सर्विंग साइज़';
+
+  @override
+  String get servingAmountLabel => 'एक सर्विंग (ग्राम या मिली)';
+
+  @override
+  String get servingAmountHelp => 'पैक पर “serving size” या नेट मात्रा देखें।';
+
+  @override
+  String get servingBasisLabel => 'लेबल पर आँकड़े हैं';
+
+  @override
+  String get basisPer100 => 'प्रति 100 ग्राम/मिली';
+
+  @override
+  String get basisPerServing => 'प्रति सर्विंग';
+
+  @override
+  String servingSaved(String amount) {
+    return 'सेव हो गया: $amount ग्राम/मिली प्रति सर्विंग। अगली बार यह प्रोडक्ट स्कैन करने पर हम इसका इस्तेमाल करेंगे।';
+  }
+
+  @override
+  String get servingSaveFailed =>
+      'सेव नहीं हो सका। कनेक्शन जाँचें और फिर कोशिश करें।';
+
+  @override
+  String labelNotePer100(String source) {
+    return 'प्रति 100 ग्राम/मिली, स्रोत: $source। डैश का मतलब है कि पता नहीं।';
+  }
+
+  @override
+  String labelNoteYourServing(String amount) {
+    return '$amount ग्राम/मिली की सर्विंग पर, आपका सेव किया सर्विंग साइज़।';
+  }
+
+  @override
+  String get confirmingProduct => 'यह प्रोडक्ट जाँचा जा रहा है…';
 }

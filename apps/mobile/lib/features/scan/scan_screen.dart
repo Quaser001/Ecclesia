@@ -8,6 +8,7 @@ import '../../core/utils/user_message.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../l10n/l10n.dart';
 import '../../services/api_service.dart';
+import 'product_picker_sheet.dart';
 import 'scan_result_screen.dart';
 
 /// Scan screen.
@@ -70,18 +71,41 @@ class _ScanScreenState extends State<ScanScreen> {
       _error = null;
     });
 
+    final photo = _selectedImageBytes!;
+    final filename = _selectedImageName ?? 'product_photo.jpg';
     try {
-      final result = await widget.apiService.submitScan(
-        photoBytes: _selectedImageBytes!,
-        filename: _selectedImageName ?? 'product_photo.jpg',
-      );
-
+      var result = await widget.apiService.submitScan(photoBytes: photo, filename: filename);
       if (!mounted) return;
+
+      // Front of pack, more than one real product fits (or the name was read
+      // less surely): the user confirms or picks before anything is scored.
+      final ident = result.identification;
+      if (ident != null && ident.needsChoice) {
+        setState(() => _scanning = false);
+        final picked = await showProductPicker(context, ident);
+        if (!mounted) return;
+        if (picked == null) {
+          setState(() {
+            _selectedImageBytes = null;
+            _selectedImageName = null;
+            _error = context.l10n.retakeHint;
+          });
+          return;
+        }
+        setState(() => _scanning = true);
+        result = await widget.apiService.confirmScan(
+            photoBytes: photo, option: picked, filename: filename);
+        if (!mounted) return;
+      }
+
       HapticFeedback.lightImpact();
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => ScanResultScreen(scanResult: result),
+          builder: (_) => ScanResultScreen(
+            scanResult: result,
+            apiService: widget.apiService,
+          ),
         ),
       );
     } catch (e) {

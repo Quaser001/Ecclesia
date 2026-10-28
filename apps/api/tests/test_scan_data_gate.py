@@ -42,6 +42,9 @@ class _Repo:
     def match_product(self, name, brand, category):
         return self._match
 
+    def search_by_words(self, words, limit=200):
+        return []
+
     def find_candidates_by_category(self, *args, **kwargs):
         return []
 

@@ -707,7 +707,8 @@ class AppLocalizationsAs extends AppLocalizations {
   String get tipsTitle => 'ভাল ফলাফলৰ বাবে';
 
   @override
-  String get tipBackOfPack => 'পেকেটৰ পিছফাল, আগফাল নহয়';
+  String get tipBackOfPack =>
+      'আগফালৰ ফটোও চলে; পিছফালৰ ফটোৱে সম্পূৰ্ণ পৰীক্ষা দিয়ে';
 
   @override
   String get tipLight => 'ভাল পোহৰ, প্লাষ্টিকত জিলিকনি নাথাকে যেন';
@@ -931,4 +932,256 @@ class AppLocalizationsAs extends AppLocalizations {
 
   @override
   String get notMedicalAdviceTitle => 'চিকিৎসাৰ পৰামৰ্শ নহয়';
+
+  @override
+  String get viewPhoto => 'ছবি চাওক';
+
+  @override
+  String get onbWelcomeTitle => 'জানক আপোনাৰ খাদ্যত কি আছে';
+
+  @override
+  String get onbWelcomeBody =>
+      'যিকোনো পেকেটযুক্ত খাদ্যৰ পিছফালৰ ছবি তোলক। CalFit-এ লেবেল পঢ়ি কয় ই আপোনাৰ বাবে কিমান উপযুক্ত।';
+
+  @override
+  String get onbPointScan =>
+      'ভাৰতীয় পেকেটৰ বাবে: বিস্কুট, নিমকি, নুডলছ, পানীয় আৰু অধিক';
+
+  @override
+  String get onbPointPersonal =>
+      'স্ক\'ৰ আপোনাৰ ৰোগ, এলাৰ্জী আৰু লক্ষ্য অনুসৰি সলনি হয়';
+
+  @override
+  String get onbPointAlternatives =>
+      'আপোনাৰ বাবে ভাল, একে ধৰণৰ প্ৰকৃত সামগ্ৰীৰ পৰামৰ্শ দিয়ে';
+
+  @override
+  String get onbChooseLanguage => 'আপোনাৰ ভাষা বাছক';
+
+  @override
+  String get onbProfileTitle => 'নিজৰ বিষয়ে অলপ কওক';
+
+  @override
+  String get onbProfileBody =>
+      'যি প্ৰযোজ্য বাছক। প্ৰফাইলত যেতিয়াই মন যায় সলনি কৰিব পাৰিব।';
+
+  @override
+  String get onbAllergiesTitle => 'এলাৰ্জী';
+
+  @override
+  String get onbConditionsTitle => 'স্বাস্থ্যৰ সমস্যা';
+
+  @override
+  String get onbDietTitle => 'আহাৰ';
+
+  @override
+  String get onbSafetyTitle => 'এটা গুৰুত্বপূৰ্ণ কথা';
+
+  @override
+  String get onbGetStarted => 'আৰম্ভ কৰক';
+
+  @override
+  String get onbNext => 'পিছৰ';
+
+  @override
+  String get onbSkip => 'এৰি দিয়ক';
+
+  @override
+  String onbStep(int current, int total) {
+    return 'স্তৰ $current / $total';
+  }
+
+  @override
+  String get allergy_peanut => 'বাদাম';
+
+  @override
+  String get allergy_milk => 'গাখীৰ';
+
+  @override
+  String get allergy_gluten => 'গ্লুটেন';
+
+  @override
+  String get allergy_soy => 'ছয়া';
+
+  @override
+  String get allergy_egg => 'কণী';
+
+  @override
+  String get allergy_tree_nuts => 'গছৰ বাদাম';
+
+  @override
+  String get nutrientSalt => 'নিমখ';
+
+  @override
+  String get atAGlance => 'এক নজৰত';
+
+  @override
+  String get levelsPer100g =>
+      'প্ৰতি 100 গ্ৰামত, মানক ট্ৰেফিক-লাইট মাপত। সকলোৰে বাবে একে।';
+
+  @override
+  String get levelsPer100ml =>
+      'প্ৰতি 100 মিলিত, মানক ট্ৰেফিক-লাইট মাপত। সকলোৰে বাবে একে।';
+
+  @override
+  String get levelLow => 'কম';
+
+  @override
+  String get levelMedium => 'মধ্যমীয়া';
+
+  @override
+  String get levelHigh => 'বেছি';
+
+  @override
+  String get feedbackQuestion => 'এই ফলাফল শুদ্ধ আছিল নে?';
+
+  @override
+  String get feedbackWhy =>
+      'আপোনাৰ উত্তৰে CalFit কিমান সঠিক সেয়া পৰীক্ষা কৰাত সহায় কৰে।';
+
+  @override
+  String get feedbackYes => 'হয়';
+
+  @override
+  String get feedbackNo => 'সম্পূৰ্ণ নহয়';
+
+  @override
+  String get feedbackWhatWrong => 'কি ভুল আছিল?';
+
+  @override
+  String get issueWrongProduct => 'ভুল সামগ্ৰী';
+
+  @override
+  String get issueWrongNutrition => 'পুষ্টিৰ সংখ্যা';
+
+  @override
+  String get issueWrongIngredients => 'উপাদান';
+
+  @override
+  String get issueMissedAllergen => 'এলাৰ্জেন বাদ পৰিল';
+
+  @override
+  String get issueScoreUnfair => 'স্ক\'ৰ ভুল যেন লাগিছে';
+
+  @override
+  String get issueOther => 'আন কিবা';
+
+  @override
+  String get feedbackSend => 'পঠিয়াওক';
+
+  @override
+  String get feedbackThanks => 'ধন্যবাদ। ইয়াৰ দ্বাৰা আমি উন্নত হ\'ব পাৰোঁ।';
+
+  @override
+  String get feedbackFailed =>
+      'পঠিয়াব পৰা নগ\'ল। সংযোগ পৰীক্ষা কৰি আকৌ চেষ্টা কৰক।';
+
+  @override
+  String get pickerConfirmTitle => 'এইটোৱেই সামগ্ৰীটো নেকি?';
+
+  @override
+  String get pickerChooseTitle => 'কোনটো?';
+
+  @override
+  String pickerReadAs(String text) {
+    return 'আমি পেকত “$text” পঢ়িলোঁ।';
+  }
+
+  @override
+  String get pickerYes => 'হয়, এইটোৱেই';
+
+  @override
+  String get pickerNoRetake => 'নহয়, আকৌ ফটো লওক';
+
+  @override
+  String get pickerNoneRetake => 'এটাও নহয়, আকৌ লওক';
+
+  @override
+  String get sourceOpenFoodFacts => 'Open Food Facts';
+
+  @override
+  String get sourceCalfitDb => 'CalFit ডাটাবেছ';
+
+  @override
+  String get retakeHint =>
+      'সামগ্ৰীৰ নাম স্পষ্টকৈ দেখুৱাই আকৌ ফটো লওক, বা পেকৰ পিছফালৰ ফটো লওক।';
+
+  @override
+  String identifiedAs(String name) {
+    return 'চিনাক্ত: $name';
+  }
+
+  @override
+  String identifiedSource(String source) {
+    return 'প্ৰতি 100 গ্ৰাম/মিলিত পুষ্টি, উৎস: $source';
+  }
+
+  @override
+  String get notThisProduct => 'এই সামগ্ৰী নহয়?';
+
+  @override
+  String get removeScanTitle => 'এই স্কেন আঁতৰাবনে?';
+
+  @override
+  String get removeScanBody =>
+      'ই আপোনাৰ ইতিহাসৰ পৰা মচি পেলোৱা হ\'ব, যাতে আপুনি আকৌ ফটো ল\'ব পাৰে।';
+
+  @override
+  String get remove => 'আঁতৰাওক';
+
+  @override
+  String get scanRemoved => 'স্কেন আঁতৰোৱা হ\'ল। আকৌ চেষ্টা কৰিবলৈ স্কেন টিপক।';
+
+  @override
+  String get couldntRemove => 'স্কেন আঁতৰাব পৰা নগ\'ল। আকৌ চেষ্টা কৰক।';
+
+  @override
+  String get servingUnknownTitle => 'চাৰ্ভিং চাইজ অজ্ঞাত';
+
+  @override
+  String get servingUnknownBody =>
+      'এই লেবেলৰ সংখ্যাবোৰ প্ৰতি 100 গ্ৰাম/মিলি নে প্ৰতি চাৰ্ভিং, সেয়া কোৱা নাই। পেকটো চাই চাৰ্ভিং চাইজ যোগ কৰক; পিছৰবাৰ এই সামগ্ৰী স্কেন কৰিলে আমি ইয়াক ব্যৱহাৰ কৰিম।';
+
+  @override
+  String get addServingSize => 'চাৰ্ভিং চাইজ যোগ কৰক';
+
+  @override
+  String get servingSheetTitle => 'চাৰ্ভিং চাইজ';
+
+  @override
+  String get servingAmountLabel => 'এটা চাৰ্ভিং (গ্ৰাম বা মিলি)';
+
+  @override
+  String get servingAmountHelp => 'পেকত “serving size” বা নেট পৰিমাণ চাওক।';
+
+  @override
+  String get servingBasisLabel => 'লেবেলৰ সংখ্যাবোৰ';
+
+  @override
+  String get basisPer100 => 'প্ৰতি 100 গ্ৰাম/মিলি';
+
+  @override
+  String get basisPerServing => 'প্ৰতি চাৰ্ভিং';
+
+  @override
+  String servingSaved(String amount) {
+    return 'ছেভ হ\'ল: প্ৰতি চাৰ্ভিং $amount গ্ৰাম/মিলি। পিছৰবাৰ এই সামগ্ৰী স্কেন কৰিলে আমি ইয়াক ব্যৱহাৰ কৰিম।';
+  }
+
+  @override
+  String get servingSaveFailed =>
+      'ছেভ কৰিব পৰা নগ\'ল। সংযোগ পৰীক্ষা কৰি আকৌ চেষ্টা কৰক।';
+
+  @override
+  String labelNotePer100(String source) {
+    return 'প্ৰতি 100 গ্ৰাম/মিলি, উৎস: $source। ডেশ মানে অজ্ঞাত।';
+  }
+
+  @override
+  String labelNoteYourServing(String amount) {
+    return '$amount গ্ৰাম/মিলিৰ চাৰ্ভিঙত, আপুনি ছেভ কৰা চাৰ্ভিং চাইজ।';
+  }
+
+  @override
+  String get confirmingProduct => 'সামগ্ৰীটো পৰীক্ষা কৰা হৈছে…';
 }

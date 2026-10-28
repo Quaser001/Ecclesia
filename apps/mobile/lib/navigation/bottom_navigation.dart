@@ -50,8 +50,12 @@ final _tabs = [
 class _BottomNavigationState extends State<BottomNavigation> {
   int _currentIndex = 0;
 
-  /// Bumped after a scan so the visible tab rebuilds and reloads its data.
-  int _dataVersion = 0;
+  /// Per-tab counters: bumping one makes that tab refresh in the background,
+  /// so switching tabs is instant and never flashes a loading state.
+  final _refresh = [0, 0, 0, 0];
+
+  /// Tabs are built the first time they're opened, then kept alive.
+  final _opened = <int>{0};
 
   @override
   void initState() {
@@ -66,7 +70,10 @@ class _BottomNavigationState extends State<BottomNavigation> {
   void _select(int index) {
     if (_currentIndex == index) return;
     HapticFeedback.selectionClick();
-    setState(() => _currentIndex = index);
+    setState(() {
+      if (!_opened.add(index)) _refresh[index]++; // already built: refresh quietly
+      _currentIndex = index;
+    });
   }
 
   Future<void> _startScan() async {
@@ -77,7 +84,14 @@ class _BottomNavigationState extends State<BottomNavigation> {
         builder: (_) => ScanScreen(apiService: widget.apiService, userId: widget.userId),
       ),
     );
-    if (mounted) setState(() => _dataVersion++);
+    // A new scan changes Home, History and Insights.
+    if (mounted) {
+      setState(() {
+        for (final i in [0, 1, 2]) {
+          _refresh[i]++;
+        }
+      });
+    }
   }
 
   Widget _screen(int index) {
@@ -86,6 +100,7 @@ class _BottomNavigationState extends State<BottomNavigation> {
         return HomeScreen(
           apiService: widget.apiService,
           userId: widget.userId,
+          refreshTick: _refresh[0],
           onNavigateToHistory: () => _select(1),
           onNavigateToProfile: () => _select(3),
           onStartScan: _startScan,
@@ -94,12 +109,15 @@ class _BottomNavigationState extends State<BottomNavigation> {
         return HistoryScreen(
           apiService: widget.apiService,
           userId: widget.userId,
+          refreshTick: _refresh[1],
           onStartScan: _startScan,
         );
       case 2:
-        return InsightsScreen(apiService: widget.apiService, onStartScan: _startScan);
+        return InsightsScreen(
+            apiService: widget.apiService, onStartScan: _startScan, refreshTick: _refresh[2]);
       default:
-        return ProfileScreen(apiService: widget.apiService, userId: widget.userId);
+        return ProfileScreen(
+            apiService: widget.apiService, userId: widget.userId, refreshTick: _refresh[3]);
     }
   }
 
@@ -110,14 +128,24 @@ class _BottomNavigationState extends State<BottomNavigation> {
 
     return Scaffold(
       extendBody: true,
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        transitionBuilder: (child, animation) =>
-            FadeTransition(opacity: animation, child: child),
-        child: KeyedSubtree(
-          key: ValueKey('$_currentIndex-$_dataVersion'),
-          child: _screen(_currentIndex),
-        ),
+      body: Stack(
+        children: [
+          for (final i in _opened)
+            // Kept alive off-screen; only the current tab is visible,
+            // interactive and announced to screen readers.
+            AnimatedOpacity(
+              key: ValueKey(i),
+              opacity: i == _currentIndex ? 1 : 0,
+              duration: const Duration(milliseconds: 180),
+              child: IgnorePointer(
+                ignoring: i != _currentIndex,
+                child: ExcludeSemantics(
+                  excluding: i != _currentIndex,
+                  child: TickerMode(enabled: i == _currentIndex, child: _screen(i)),
+                ),
+              ),
+            ),
+        ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: SizedBox.square(

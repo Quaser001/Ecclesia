@@ -93,6 +93,7 @@ gcloud run deploy calfit-api \
   --set-env-vars "DEVICE_TOKEN_DAILY_CAP_PER_IP=20" \
   --set-env-vars "PRESCRIPTION_AI_ENABLED=false" \
   --set-env-vars "PRESCRIPTION_DAILY_CAP=5" \
+  --set-env-vars "LOG_FORMAT=json" \
   --set-secrets "GEMINI_API_KEY=GEMINI_API_KEY:latest" \
   --set-secrets "SUPABASE_URL=SUPABASE_URL:latest" \
   --set-secrets "SUPABASE_SERVICE_ROLE_KEY=SUPABASE_SERVICE_ROLE_KEY:latest" \

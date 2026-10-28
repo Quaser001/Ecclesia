@@ -22,7 +22,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from src.domain.food_taxonomy import classify_off_tags, flavours_of
+from src.domain.food_taxonomy import classify_off_tags, classify_text, flavours_of
 from src.domain.models import NutritionInfo
 from src.repositories.product_repository import FoodProduct
 
@@ -61,14 +61,26 @@ def _ingredients(text: str) -> list[str]:
     return [p for p in cleaned if 1 < len(p) < 80][:40]
 
 
-def map_off_product(hit: dict[str, Any], imported_at: str) -> FoodProduct | None:
-    if "en:india" not in (hit.get("countries_tags") or []):
+def map_off_product(
+    hit: dict[str, Any],
+    imported_at: str,
+    *,
+    for_lookup: bool = False,
+) -> FoodProduct | None:
+    """Map one Open Food Facts record, or None when it isn't usable.
+
+    `for_lookup` is the live search for a scanned product: it keeps products
+    outside CalFit's categories and without sodium (the scan can still be
+    scored on what is known) and doesn't insist on India in `countries_tags`,
+    which is often missing. The import into food.db keeps the strict rules.
+    """
+    if not for_lookup and "en:india" not in (hit.get("countries_tags") or []):
         return None
     name = (hit.get("product_name_en") or hit.get("product_name") or "").strip()
     if not name:
         return None
     category = classify_off_tags(hit.get("categories_tags"))
-    if category is None:
+    if category is None and not for_lookup:
         return None
 
     n = hit.get("nutriments") or {}
@@ -77,7 +89,7 @@ def map_off_product(hit: dict[str, Any], imported_at: str) -> FoodProduct | None
     sodium_g = _num(n, "sodium_100g")
     if sodium_g is None and _num(n, "salt_100g") is not None:
         sodium_g = _num(n, "salt_100g") / 2.5
-    if sodium_g is None:
+    if sodium_g is None and not for_lookup:
         return None
     if sodium_g == 0 and category in _SALTY_CATEGORIES:
         return None  # e.g. masala noodles listed with no sodium: a data-entry error
@@ -89,13 +101,13 @@ def map_off_product(hit: dict[str, Any], imported_at: str) -> FoodProduct | None
         saturated_fat_g=_num(n, "saturated-fat_100g"),
         trans_fat_g=_num(n, "trans-fat_100g"),
         cholesterol_mg=round(cholesterol_g * 1000, 1) if cholesterol_g is not None else None,
-        sodium_mg=round(sodium_g * 1000, 1),
+        sodium_mg=round(sodium_g * 1000, 1) if sodium_g is not None else None,
         total_carbs_g=_num(n, "carbohydrates_100g"),
         dietary_fiber_g=_num(n, "fiber_100g"),
         sugars_g=_num(n, "sugars_100g"),
         added_sugars_g=_num(n, "added-sugars_100g"),
         protein_g=_num(n, "proteins_100g"),
-        sodium_confidence=True,
+        sodium_confidence=sodium_g is not None,
         sugar_confidence=True,
         fat_confidence=True,
     )
@@ -123,11 +135,13 @@ def map_off_product(hit: dict[str, Any], imported_at: str) -> FoodProduct | None
         ingredients=ingredients,
         nutrition=nutrition,
         serving_size=hit.get("serving_size"),
+        quantity=(hit.get("quantity") or None),
         allergens=allergens,
         image_url=hit.get("image_front_small_url") or hit.get("image_small_url"),
         source="open_food_facts",
         data_confidence=0.9 if ingredients else 0.75,
-        calfit_category=category,
+        calfit_category=category or classify_text(
+            " ".join(hit.get("categories_tags") or []).replace("en:", " ").replace("-", " "), name),
         flavours=flavours_of(name),
         imported_at=imported_at,
     )

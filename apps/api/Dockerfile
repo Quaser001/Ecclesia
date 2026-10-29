@@ -24,8 +24,7 @@ WORKDIR /app
 
 # Install production deps first; the layer cache survives source edits.
 COPY pyproject.toml uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-dev --no-install-project
 
 # Now the source. The app runs from /app/src (CMD imports src.main), so the
 # project is never installed as a package and no build backend is fetched.

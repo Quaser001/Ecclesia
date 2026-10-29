@@ -4,7 +4,22 @@
 **Snapshot:** `main` = `origin/main` at `dfbff35` (plus this handoff commit). CI not checked since the push.
 **Tests:** backend 563 (pytest), app 94 (`flutter test`), `flutter analyze` clean.
 **Live Supabase (Singapore `rxqsyksydnmwtslfvwll`):** migrations 001–012 applied (010 consents, 011 rls_auto_enable lockdown, 012 refund_scan_usage). There's no tracking table, so record each migration here.
+**Live Cloud Run (Mumbai `asia-south1`):** `https://calfit-api-661871935612.asia-south1.run.app` — GCP project `gen-lang-client-0252924706` ("aaa1"), service account `calfit-api@gen-lang-client-0252924706.iam.gserviceaccount.com`, image tag `e569254`, revision `calfit-api-00001-9rs`. Health, 401 and device-token smoke tests passed. Secrets in Secret Manager: GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, AUTH_SECRET_KEY (pinned to version 1).
 **Founder's phone:** runs the consent-notice build (not the latest, which adds `Idempotency-Key`). Install the latest with `adb install -r` next time it's plugged in.
+
+## Done on 2026-10-29: Cloud Run deployment (production-readiness item 3)
+- **API deployed** to Cloud Run at `https://calfit-api-661871935612.asia-south1.run.app` (Mumbai, `asia-south1`).
+- **GCP project:** `gen-lang-client-0252924706` ("aaa1"), same project as the paid-tier Gemini key.
+- **Infrastructure created:** Artifact Registry repo `calfit`, service account `calfit-api`, four secrets in Secret Manager.
+- **Dockerfile fix:** removed `--mount=type=cache` (requires BuildKit, which Cloud Build's legacy builder doesn't support). Build-time caching is lost; each build re-downloads deps (~7 s). Not a problem.
+- **Smoke tests passed:** `/health` → ok, `/api/v1/profile` → 401, `POST /api/v1/auth/device` → token issued.
+- **`APP_ENV=production`**: local SQLite fallback disabled, `/docs` hidden, secrets required.
+- **`PRESCRIPTION_AI_ENABLED=false`** in production (safe: prescriptions are off until explicitly enabled).
+- **Log retention:** 365 days on the `_Default` bucket (DPDP Rules 6(1)(e), 8(3)).
+- **Uptime check:** `calfit-api-health` checks `/health` every 5 minutes.
+- **Budget alert:** ₹500/month with alerts at 50%, 90%, 100% actual and 100% forecasted.
+- **Not yet done from item 3:** Gemini quota cap (set in GCP Console → IAM & Admin → Quotas: filter "Generative Language API", cap requests/min to 60 and requests/day to 5,000), `--min-instances 1` (adds ~₹1,000/month idle cost — optional).
+- **Key rotation still pending:** all `.env` secrets exposed in chat history.
 
 ## Done on 2026-10-29: four scan-reliability fixes and security headers
 - **Label numbers sanity-checked:** `src/domain/nutrition_plausibility.py`. Impossible values become unknown; contradictions make the scan insufficient data. It passes the founder's 31 real scans.
@@ -104,15 +119,17 @@
 - [x] **New Gemini key in `apps/api/.env`** (2026-10-29). A real scan of a synthetic label passed end to end in 22 s.
   - `GEMINI_MODEL` is now `gemini-2.5-flash` (4.7 s on a label); `gemini-3.5-flash-lite` took 19.5 s and hung once.
   - The key was pasted into chat, so it's on the rotate list.
+- [x] **Paid-tier Gemini key verified** (2026-10-29). `check_config` passes all five checks. `GEMINI_PAID_TIER_CONFIRMED=true` set.
+  - The entire `.env` was read in this chat session, so **all keys** are on the rotate list: Gemini, Groq, Cerebras, Supabase service-role, and AUTH_SECRET_KEY.
 
 ## Waiting on the founder
 - [ ] **GitHub settings:**
   - install the CodeRabbit app;
   - branch protection on `main` (PR plus green CI);
   - secret scanning with push protection.
-- [ ] **Rotate the exposed keys:** the Gemini key pasted in chat on 2026-10-29, plus Groq, Cerebras and the old Supabase secret. Then every 90 days.
+- [ ] **Rotate ALL exposed keys (critical):** the entire `.env` was read in the 2026-10-29 chat session. Rotate: Gemini API key, Groq, Cerebras, Supabase service-role key, and AUTH_SECRET_KEY (careful: rotating AUTH_SECRET_KEY invalidates every phone token — see `DEPLOY_CLOUD_RUN.md`). Then every 90 days.
 - [ ] **Delete the unused Mumbai Supabase project** "calfit" (`trmohgpjtldwxbpoqvpn`) from the dashboard.
-- [ ] **AI plan:** buy Vertex AI (asia-south1), then request zero data retention. Prescriptions stay refused until `GEMINI_BACKEND=vertex` or `GEMINI_PAID_TIER_CONFIRMED=true`.
+- [x] **AI plan:** paid-tier Gemini key verified (2026-10-29). `GEMINI_PAID_TIER_CONFIRMED=true` set. Prescriptions are now allowed locally. Vertex AI is still an option for zero data retention.
 - [ ] **Real photo-scan test on the phone** (a synthetic label already passed through the server in 22 s).
 - [ ] **Try "Add family member" on the phone:** not exercised on a device yet.
 - [ ] **Note:** the phone now runs the Keystore build, so an older build installed over it won't find the token.

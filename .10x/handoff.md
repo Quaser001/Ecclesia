@@ -1,7 +1,18 @@
 # Handoff
 
-**From:** the 2026-10-28/29 session (production hardening, data audit, family profiles, CI).
+**From:** the 2026-10-29 session. It covered:
+- the Keystore token move;
+- the mobile security audit;
+- the DPDP Rules check and the consent notice;
+- migrations 010–012;
+- the production-readiness review;
+- the scan-reliability fixes.
 **To:** the next chat. Start by reading `status.md`, then this file.
+
+## Start here
+1. **What's next:** `.10x/reviews/2026-10-29-production-readiness.md`, the ticked checklist. Its "Order of work" is the plan. Items 1–2 are done, so next is: deploy to Cloud Run (paid Gemini tier), Supabase Pro, crash reporting, a release keystore with an app bundle, Play Console, then Google sign-in, then payments.
+2. **DPDP:** `.10x/reviews/2026-10-29-dpdp-rules.md`. The duties apply from 13 May 2027. Open items: the breach notice, seeing whose data was accessed, and the Rule 8(3) question for a lawyer.
+3. **Rules for every edit:** `agents.md` sections 5–6 (loaded through `CLAUDE.md`).
 
 ## Read first
 - **Rules:** `AGENTS.md`.
@@ -16,6 +27,12 @@
 - **Python:** always use `apps/api/.venv`, which matches `uv.lock`. The root `.venv` is stale; don't use it.
 - **Backend:** `cd apps/api && .venv/Scripts/python.exe -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --no-access-log`.
 - **Check that keys work:** `.venv/Scripts/python.exe -m src.check_config`.
+- **Live scan check:**
+  - with a throwaway identity, register, then `POST /api/v1/consent`, then scan;
+  - every scan route answers 428 until the person agrees to the notice;
+  - send an `Idempotency-Key` (UUID) to make retries safe.
+- **"Waiting For Debugger" on the phone:** run `adb shell am clear-debug-app`.
+- **Phone not seen by adb:** check the cable, choose "File transfer", and allow USB debugging. Windows showing "POCO M4 Pro" but adb seeing nothing means debugging isn't allowed yet.
 - **Tests:**
   - backend: `.venv/Scripts/python.exe -m pytest -q`;
   - app: `cd apps/mobile && flutter analyze && flutter test`.
@@ -30,6 +47,8 @@
 - **Commit and push only when asked.** Never push `backup/pre-scrub-*`.
 - **Never print `.env` values**; the founder adds keys themselves.
 - **Never modify the founder's own account or scans without explicit approval.** Use throwaway accounts.
+- **Supabase changes:** show the migration and ask before applying it to the live project. Record it in `status.md`.
+- **Never tick the consent box for the founder.** It's their consent.
 - **Only synthetic prescriptions,** and never to the free Gemini tier.
 - **On Pro:** keep multi-agent workflows small (about 4–6 agents); reuse earlier results.
 - **The founder is new to app development.** Explain the why briefly, in plain words.

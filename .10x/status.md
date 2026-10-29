@@ -1,8 +1,10 @@
 # Status
 
 **Updated:** 2026-10-29
-**Snapshot:** `main` = `origin/main` at `b4c6c3b` (plus this handoff commit). CI is green: secret scan, backend, app.
-**Tests:** backend 520 (pytest), app 93 (`flutter test`), `flutter analyze` clean.
+**Snapshot:** `main` = `origin/main` at `dfbff35` (plus this handoff commit). CI not checked since the push.
+**Tests:** backend 563 (pytest), app 94 (`flutter test`), `flutter analyze` clean.
+**Live Supabase (Singapore `rxqsyksydnmwtslfvwll`):** migrations 001–012 applied (010 consents, 011 rls_auto_enable lockdown, 012 refund_scan_usage). There's no tracking table, so record each migration here.
+**Founder's phone:** runs the consent-notice build (not the latest, which adds `Idempotency-Key`). Install the latest with `adb install -r` next time it's plugged in.
 
 ## Done on 2026-10-29: four scan-reliability fixes and security headers
 - **Label numbers sanity-checked:** `src/domain/nutrition_plausibility.py`. Impossible values become unknown; contradictions make the scan insufficient data. It passes the founder's 31 real scans.
@@ -39,7 +41,7 @@
   - The real project is "CalFit" in Singapore (`rxqsyksydnmwtslfvwll`).
 - **Speed:** each gated request now makes one more Supabase round trip (about 0.2–1 s after an idle period). Watch it next to the timeout item.
 
-## Done on 2026-10-29 (uncommitted): DPDP Rules check
+## Done on 2026-10-29 DPDP Rules check
 - **Review:** `.10x/reviews/2026-10-29-dpdp-rules.md`.
 - **When it applies:** CalFit's duties start **13 May 2027** (Act ss.3–17, Rules 3 and 5–16).
 - **Fixed today:**
@@ -58,7 +60,7 @@
   - **Rule 6:** data processing agreements with Supabase and Google; Supabase backups.
 - **Translations:** Khasi consent strings are in English until a speaker reviews them.
 
-## Done on 2026-10-29 (committed): "tabs don't load" + mobile audit
+## Done on 2026-10-29 "tabs don't load" + mobile audit
 - **Cause of "only Home loads":** the local server was stopped. Home kept what it had loaded; the other tabs had nothing to show.
   - The app now names this "Can't reach the CalFit server": `http.ClientException` maps to the network error kind.
   - Cold or idle requests to Supabase from this PC take about 1–5 s; one Insights call took 14 s, past the app's 10 s limit. Watch this; not fixed.
@@ -108,9 +110,10 @@
   - install the CodeRabbit app;
   - branch protection on `main` (PR plus green CI);
   - secret scanning with push protection.
-- [ ] **Rotate the earlier-exposed keys** (Gemini, Groq, Cerebras, old Supabase secret), then every 90 days.
+- [ ] **Rotate the exposed keys:** the Gemini key pasted in chat on 2026-10-29, plus Groq, Cerebras and the old Supabase secret. Then every 90 days.
+- [ ] **Delete the unused Mumbai Supabase project** "calfit" (`trmohgpjtldwxbpoqvpn`) from the dashboard.
 - [ ] **AI plan:** buy Vertex AI (asia-south1), then request zero data retention. Prescriptions stay refused until `GEMINI_BACKEND=vertex` or `GEMINI_PAID_TIER_CONFIRMED=true`.
-- [ ] **Real photo-scan test on the phone:** after the new key.
+- [ ] **Real photo-scan test on the phone** (a synthetic label already passed through the server in 22 s).
 - [ ] **Try "Add family member" on the phone:** not exercised on a device yet.
 - [ ] **Note:** the phone now runs the Keystore build, so an older build installed over it won't find the token.
 - [ ] **Optional, touches the founder's account (needs approval):**

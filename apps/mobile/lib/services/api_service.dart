@@ -75,10 +75,9 @@ class ApiService {
   final http.Client client;
   final AuthTokenStore tokenStore;
 
-  ApiService({String? baseUrl, http.Client? client, AuthTokenStore? tokenStore})
+  ApiService({String? baseUrl, http.Client? client, required this.tokenStore})
       : baseUrl = baseUrl ?? ApiConfig.baseUrl,
-        client = client ?? http.Client(),
-        tokenStore = tokenStore ?? PrefsAuthTokenStore();
+        client = client ?? http.Client();
 
   /// Returns the stored device token, registering this install with the
   /// backend the first time. The server picks the user id; the app never does.

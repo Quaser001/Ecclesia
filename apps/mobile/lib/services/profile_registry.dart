@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'auth_token_store.dart';
+import 'secret_store.dart';
 
 /// One person on this phone. Each has their own anonymous server identity
 /// (its own signed token), so conditions, scans, history and quota never mix:
@@ -26,9 +27,18 @@ class DeviceProfile {
         resetPending: resetPending ?? this.resetPending,
       );
 
-  Map<String, dynamic> toJson() =>
-      {'id': id, 'label': label, 'token': token, 'reset_pending': resetPending};
+  /// The token itself is NOT here: it lives in the Keystore. Prefs only
+  /// record that there is one, so a token the Keystore loses is noticed.
+  /// [keepToken] is for a token that couldn't be moved there yet.
+  Map<String, dynamic> toJson({bool keepToken = false}) => {
+        'id': id,
+        'label': label,
+        'signed_in': token != null,
+        if (keepToken) 'token': token,
+        'reset_pending': resetPending,
+      };
 
+  /// Reads `token` too: builds before the Keystore move kept it in prefs.
   factory DeviceProfile.fromJson(Map<String, dynamic> j) => DeviceProfile(
         id: j['id'] as String,
         label: (j['label'] as String?) ?? '',
@@ -52,49 +62,96 @@ class ProfileRegistry extends ChangeNotifier {
   static ProfileRegistry? current;
 
   final SharedPreferences _prefs;
+  final SecretStore _secrets;
   List<DeviceProfile> _profiles;
   String _activeId;
 
-  ProfileRegistry._(this._prefs, this._profiles, this._activeId);
+  /// Profiles whose token is still in prefs because the Keystore refused it.
+  final Set<String> _unmigrated;
+
+  ProfileRegistry._(this._prefs, this._secrets, this._profiles, this._activeId, this._unmigrated);
 
   List<DeviceProfile> get profiles => List.unmodifiable(_profiles);
   String get activeId => _activeId;
   DeviceProfile get active => _profiles.firstWhere((p) => p.id == _activeId);
   DeviceProfile? byId(String id) => _profiles.where((p) => p.id == id).firstOrNull;
 
-  /// Loads the profiles. The first run after this update turns the single
-  /// existing sign-in into the first profile, so nobody loses their data.
-  static Future<ProfileRegistry> load() async {
+  /// Loads the profiles. The first run after an update moves older sign-ins
+  /// (the single pre-family token, then tokens kept in prefs) into the
+  /// Keystore, so nobody loses their data.
+  static Future<ProfileRegistry> load(SecretStore secrets) async {
     final prefs = await SharedPreferences.getInstance();
-    var profiles = <DeviceProfile>[];
+    var entries = <Map<String, dynamic>>[];
     final raw = prefs.getString(_key);
     if (raw != null) {
       try {
-        profiles = [
-          for (final p in jsonDecode(raw) as List<dynamic>)
-            DeviceProfile.fromJson(p as Map<String, dynamic>),
-        ];
+        entries = [for (final p in jsonDecode(raw) as List<dynamic>) p as Map<String, dynamic>];
       } catch (_) {
-        profiles = []; // unreadable: start again rather than crash
+        entries = []; // unreadable: start again rather than crash
       }
     }
-    if (profiles.isEmpty) {
-      profiles = [
-        DeviceProfile(
-          id: _newId(),
-          token: prefs.getString(_legacyTokenKey),
-          resetPending: prefs.getBool(_legacyResetKey) ?? false,
-        ),
+    if (entries.isEmpty) {
+      entries = [
+        {
+          'id': _newId(),
+          'token': prefs.getString(_legacyTokenKey),
+          'reset_pending': prefs.getBool(_legacyResetKey) ?? false,
+        },
       ];
     }
+
+    final profiles = <DeviceProfile>[];
+    final unmigrated = <String>{};
+    for (final e in entries) {
+      final p = DeviceProfile.fromJson(e);
+      final plain = p.token;
+      if (plain != null && plain.isNotEmpty) {
+        // Still in prefs: it stays there until the Keystore copy is proven,
+        // because losing it would orphan the person's data.
+        if (!await _moveToKeystore(secrets, p.id, plain)) unmigrated.add(p.id);
+        profiles.add(p);
+      } else if (e['signed_in'] == true) {
+        String? token;
+        try {
+          token = await secrets.read(_secretKey(p.id));
+        } catch (err) {
+          debugPrint('CalFit: Keystore read failed for a profile: $err');
+        }
+        // A sign-in the Keystore lost must not quietly become a new, empty
+        // identity that scores without the person's allergies: treat it
+        // like a rejected token, so scans wait until the profile is saved.
+        profiles.add(token != null && token.isNotEmpty
+            ? p.copyWith(token: token)
+            : p.copyWith(clearToken: true, resetPending: true));
+      } else {
+        profiles.add(p.copyWith(clearToken: true));
+      }
+    }
+
     final saved = prefs.getString(_activeKey);
     final activeId = profiles.any((p) => p.id == saved) ? saved! : profiles.first.id;
-    final registry = ProfileRegistry._(prefs, profiles, activeId);
+    final registry = ProfileRegistry._(prefs, secrets, profiles, activeId, unmigrated);
     await registry._save();
-    // Only after the token is safely in the registry.
+    // Only after the token is safely in the Keystore or the registry.
     await prefs.remove(_legacyTokenKey);
     await prefs.remove(_legacyResetKey);
     return current = registry;
+  }
+
+  static String _secretKey(String profileId) => 'calfit.token.$profileId';
+
+  /// True once the Keystore holds [token]. The plugin saves to disk lazily
+  /// (Android's `apply()`), so a read straight after the write only proves
+  /// it's in memory: the first launch writes, and the plaintext in prefs is
+  /// dropped only when a LATER launch reads the same token back.
+  static Future<bool> _moveToKeystore(SecretStore secrets, String id, String token) async {
+    try {
+      if (await secrets.read(_secretKey(id)) == token) return true;
+      await secrets.write(_secretKey(id), token);
+    } catch (err) {
+      debugPrint('CalFit: moving a token to the Keystore failed: $err');
+    }
+    return false;
   }
 
   static String _newId() {
@@ -103,7 +160,8 @@ class ProfileRegistry extends ChangeNotifier {
   }
 
   Future<void> _save() async {
-    await _prefs.setString(_key, jsonEncode([for (final p in _profiles) p.toJson()]));
+    await _prefs.setString(
+        _key, jsonEncode([for (final p in _profiles) p.toJson(keepToken: _unmigrated.contains(p.id))]));
     await _prefs.setString(_activeKey, _activeId);
   }
 
@@ -147,13 +205,38 @@ class ProfileRegistry extends ChangeNotifier {
     } else {
       _profiles = _profiles.where((p) => p.id != id).toList();
       if (_activeId == id) _activeId = _profiles.first.id;
-      await _save();
     }
+    _unmigrated.remove(id);
+    await _save();
+    await _deleteSecret(_secretKey(id));
     notifyListeners();
   }
 
-  Future<void> setToken(String id, String? token) =>
-      _update(id, (p) => p.copyWith(token: token, clearToken: token == null));
+  /// Saves (or, with null, removes) a profile's token in the Keystore. A
+  /// failed save throws, so the request that got the token fails visibly
+  /// instead of the app forgetting who the person is.
+  Future<void> setToken(String id, String? token) async {
+    if (byId(id) == null) return; // removed meanwhile: don't resurrect it
+    final key = _secretKey(id);
+    if (token != null) {
+      await _secrets.write(key, token);
+    } else {
+      await _deleteSecret(key);
+    }
+    _unmigrated.remove(id);
+    await _update(id, (p) => p.copyWith(token: token, clearToken: token == null));
+    if (byId(id) == null) await _deleteSecret(key); // removed during the write
+  }
+
+  /// Best effort: a token is only cleared once the server has dropped or
+  /// deleted that identity, so a leftover copy opens nothing.
+  Future<void> _deleteSecret(String key) async {
+    try {
+      await _secrets.delete(key);
+    } catch (err) {
+      debugPrint('CalFit: Keystore delete failed: $err');
+    }
+  }
 
   Future<void> setResetPending(String id, bool pending) =>
       _update(id, (p) => p.copyWith(resetPending: pending));

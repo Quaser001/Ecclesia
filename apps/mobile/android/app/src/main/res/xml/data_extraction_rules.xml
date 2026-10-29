@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     Nothing of CalFit's is copied to Google cloud backup or to a new phone:
-    shared preferences hold the bearer token that opens the user's health
-    profile, and a copy would outlive "uninstall" (privacy policy section 3).
+    shared preferences hold the Keystore-encrypted bearer token that opens
+    the user's health profile, and a copy would outlive "uninstall" (privacy
+    policy section 3).
 -->
 <data-extraction-rules>
     <cloud-backup>

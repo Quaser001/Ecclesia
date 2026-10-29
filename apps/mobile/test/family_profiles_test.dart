@@ -10,6 +10,7 @@ import 'package:mobile/features/profile/prescription_consent.dart';
 import 'package:mobile/l10n/l10n.dart';
 import 'package:mobile/services/api_service.dart';
 import 'package:mobile/services/profile_registry.dart';
+import 'package:mobile/services/secret_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Family profiles: one separate server identity per person on the phone
@@ -19,21 +20,25 @@ http.Response _json(Object body, [int status = 200]) =>
     http.Response(jsonEncode(body), status, headers: {'content-type': 'application/json'});
 
 void main() {
-  setUp(() => ProfileRegistry.current = null);
+  late MemorySecretStore secrets;
+  setUp(() {
+    ProfileRegistry.current = null;
+    secrets = MemorySecretStore();
+  });
 
   test('the existing sign-in becomes the first profile, so nobody loses data', () async {
     SharedPreferences.setMockInitialValues({'calfit.auth_token': 'tok-sharon'});
-    final r = await ProfileRegistry.load();
+    final r = await ProfileRegistry.load(secrets);
     expect(r.profiles, hasLength(1));
     expect(r.active.token, 'tok-sharon');
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('calfit.auth_token'), isNull); // moved, not copied
-    expect((await ProfileRegistry.load()).active.token, 'tok-sharon'); // survives a restart
+    expect((await ProfileRegistry.load(secrets)).active.token, 'tok-sharon'); // survives a restart
   });
 
   test('each person signs in separately and sees only their own data', () async {
     SharedPreferences.setMockInitialValues({'calfit.auth_token': 'tok-sharon'});
-    final r = await ProfileRegistry.load();
+    final r = await ProfileRegistry.load(secrets);
     final sharonId = r.activeId;
     final seen = <String?>[];
     var issued = 0;
@@ -57,7 +62,7 @@ void main() {
 
   test('a request finishing after a switch stays with the person it was for', () async {
     SharedPreferences.setMockInitialValues({});
-    final r = await ProfileRegistry.load();
+    final r = await ProfileRegistry.load(secrets);
     final first = r.activeId;
     final store = ProfileTokenStore(r, first);
     await r.add('Mother'); // switched away mid-request
@@ -68,7 +73,7 @@ void main() {
 
   test('delete my data removes that person only; the last profile stays, empty', () async {
     SharedPreferences.setMockInitialValues({'calfit.auth_token': 'tok-sharon'});
-    final r = await ProfileRegistry.load();
+    final r = await ProfileRegistry.load(secrets);
     final sharon = r.activeId;
     final father = await r.add('Father');
     await r.forget(father);
@@ -82,7 +87,7 @@ void main() {
 
   test('prescription consent is per person', () async {
     SharedPreferences.setMockInitialValues({});
-    final r = await ProfileRegistry.load();
+    final r = await ProfileRegistry.load(secrets);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('calfit.rx_consent.${r.activeId}', true);
     final mother = await r.add('Mother');
@@ -94,7 +99,7 @@ void main() {
 
   testWidgets('add a family member from the switcher, adults only', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    final r = await tester.runAsync(ProfileRegistry.load);
+    final r = await tester.runAsync(() => ProfileRegistry.load(secrets));
     await tester.pumpWidget(MaterialApp(
       theme: AppTheme.lightTheme,
       localizationsDelegates: localizationsDelegates,

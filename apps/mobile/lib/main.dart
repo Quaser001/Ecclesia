@@ -6,15 +6,17 @@ import 'features/onboarding/onboarding_screen.dart';
 import 'l10n/l10n.dart';
 import 'navigation/bottom_navigation.dart';
 import 'services/api_service.dart';
+import 'services/auth_token_store.dart';
 import 'services/device_id_service.dart';
 import 'services/profile_registry.dart';
+import 'services/secret_store.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ThemeController.init();
   final deviceId = await DeviceIdService.load();
   final onboard = await Onboarding.shouldShow();
-  final profiles = await ProfileRegistry.load();
+  final profiles = await ProfileRegistry.load(KeystoreSecretStore());
   runApp(CalFitApp(deviceId: deviceId, showOnboarding: onboard, profiles: profiles));
 }
 
@@ -41,7 +43,8 @@ class _CalFitAppState extends State<CalFitApp> {
 
   // One client per profile, each signed in as that person only.
   final _apis = <String, ApiService>{};
-  final _single = ApiService();
+  // Tests without profiles only; the app always loads them.
+  late final _single = ApiService(tokenStore: MemoryAuthTokenStore());
 
   ApiService get apiService {
     final profiles = widget.profiles;

@@ -18,6 +18,12 @@ updates:
     groups:
       dart-minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # A major version can drop the cipher the saved tokens use, which would
+      # send every user to "save your profile again". Upgrade by hand, one
+      # major at a time, testing the upgrade on a phone first.
+      - dependency-name: flutter_secure_storage
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /

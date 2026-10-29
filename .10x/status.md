@@ -2,7 +2,22 @@
 
 **Updated:** 2026-10-29
 **Snapshot:** `main` = `origin/main` at `b4c6c3b` (plus this handoff commit). CI is green: secret scan, backend, app.
-**Tests:** backend 508 (pytest), app 72 (`flutter test`), `flutter analyze` clean.
+**Tests:** backend 508 (pytest), app 82 (`flutter test`), `flutter analyze` clean.
+
+## Done on 2026-10-29 (Keystore)
+- **Sign-in tokens moved to the Android Keystore** (`flutter_secure_storage` 11.2.0, `resetOnError: false`).
+  - Interface: `lib/services/secret_store.dart`. Plain preferences now keep only a "signed in" marker.
+  - Migration: the old single token and the tokens in the profiles list are written to the Keystore on first launch. Prefs drop the plain copy only when a later launch reads the same token back, because the plugin saves to disk lazily. If the Keystore refuses, the token stays in prefs and the next launch retries.
+  - Dependabot ignores major versions of `flutter_secure_storage`: a major can drop the cipher the saved tokens use. Upgrade by hand, one major at a time, after a phone test.
+  - If the Keystore loses a token, that profile goes to "save your profile again" (scans refused), never a silent new identity.
+  - The old `PrefsAuthTokenStore` is deleted; `ApiService` now requires a token store.
+  - Tests: `test/token_keystore_test.dart` (10). The debug APK builds.
+  - **Upgrade tested on the founder's phone (2026-10-29, with approval):** prefs backed up first, installed with `adb install -r`.
+    - Launch 1 wrote the token to the Keystore and kept the plain copy.
+    - Launch 2 dropped the plain copy: `signed_in` is true and `reset_pending` false.
+    - The same identity was in use: 31 scans and the profile intact.
+    - Backup files deleted afterwards.
+  - The emulator can't run on this PC (virtualization is off in BIOS).
 
 ## Done on 2026-10-28 and 29
 - **Production hardening:** 47 audited issues. Spec `specs/2026-10-29-production-hardening.md`, review `reviews/2026-10-29-production-hardening.md`, ADR-006 "fail loudly".
@@ -27,6 +42,7 @@
 - [ ] **AI plan:** buy Vertex AI (asia-south1), then request zero data retention. Prescriptions stay refused until `GEMINI_BACKEND=vertex` or `GEMINI_PAID_TIER_CONFIRMED=true`.
 - [ ] **Real photo-scan test on the phone:** after the new key.
 - [ ] **Try "Add family member" on the phone:** not exercised on a device yet.
+- [ ] **Note:** the phone now runs the Keystore build, so an older build installed over it won't find the token.
 - [ ] **Optional, touches the founder's account (needs approval):**
   - fill in `scored_for` on the 31 old scans;
   - strip GPS from their old photos.
@@ -41,8 +57,7 @@
 
 ## Next engineering candidates
 1. **Prescriptions:** on-device text recognition and redaction before turning them on.
-2. **Token storage:** move to the Android Keystore (`flutter_secure_storage`).
-3. **Deploy to Cloud Run** (`APP_ENV=production`, `TRUSTED_PROXY_HOPS=1`, Cloud Armor in front).
-4. **Google sign-in** (must link the family identities).
-5. **Play Store:** Play Integrity in place of CAPTCHA, signing, listing.
-6. **Pay down the 105 mypy errors.**
+2. **Deploy to Cloud Run** (`APP_ENV=production`, `TRUSTED_PROXY_HOPS=1`, Cloud Armor in front).
+3. **Google sign-in** (must link the family identities).
+4. **Play Store:** Play Integrity in place of CAPTCHA, signing, listing.
+5. **Pay down the 105 mypy errors.**

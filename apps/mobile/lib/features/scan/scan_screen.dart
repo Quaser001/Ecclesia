@@ -33,6 +33,8 @@ class _ScanScreenState extends State<ScanScreen> {
   final ImagePicker _picker = ImagePicker();
   Uint8List? _selectedImageBytes;
   String? _selectedImageName;
+  // One per photo: "Try again" on the same photo can't save it twice.
+  String _scanKey = ApiService.newScanKey();
   bool _scanning = false;
   String? _error;
 
@@ -52,6 +54,7 @@ class _ScanScreenState extends State<ScanScreen> {
         setState(() {
           _selectedImageBytes = bytes;
           _selectedImageName = file.name;
+          _scanKey = ApiService.newScanKey();
         });
       }
     } catch (_) {
@@ -72,7 +75,8 @@ class _ScanScreenState extends State<ScanScreen> {
     final photo = _selectedImageBytes!;
     final filename = _selectedImageName ?? 'product_photo.jpg';
     try {
-      var result = await widget.apiService.submitScan(photoBytes: photo, filename: filename);
+      var result = await widget.apiService
+          .submitScan(photoBytes: photo, filename: filename, scanKey: _scanKey);
       if (!mounted) return;
 
       // Front of pack, more than one real product fits (or the name was read
@@ -92,7 +96,7 @@ class _ScanScreenState extends State<ScanScreen> {
         }
         setState(() => _scanning = true);
         result = await widget.apiService.confirmScan(
-            photoBytes: photo, option: picked, filename: filename);
+            photoBytes: photo, option: picked, filename: filename, scanKey: _scanKey);
         if (!mounted) return;
       }
 

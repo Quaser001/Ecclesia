@@ -17,6 +17,7 @@ from src.config.settings import settings
 from src.observability import configure_logging, current_request_id, request_context_middleware
 from src.providers.interfaces import ServiceUnavailable
 from src.request_limit import RequestLimitMiddleware
+from src.security_headers import SecurityHeadersMiddleware
 
 configure_logging(settings.LOG_FORMAT)
 logger = logging.getLogger(__name__)
@@ -103,6 +104,9 @@ app.add_middleware(
 
 # Added last, so it runs first: every request (CORS preflights and 413s too) gets an id.
 app.middleware("http")(request_context_middleware)
+
+# Outermost: every response, including 413, 429 and errors, carries them.
+app.add_middleware(SecurityHeadersMiddleware, hsts=settings.is_production)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 

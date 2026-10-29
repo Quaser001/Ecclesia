@@ -48,6 +48,7 @@ from src.domain.models import (
     SuitabilityStatus,
     UserProfile,
 )
+from src.domain.nutrition_plausibility import check_nutrition
 from src.domain.rule_catalog import MIN_EXTRACTION_CONFIDENCE
 from src.domain.score_formula import format_score
 from src.observability import log_scan_summary, note, start_scan_trace, timed
@@ -108,6 +109,9 @@ class ScanState(BaseModel):
 
     # Which product a front-of-pack photo shows (services/identification.py).
     identification: Identification | None = None
+
+    # time.monotonic() by which the whole scan must be done (_execute sets it).
+    deadline: float | None = None
 
     # Control flow
     insufficient_data: bool = False
@@ -172,6 +176,23 @@ async def node_validate_extraction(state: ScanState) -> dict[str, Any]:
             "pipeline_message": "The photo didn't contain enough product information.",
         }
 
+    # Numbers that can't be true: drop the impossible ones; if they contradict
+    # each other we can't tell which is wrong, so don't score at all.
+    plausibility = check_nutrition(product.nutrition)
+    if plausibility.dropped or plausibility.contradictions:
+        logger.info("Implausible label numbers: dropped=%s contradictions=%s",
+                    plausibility.dropped, plausibility.contradictions)
+    if not plausibility.reliable:
+        return {
+            "insufficient_data": True,
+            "pipeline_message": (
+                "The numbers we read from the label don't add up, so we won't guess. "
+                "Try a sharper photo of the nutrition panel."
+            ),
+        }
+    if plausibility.dropped:
+        product = product.model_copy(update={"nutrition": plausibility.nutrition})
+
     has_enough = bool(product.product_name or product.ingredients or product.brand)
     if not has_enough:
         return {
@@ -198,7 +219,7 @@ async def node_validate_extraction(state: ScanState) -> dict[str, Any]:
             ),
         }
 
-    return {"insufficient_data": False}
+    return {"insufficient_data": False, "product": product}
 
 
 async def node_match_product(
@@ -411,14 +432,26 @@ async def node_score_product(state: ScanState) -> dict[str, Any]:
 async def node_generate_explanation(
     state: ScanState, gemini: GeminiProvider
 ) -> dict[str, Any]:
-    """Generate a human-readable explanation using the LLM, with a factual fallback."""
+    """Generate a human-readable explanation using the LLM, with a factual fallback.
+
+    The explanation is wording only (the score is already set), so when the
+    scan's time is nearly used up we skip the AI and use the rule summary.
+    """
     try:
+        left = None if state.deadline is None else state.deadline - time.monotonic()
+        if left is not None and left < settings.EXPLANATION_MIN_SECONDS:
+            note(explanation="fallback_time")
+            raise TimeoutError("not enough time left for the AI explanation")
         explanation_svc = ExplanationService(gemini)
-        explanation = await explanation_svc.explain(
-            product=state.product,
-            score_result=state.score_result,
-            profile=state.profile,
-            knowledge=state.knowledge or None,
+        # Leave a few seconds for alternatives and the photo upload.
+        explanation = await asyncio.wait_for(
+            explanation_svc.explain(
+                product=state.product,
+                score_result=state.score_result,
+                profile=state.profile,
+                knowledge=state.knowledge or None,
+            ),
+            timeout=None if left is None else max(left - 4.0, 1.0),
         )
         return {"explanation": explanation}
     except Exception as exc:
@@ -631,14 +664,18 @@ class ScanOrchestrator:
         user_id: str,
         photo_bytes: bytes,
         mime_type: str = "image/jpeg",
+        scan_id: str | None = None,
     ) -> ScanResponse:
-        """Execute the full scan pipeline and return a ScanResponse."""
+        """Execute the full scan pipeline and return a ScanResponse.
+
+        `scan_id`: the app's idempotency key, used as the saved scan's id.
+        """
         initial_state = ScanState(
             user_id=user_id,
             photo_bytes=photo_bytes,
             mime_type=mime_type,
         )
-        return await self._execute(initial_state)
+        return await self._execute(initial_state, scan_id)
 
     async def run_with_product(
         self,
@@ -647,6 +684,7 @@ class ScanOrchestrator:
         identification: Identification,
         photo_bytes: bytes,
         mime_type: str = "image/jpeg",
+        scan_id: str | None = None,
     ) -> ScanResponse:
         """Score a product the user picked (confirm / choose): no photo reading."""
         initial_state = ScanState(
@@ -656,16 +694,24 @@ class ScanOrchestrator:
             product=product,
             identification=identification,
         )
-        return await self._execute(initial_state)
+        return await self._execute(initial_state, scan_id)
 
-    async def _execute(self, initial_state: ScanState) -> ScanResponse:
+    async def _execute(self, initial_state: ScanState, scan_id: str | None = None) -> ScanResponse:
         user_id = initial_state.user_id
         trace = start_scan_trace()
         started = time.perf_counter()
-        result_raw = await self._graph.ainvoke(initial_state)
+        initial_state.deadline = time.monotonic() + settings.SCAN_DEADLINE_SECONDS
+        try:
+            async with asyncio.timeout(settings.SCAN_DEADLINE_SECONDS):
+                result_raw = await self._graph.ainvoke(initial_state)
+        except TimeoutError:
+            # Nothing is saved: persisting happens below, after the graph.
+            note(outcome="deadline")
+            raise ServiceUnavailable(
+                "That took too long, so we stopped instead of guessing. Please try again.")
         final_state = ScanState(**result_raw) if isinstance(result_raw, dict) else result_raw
 
-        scan_id = str(uuid.uuid4())
+        scan_id = scan_id or str(uuid.uuid4())
         response = ScanResponse(
             scan_id=scan_id,
             user_id=user_id,

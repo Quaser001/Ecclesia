@@ -4,7 +4,18 @@
 **Snapshot:** `main` = `origin/main` at `b4c6c3b` (plus this handoff commit). CI is green: secret scan, backend, app.
 **Tests:** backend 520 (pytest), app 93 (`flutter test`), `flutter analyze` clean.
 
-## Done on 2026-10-29 (uncommitted): consent notice (DPDP item A)
+## Done on 2026-10-29: four scan-reliability fixes and security headers
+- **Label numbers sanity-checked:** `src/domain/nutrition_plausibility.py`. Impossible values become unknown; contradictions make the scan insufficient data. It passes the founder's 31 real scans.
+- **One 35 s deadline per scan,** with the explanation skipped when time is short: `SCAN_DEADLINE_SECONDS`, `EXPLANATION_MIN_SECONDS`.
+- **A failed scan gives its count back.** **Migration 012 (`refund_scan_usage`) is NOT applied yet**; until then refunds are logged and skipped.
+- **`Idempotency-Key` per photo** (app and server): a retry returns the saved scan. The local DB no longer overwrites on a duplicate id (it was `INSERT OR REPLACE`).
+- **Security headers on every response** (`src/security_headers.py`).
+- **New Gemini key in `.env`** (from the founder). `check_config` passes.
+  - A trivial call took 11.5 s on `gemini-3.5-flash-lite`; measure a real scan against the 35 s deadline.
+- **Note:** some old scans (8 Oct) hold sodium in grams labelled as mg, from before the unit fix. Old scans are never rescored (ADR-007).
+- **Tests:** backend 553, app 94.
+
+## Done on 2026-10-29: consent notice (DPDP item A)
 - **What:** a privacy notice with "I am 18 or older" and "I agree", per family profile, recorded on the server. Profile saves, scans and prescription reads answer 428 until there's a consent record.
 - **Files:** app `lib/features/consent/consent_notice.dart`; server `src/services/consent.py`, `src/api/v1/consent.py`; `migrations/010_consents.sql`.
 - **Tests:** backend `tests/test_consent.py` (8); app `test/consent_gate_test.dart` (6).
@@ -110,6 +121,8 @@
 - [ ] **Label 50–100 pack photos** for the label-reading accuracy test.
 
 ## Next engineering candidates
+
+**Superseded by `.10x/reviews/2026-10-29-production-readiness.md`** ("Order of work"); the list below is kept for history.
 1. **Prescriptions:** on-device text recognition and redaction before turning them on.
 2. **Deploy to Cloud Run** (`APP_ENV=production`, `TRUSTED_PROXY_HOPS=1`, Cloud Armor in front).
 3. **Google sign-in** (must link the family identities).

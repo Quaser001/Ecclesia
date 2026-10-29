@@ -86,6 +86,11 @@ class SupabaseProvider(ABC):
         ...
 
     @abstractmethod
+    async def refund_scan_usage(self, user_id: str) -> int:
+        """Take one back off today's count (never below zero); the new total."""
+        ...
+
+    @abstractmethod
     async def save_scan(self, scan_data: dict[str, Any]) -> str:
         """Persist a scan record. Returns the scan_id."""
         ...

@@ -1,5 +1,7 @@
 # CalFit — Launch Checklist
 
+> **Out of date in places.** The current, ticked checklist is `.10x/reviews/2026-10-29-production-readiness.md`.
+
 Tracks everything between where the project is now and a cloud-hosted app
 running on real phones with no laptop involved.
 

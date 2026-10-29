@@ -63,6 +63,13 @@ class Settings(BaseSettings):
     # Per call. Cloud Run cuts a request at its own timeout, so one slow model
     # must not use all of it.
     GEMINI_TIMEOUT_SECONDS: int = 25
+    # One deadline for a whole scan, inside the app's 45 s wait (ApiConfig.scanTimeout)
+    # with room for the upload and the reply. Past it the scan is a 503 and nothing
+    # is saved, instead of a result the app has already stopped waiting for.
+    SCAN_DEADLINE_SECONDS: float = 35.0
+    # The AI explanation only runs with at least this much time left; otherwise
+    # the rule summary is used at once.
+    EXPLANATION_MIN_SECONDS: float = 8.0
 
     # Where Gemini runs (docs/AI_PROVIDER_OPTIONS.md).
     #   developer_api: AI Studio, authenticated with GEMINI_API_KEY.

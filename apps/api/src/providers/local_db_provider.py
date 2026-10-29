@@ -277,11 +277,25 @@ class LocalDBProvider(SupabaseProvider):
             ).fetchone()
         return int(row["scan_count"]) if row else 0
 
+    async def refund_scan_usage(self, user_id: str) -> int:
+        """Local equivalent of the Postgres refund function (migration 012)."""
+        today = datetime.now(timezone.utc).date().isoformat()
+        with self._get_connection() as conn:
+            conn.execute(
+                "UPDATE scan_usage SET scan_count = MAX(scan_count - 1, 0) "
+                "WHERE user_id = ? AND usage_date = ?", (user_id, today))
+            row = conn.execute(
+                "SELECT scan_count FROM scan_usage WHERE user_id = ? AND usage_date = ?",
+                (user_id, today)).fetchone()
+        return int(row["scan_count"]) if row else 0
+
     async def save_scan(self, scan_data: dict[str, Any]) -> str:
+        # A plain INSERT, like Supabase: an id that's taken is an error, never
+        # an overwrite of someone else's scan (Idempotency-Key ids come from the app).
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT OR REPLACE INTO scans (
+                INSERT INTO scans (
                     scan_id, user_id, scanned_at, product_name, brand, category,
                     score, suitability, image_url, product_json, score_json, explanation
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

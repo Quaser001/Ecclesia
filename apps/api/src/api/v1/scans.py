@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from datetime import datetime, timezone
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any, Literal
 
 from fastapi import APIRouter, File, Form, Header, HTTPException, Query, Response, UploadFile
@@ -56,9 +59,14 @@ async def create_scan(
     storage: StorageDep = None,
     limiter: ScanLimiterDep = None,
     lookup: FoodLookupDep = None,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> ScanResponse:
     """
     Submit a product photo and receive a personalized evaluation.
+
+    `Idempotency-Key` (a UUID the app makes per photo) makes a retry safe: if
+    a scan with that id was already saved, it is returned as it is, without
+    running or counting again. Otherwise it becomes the new scan's id.
 
     The response includes:
     - Extracted product information
@@ -67,25 +75,82 @@ async def create_scan(
     - A short explanation
     - Better-fit alternatives or criteria
     """
-    photo_bytes, content_type = await _accept_photo(photo, content_length, user_id, limiter)
+    scan_id = _scan_id_from(idempotency_key)
+    if (done := await _already_saved(scan_id, user_id, supabase, storage)) is not None:
+        return done
+    charge = _Charge(limiter, user_id)
+    async with charge.refunded_on_failure():
+        photo_bytes, content_type = await _accept_photo(photo, content_length, charge)
 
-    orchestrator = ScanOrchestrator(
-        gemini=gemini,
-        supabase=supabase,
-        storage=storage,
-        storage_bucket=settings.STORAGE_BUCKET,
-        lookup=lookup,
-    )
+        orchestrator = ScanOrchestrator(
+            gemini=gemini,
+            supabase=supabase,
+            storage=storage,
+            storage_bucket=settings.STORAGE_BUCKET,
+            lookup=lookup,
+        )
 
-    return await orchestrator.run(
-        user_id=user_id,
-        photo_bytes=photo_bytes,
-        mime_type=content_type,
-    )
+        return await orchestrator.run(
+            user_id=user_id,
+            photo_bytes=photo_bytes,
+            mime_type=content_type,
+            scan_id=scan_id,
+        )
+
+
+def _scan_id_from(idempotency_key: str | None) -> str | None:
+    """The app's key as a scan id: a UUID or nothing, never free text."""
+    if idempotency_key is None:
+        return None
+    try:
+        return str(uuid.UUID(idempotency_key.strip()))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Idempotency-Key must be a UUID.")
+
+
+async def _already_saved(scan_id: str | None, user_id: str, supabase: Any,
+                         storage: Any) -> ScanResponse | None:
+    """The caller's saved scan with this id, if a retry is repeating it."""
+    if scan_id is None:
+        return None
+    row = await supabase.get_scan(user_id, scan_id)  # someone else's id reads as None
+    if row is None:
+        return None
+    response = await _stored_scan_response(row, user_id, storage)
+    response.saved = True
+    return response
+
+
+class _Charge:
+    """One scan against the daily cap, given back if the scan then fails.
+
+    Taken before the work (so concurrent scans can't both slip under the cap).
+    Given back when the scan fails on our side or upstream (5xx, timeout) or
+    is rejected after charging (a file that isn't a photo, a product not
+    found). A scan that ran and found too little on the label still counts:
+    it cost a real AI call.
+    """
+
+    def __init__(self, limiter: Any, user_id: str) -> None:
+        self.limiter, self.user_id, self.taken = limiter, user_id, False
+
+    async def take(self) -> None:
+        await self.limiter.check_and_increment(self.user_id)
+        self.taken = True
+
+    @asynccontextmanager
+    async def refunded_on_failure(self) -> AsyncIterator[None]:
+        try:
+            yield
+        except BaseException as exc:
+            over_cap = isinstance(exc, HTTPException) and exc.status_code == 429
+            if self.taken and not over_cap:
+                await self.limiter.give_back(self.user_id)
+            raise
 
 
 async def _accept_photo(
-    photo: UploadFile, content_length: int | None, user_id: str, limiter: Any
+    photo: UploadFile, content_length: int | None, charge: "_Charge"
 ) -> tuple[bytes, str]:
     """Size, type and daily-limit checks shared by every endpoint taking a photo."""
     # Reject oversized uploads BEFORE buffering them into memory.
@@ -105,7 +170,7 @@ async def _accept_photo(
     # Per-user daily cap. We check BEFORE reading the photo so a user who is
     # already over quota is rejected cheaply.
     try:
-        await limiter.check_and_increment(user_id)
+        await charge.take()
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=429,
@@ -235,6 +300,10 @@ async def get_scan(
     row = await supabase.get_scan(user_id, scan_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Scan not found.")
+    return await _stored_scan_response(row, user_id, storage)
+
+
+async def _stored_scan_response(row: dict[str, Any], user_id: str, storage: Any) -> ScanResponse:
     await _sign_photos([row], user_id, storage)
     try:
         return ScanResponse(
@@ -248,7 +317,7 @@ async def get_scan(
             image_url=row.get("image_url"),
         )
     except (ValueError, KeyError, TypeError) as exc:
-        logger.error("Stored scan %s could not be read: %s", scan_id, type(exc).__name__)
+        logger.error("Stored scan %s could not be read: %s", row.get("scan_id"), type(exc).__name__)
         raise HTTPException(status_code=500, detail="This scan could not be loaded.")
 
 
@@ -288,8 +357,11 @@ async def confirm_scan(
     storage: StorageDep = None,
     limiter: ScanLimiterDep = None,
     lookup: FoodLookupDep = None,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> ScanResponse:
     """After "Is this it?" or "Which one is it?" on a front-of-pack scan.
+
+    `Idempotency-Key` works as on POST /scans.
 
     Only the product's code comes from the app; its data is fetched again here,
     so the app can never supply nutrition. The photo is sent again rather than
@@ -297,7 +369,20 @@ async def confirm_scan(
     confirmed. Counts against the daily limit like any scan (it runs the
     explanation model).
     """
-    photo_bytes, content_type = await _accept_photo(photo, content_length, user_id, limiter)
+    scan_id = _scan_id_from(idempotency_key)
+    if (done := await _already_saved(scan_id, user_id, supabase, storage)) is not None:
+        return done
+    charge = _Charge(limiter, user_id)
+    async with charge.refunded_on_failure():
+        return await _confirm(charge, photo, content_length, product_code, source,
+                              gemini, supabase, storage, lookup, user_id, scan_id)
+
+
+async def _confirm(charge: _Charge, photo: UploadFile, content_length: int | None,
+                   product_code: str, source: str, gemini: Any, supabase: Any,
+                   storage: Any, lookup: Any, user_id: str,
+                   scan_id: str | None) -> ScanResponse:
+    photo_bytes, content_type = await _accept_photo(photo, content_length, charge)
     product = None
     if source == "calfit_database":
         product = shared_product_repository().find_by_code(product_code)
@@ -324,6 +409,7 @@ async def confirm_scan(
                                       chosen=option),
         photo_bytes=photo_bytes,
         mime_type=content_type,
+        scan_id=scan_id,
     )
 
 

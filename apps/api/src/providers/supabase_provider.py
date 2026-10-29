@@ -153,6 +153,13 @@ class SupabaseDBProvider(SupabaseProvider):
             f"increment_scan_usage returned {response.data!r}, expected an integer"
         )
 
+    async def refund_scan_usage(self, user_id: str) -> int:
+        client = await self._get_client()
+        response = await client.rpc("refund_scan_usage", {"p_user_id": user_id}).execute()
+        if isinstance(response.data, int):
+            return response.data
+        raise RuntimeError(f"refund_scan_usage returned {response.data!r}, expected an integer")
+
     async def save_scan(self, scan_data: dict[str, Any]) -> str:
         client = await self._get_client()
         try:

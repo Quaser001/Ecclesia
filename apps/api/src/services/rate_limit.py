@@ -13,6 +13,7 @@ wipes the count and each instance counts separately, so a user could get
 from __future__ import annotations
 
 import threading
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -20,6 +21,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle guard
     from src.providers.interfaces import SupabaseProvider
+
+logger = logging.getLogger(__name__)
 
 
 class RateLimitExceeded(Exception):
@@ -35,6 +38,10 @@ class CounterStore(ABC):
     @abstractmethod
     async def increment(self, user_id: str, day: date) -> int:
         """Increment and return the new count for (user_id, day)."""
+
+    @abstractmethod
+    async def decrement(self, user_id: str, day: date) -> int:
+        """Give one back (never below zero) and return the new count."""
 
 
 class InMemoryStore(CounterStore):
@@ -54,6 +61,13 @@ class InMemoryStore(CounterStore):
             n = self._counts.get(key, 0) + 1
             self._counts[key] = n
             self._prune_old(day)
+            return n
+
+    async def decrement(self, user_id: str, day: date) -> int:
+        key = (user_id, day)
+        with self._lock:
+            n = max(self._counts.get(key, 0) - 1, 0)
+            self._counts[key] = n
             return n
 
     def _prune_old(self, today: date) -> None:
@@ -80,6 +94,9 @@ class SupabaseCounterStore(CounterStore):
     async def increment(self, user_id: str, day: date) -> int:
         return await self._provider.increment_scan_usage(user_id)
 
+    async def decrement(self, user_id: str, day: date) -> int:
+        return await self._provider.refund_scan_usage(user_id)
+
 
 @dataclass(frozen=True)
 class ScanLimiter:
@@ -98,3 +115,15 @@ class ScanLimiter:
         if count > self.cap:
             raise RateLimitExceeded(user_id, self.cap)
         return count
+
+    async def give_back(self, user_id: str, now: datetime | None = None) -> None:
+        """A charged request failed on our side: return its count.
+
+        Best effort: a refund that fails is logged, never turned into a second
+        error on top of the first (and never blocks the error the user sees).
+        """
+        today = (now or datetime.now(timezone.utc)).date()
+        try:
+            await self.store.decrement(user_id or "__anonymous__", today)
+        except Exception as exc:
+            logger.warning("Scan count refund failed: %s", type(exc).__name__)

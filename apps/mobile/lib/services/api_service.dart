@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:io' show Platform, SocketException;
 
 import 'package:flutter/foundation.dart';
@@ -186,9 +187,23 @@ class ApiService {
     });
   }
 
+  /// A fresh id for one photo's scan, sent as `Idempotency-Key`. Retrying
+  /// with the same id returns the scan already saved instead of a second one
+  /// (and doesn't use up another of the day's scans).
+  static String newScanKey() {
+    final r = Random.secure();
+    final b = List<int>.generate(16, (_) => r.nextInt(256));
+    b[6] = (b[6] & 0x0F) | 0x40; // UUID version 4
+    b[8] = (b[8] & 0x3F) | 0x80; // RFC 4122 variant
+    final h = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
+    return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-'
+        '${h.substring(16, 20)}-${h.substring(20)}';
+  }
+
   Future<ScanResult> submitScan({
     required Uint8List photoBytes,
     String filename = 'product_photo.jpg',
+    String? scanKey,
   }) async {
     return _run(() async {
       // A MultipartRequest can only be sent once, so build a fresh one per
@@ -196,6 +211,7 @@ class ApiService {
       final response = await _authed((h) async {
         final request = http.MultipartRequest('POST', _uri('/api/v1/scans'));
         request.headers.addAll(h);
+        if (scanKey != null) request.headers['Idempotency-Key'] = scanKey;
         request.files.add(http.MultipartFile.fromBytes(
           'photo',
           photoBytes,
@@ -220,11 +236,13 @@ class ApiService {
     required Uint8List photoBytes,
     required ProductOption option,
     String filename = 'product_photo.jpg',
+    String? scanKey,
   }) async {
     return _run(() async {
       final response = await _authed((h) async {
         final request = http.MultipartRequest('POST', _uri('/api/v1/scans/confirm'));
         request.headers.addAll(h);
+        if (scanKey != null) request.headers['Idempotency-Key'] = scanKey;
         request.fields['product_code'] = option.code;
         request.fields['source'] = option.source;
         request.files.add(http.MultipartFile.fromBytes(

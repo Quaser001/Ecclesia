@@ -28,6 +28,25 @@ http.Response _json(Object body, [int status = 200]) => http.Response(
 final _photo = Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE0]);
 
 void main() {
+  test('a scan sends its Idempotency-Key, a fresh UUID per photo', () async {
+    final keys = <String?>[];
+    final store = MemoryAuthTokenStore();
+    await store.write('tok');
+    final client = MockClient((req) async {
+      keys.add(req.headers['Idempotency-Key']);
+      return _json({'detail': 'down'}, 503);
+    });
+    final api = ApiService(baseUrl: 'http://test', client: client, tokenStore: store);
+    final key = ApiService.newScanKey();
+    for (var i = 0; i < 2; i++) {
+      // "Try again" on the same photo reuses its key.
+      await expectLater(api.submitScan(photoBytes: _photo, scanKey: key), throwsA(isA<ApiException>()));
+    }
+    expect(keys, [key, key]);
+    expect(RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$').hasMatch(key), isTrue);
+    expect(ApiService.newScanKey(), isNot(key));
+  });
+
   test('a server that is down reads as "can\'t reach the server", not a generic error', () async {
     final store = MemoryAuthTokenStore();
     await store.write('tok');

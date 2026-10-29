@@ -7,7 +7,7 @@
 ## Done on 2026-10-29: four scan-reliability fixes and security headers
 - **Label numbers sanity-checked:** `src/domain/nutrition_plausibility.py`. Impossible values become unknown; contradictions make the scan insufficient data. It passes the founder's 31 real scans.
 - **One 35 s deadline per scan,** with the explanation skipped when time is short: `SCAN_DEADLINE_SECONDS`, `EXPLANATION_MIN_SECONDS`.
-- **A failed scan gives its count back.** **Migration 012 (`refund_scan_usage`) is NOT applied yet**; until then refunds are logged and skipped.
+- **A failed scan gives its count back.** **Migration 012 applied** to Supabase (2026-10-29, with approval); live check: 2 scans, refunds 1 → 0 → 0 (never below zero).
 - **`Idempotency-Key` per photo** (app and server): a retry returns the saved scan. The local DB no longer overwrites on a duplicate id (it was `INSERT OR REPLACE`).
 - **Security headers on every response** (`src/security_headers.py`).
 - **New Gemini key in `.env`** (from the founder). Real scan of a synthetic label: 22 s end to end.

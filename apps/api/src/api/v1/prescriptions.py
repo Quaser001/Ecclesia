@@ -13,13 +13,13 @@ import logging
 from fastapi import APIRouter, File, Header, HTTPException, UploadFile
 
 from src.api.v1.scans import checked_photo
-from src.config.auth import CurrentUserDep
 from src.config.dependencies import GeminiDep, PrescriptionLimiterDep, SupabaseDep
 from src.config.settings import settings
 from src.domain.models import UserProfile
 from src.domain.prescription import PrescriptionSuggestions
 from src.services.prescription_service import suggest_from_prescription
 from src.services.rate_limit import RateLimitExceeded
+from src.services.consent import ConsentedUserDep
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ _ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "i
     summary="Suggest profile entries from a prescription photo (nothing is stored)",
 )
 async def prescription_suggestions(
-    user_id: CurrentUserDep,
+    user_id: ConsentedUserDep,
     photo: UploadFile = File(..., description="Photo of a prescription"),
     content_length: int | None = Header(default=None, alias="content-length"),
     gemini: GeminiDep = None,

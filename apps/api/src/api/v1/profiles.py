@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from src.config.auth import CurrentUserDep
+from src.services.consent import ConsentedUserDep
 from src.config.dependencies import StorageDep, SupabaseDep
 from src.config.settings import settings
 from src.domain.models import UserProfile, UserProfileRequest
@@ -27,7 +28,7 @@ async def get_profile(
 
 @router.put("", response_model=UserProfile, summary="Create or update user profile")
 async def upsert_profile(
-    user_id: CurrentUserDep,
+    user_id: ConsentedUserDep,
     body: UserProfileRequest,
     supabase: SupabaseDep = None,
 ) -> UserProfile:

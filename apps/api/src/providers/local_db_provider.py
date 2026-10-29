@@ -130,6 +130,16 @@ class LocalDBProvider(SupabaseProvider):
                 )
             """)
             cursor.execute("""
+                CREATE TABLE IF NOT EXISTS consents (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL,
+                    notice_version TEXT NOT NULL,
+                    adult_confirmed INTEGER NOT NULL CHECK (adult_confirmed = 1),
+                    agreed_at TEXT NOT NULL,
+                    withdrawn_at TEXT
+                )
+            """)
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS scan_feedback (
                     scan_id TEXT PRIMARY KEY REFERENCES scans(scan_id) ON DELETE CASCADE,
                     user_id TEXT NOT NULL,
@@ -330,6 +340,9 @@ class LocalDBProvider(SupabaseProvider):
 
     async def delete_user_data(self, user_id: str) -> int:
         with self._get_connection() as conn:
+            # First, and withdrawn rather than deleted: see SupabaseDBProvider.
+            conn.execute("UPDATE consents SET withdrawn_at = ? WHERE user_id = ? AND withdrawn_at IS NULL",
+                         (datetime.now(timezone.utc).isoformat(), user_id))
             conn.execute("DELETE FROM scan_feedback WHERE user_id = ?", (user_id,))
             conn.execute("DELETE FROM serving_memory WHERE user_id = ?", (user_id,))
             deleted = conn.execute("DELETE FROM scans WHERE user_id = ?", (user_id,)).rowcount
@@ -420,6 +433,23 @@ class LocalDBProvider(SupabaseProvider):
                  datetime.now(timezone.utc).isoformat()),
             )
             conn.commit()
+
+
+    async def record_consent(self, user_id: str, notice_version: str) -> datetime:
+        now = datetime.now(timezone.utc)
+        with self._get_connection() as conn:
+            conn.execute(
+                "INSERT INTO consents (user_id, notice_version, adult_confirmed, agreed_at) "
+                "VALUES (?, ?, 1, ?)", (user_id, notice_version, now.isoformat()))
+            conn.commit()
+        return now
+
+    async def has_consent(self, user_id: str, notice_version: str) -> bool:
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM consents WHERE user_id = ? AND notice_version = ? "
+                "AND withdrawn_at IS NULL LIMIT 1", (user_id, notice_version)).fetchone()
+        return row is not None
 
 
 class LocalStorageProvider(StorageProvider):

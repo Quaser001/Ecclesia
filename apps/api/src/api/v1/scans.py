@@ -10,6 +10,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, File, Form, Header, HTTPException, Query, Response, UploadFile
 
 from src.config.auth import CurrentUserDep
+from src.services.consent import ConsentedUserDep
 from src.config.dependencies import (
     FoodLookupDep,
     GeminiDep,
@@ -47,7 +48,7 @@ _ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "i
 
 @router.post("", response_model=ScanResponse, summary="Submit a product photo for analysis")
 async def create_scan(
-    user_id: CurrentUserDep,
+    user_id: ConsentedUserDep,
     photo: UploadFile = File(..., description="Product photo file"),
     content_length: int | None = Header(default=None, alias="content-length"),
     gemini: GeminiDep = None,
@@ -277,7 +278,7 @@ async def give_scan_feedback(
 @router.post("/confirm", response_model=ScanResponse,
              summary="Score the product the user confirmed or picked")
 async def confirm_scan(
-    user_id: CurrentUserDep,
+    user_id: ConsentedUserDep,
     photo: UploadFile = File(..., description="The same product photo"),
     product_code: str = Form(..., max_length=32),
     source: Literal["calfit_database", "open_food_facts"] = Form(...),

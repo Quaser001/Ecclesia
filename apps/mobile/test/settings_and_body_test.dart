@@ -100,6 +100,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(find.text('Delete my data'), 200);
+    await tester.ensureVisible(find.text('Delete my data'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Delete my data'));
     await tester.pumpAndSettle();
     expect(find.text('Delete all your data?'), findsOneWidget);
@@ -151,5 +153,53 @@ void main() {
     expect(saved?.weightKg, 72.5);
     expect(saved?.sex, 'male');
     expect(saved?.name, 'Suhail'); // other fields untouched
+  });
+
+  testWidgets('a child birth year is refused: CalFit is for adults', (tester) async {
+    UserProfile? saved;
+    final profile = UserProfile(userId: 'u');
+    await tester.pumpWidget(_app(Scaffold(
+      body: Builder(
+        builder: (context) => TextButton(
+          onPressed: () async => saved = await showBodyDetailsSheet(context, profile),
+          child: const Text('open'),
+        ),
+      ),
+    )));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final year = find.widgetWithText(TextFormField, 'Year of birth');
+    await tester.enterText(year, '${DateTime.now().year - 12}');
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('CalFit is for adults (18+).'), findsOneWidget);
+    expect(saved, isNull);
+
+    await tester.enterText(year, '${DateTime.now().year - 18}'); // turns 18 this year
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(saved?.birthYear, DateTime.now().year - 18);
+  });
+
+  testWidgets('prescription consent can be withdrawn in Settings as easily as given', (tester) async {
+    SharedPreferences.setMockInitialValues({'calfit.rx_consent': true});
+    final api = ApiService(
+        baseUrl: 'http://test', client: MockClient((_) async => _json({})),
+        tokenStore: MemoryAuthTokenStore());
+    await tester.pumpWidget(_app(SettingsScreen(apiService: api)));
+    await tester.pumpAndSettle();
+
+    final toggle = find.widgetWithText(SwitchListTile, 'Prescription reading');
+    await tester.scrollUntilVisible(toggle, 200);
+    expect(tester.widget<SwitchListTile>(toggle).value, isTrue);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+    expect(find.text("Consent withdrawn. Prescription photos won't be sent."), findsOneWidget);
+    expect((await SharedPreferences.getInstance()).getBool('calfit.rx_consent'), isNull);
   });
 }

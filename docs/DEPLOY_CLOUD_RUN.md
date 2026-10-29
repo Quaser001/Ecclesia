@@ -144,7 +144,17 @@ A scan smoke test needs a real image, so test it from a build on the device.
 
 `--max-instances 3` no longer affects quota correctness now that the counter is in Postgres; it stays as a cost guard.
 
+### Log retention: one year (DPDP Rules 6(1)(e), 8(3))
+
+The DPDP Rules require keeping logs of processing for at least a year. Cloud Logging keeps 30 days by default, so raise the `_Default` bucket once:
+
+```bash
+gcloud logging buckets update _Default --location=global --retention-days=365
+```
+
+The logs hold no health data and no user id (see `src/observability.py`), so a year of them is safe to keep. Retention past 30 days is billed per GiB per month; at CalFit's volume that is small.
+
 ## 7. Known gaps before shipping
 
-- No auth yet. The anonymous device ID is the only identifier. If someone replays another user's id, they see that user's history. Fixing this needs real auth (Firebase or Supabase Auth) and is on the next-session list.
+- Identity is an anonymous, server-signed token per profile (ADR-004, ADR-008), kept in the Android Keystore. There are no accounts, so a lost phone means a lost profile. Google sign-in is on the candidate list.
 - Scan images are uploaded to Supabase storage. There is no retention policy. Decide one before Play Store.

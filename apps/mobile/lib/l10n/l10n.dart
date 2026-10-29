@@ -179,6 +179,8 @@ extension ProfileLabels on AppLocalizations {
         ApiErrorKind.rateLimited => errorScanLimit,
         ApiErrorKind.prescriptionLimit => errorPrescriptionLimit,
         ApiErrorKind.profileReset => errorProfileReset,
+        ApiErrorKind.consentRequired => errorConsentRequired,
+        ApiErrorKind.appOutdated => errorAppOutdated,
         _ => errorGeneric,
       };
     }

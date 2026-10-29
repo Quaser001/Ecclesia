@@ -57,6 +57,28 @@ def _no_live_supabase(monkeypatch):
     monkeypatch.setattr(settings, "FOOD_LOOKUP_ENABLED", False)
 
 
+@pytest.fixture(autouse=True)
+def _consented():
+    """Every test user has agreed to the privacy notice, unless the test is
+    about consent: those use the `no_consent_override` fixture."""
+    from src.config.auth import get_current_user_id
+    from src.main import app
+    from src.services.consent import require_consent
+
+    app.dependency_overrides[require_consent] = get_current_user_id
+    yield
+    app.dependency_overrides.pop(require_consent, None)
+
+
+@pytest.fixture
+def no_consent_override():
+    """The real consent gate, for tests of consent itself."""
+    from src.main import app
+    from src.services.consent import require_consent
+
+    app.dependency_overrides.pop(require_consent, None)
+
+
 # ---------------------------------------------------------------------------
 # Auth fixtures
 # ---------------------------------------------------------------------------

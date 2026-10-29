@@ -10,6 +10,7 @@ import '../../core/widgets/surface_card.dart';
 import '../../l10n/l10n.dart';
 import '../../services/api_service.dart';
 import '../../services/profile_registry.dart';
+import '../consent/consent_notice.dart';
 import '../profile/prescription_consent.dart';
 import 'privacy_policy_screen.dart';
 
@@ -25,6 +26,29 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _deleting = false;
+  bool _rxConsent = false;
+
+  @override
+  void initState() {
+    super.initState();
+    PrescriptionConsent.isGiven().then((given) {
+      if (mounted) setState(() => _rxConsent = given);
+    });
+  }
+
+  /// On: the same consent sheet as first use. Off: withdrawn at once.
+  Future<void> _setRxConsent(bool on) async {
+    final l = context.l10n;
+    if (on) {
+      final agreed = await PrescriptionConsent.ensure(context);
+      if (mounted) setState(() => _rxConsent = agreed);
+      return;
+    }
+    await PrescriptionConsent.withdraw();
+    if (!mounted) return;
+    setState(() => _rxConsent = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.rxConsentWithdrawn)));
+  }
 
   Future<void> _confirmDelete() async {
     final l = context.l10n;
@@ -55,6 +79,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await widget.apiService.deleteMyData();
       await PrescriptionConsent.forget();
       final profiles = ProfileRegistry.current;
+      await ConsentGate.forget(profiles?.activeId); // the delete withdrew it
       if (profiles != null) await profiles.forget(profiles.activeId);
       if (!mounted) return;
       HapticFeedback.mediumImpact();
@@ -205,6 +230,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     context,
                     MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
                   ),
+                ),
+                Divider(height: 1, indent: 16, endIndent: 16, color: c.divider),
+                SwitchListTile(
+                  secondary: const Icon(Icons.document_scanner_outlined),
+                  title: Text(l.rxConsentSetting),
+                  subtitle: Text(_rxConsent ? l.rxConsentSettingOn : l.rxConsentSettingOff),
+                  value: _rxConsent,
+                  onChanged: _setRxConsent,
                 ),
                 Divider(height: 1, indent: 16, endIndent: 16, color: c.divider),
                 ListTile(

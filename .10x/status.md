@@ -2,9 +2,44 @@
 
 **Updated:** 2026-10-29
 **Snapshot:** `main` = `origin/main` at `b4c6c3b` (plus this handoff commit). CI is green: secret scan, backend, app.
-**Tests:** backend 508 (pytest), app 82 (`flutter test`), `flutter analyze` clean.
+**Tests:** backend 520 (pytest), app 93 (`flutter test`), `flutter analyze` clean.
 
-## Done on 2026-10-29 (uncommitted): "tabs don't load" + mobile audit
+## Done on 2026-10-29 (uncommitted): consent notice (DPDP item A)
+- **What:** a privacy notice with "I am 18 or older" and "I agree", per family profile, recorded on the server. Profile saves, scans and prescription reads answer 428 until there's a consent record.
+- **Files:** app `lib/features/consent/consent_notice.dart`; server `src/services/consent.py`, `src/api/v1/consent.py`; `migrations/010_consents.sql`.
+- **Tests:** backend `tests/test_consent.py` (8); app `test/consent_gate_test.dart` (6).
+- **Migration 010 applied** to the Singapore project (`rxqsyksydnmwtslfvwll`, the one `.env` uses) on 2026-10-29, with approval.
+  - Live check with a throwaway identity, all 9 steps passed: 428 before agreeing, 422 without 18+, 201 on agree, then a 200 profile save, delete withdraws, 428 again.
+  - That throwaway left one withdrawn consent row.
+- **On the founder's phone (2026-10-29):** installed over the old build with `adb install -r`.
+  - The notice showed; the founder agreed on the phone.
+  - Home then showed all 31 scans and the profile, and `consents` holds the founder's live row.
+  - **If the phone shows "Waiting For Debugger"**, a developer setting was switched on. Clear it with `adb shell am clear-debug-app`.
+  - There's no migration tracking, so record each migration here.
+- **Security advisor, older issue:** `public.rls_auto_enable()` is a SECURITY DEFINER function anyone with the public key can run (`/rest/v1/rpc/rls_auto_enable`). Revoke EXECUTE from anon and authenticated (needs approval).
+- **Another active Supabase project:** "calfit" in Mumbai (`trmohgpjtldwxbpoqvpn`) isn't used by `.env`. Decide whether to keep or pause it.
+- **Speed:** each gated request now makes one more Supabase round trip (about 0.2–1 s after an idle period). Watch it next to the timeout item.
+
+## Done on 2026-10-29 (uncommitted): DPDP Rules check
+- **Review:** `.10x/reviews/2026-10-29-dpdp-rules.md`.
+- **When it applies:** CalFit's duties start **13 May 2027** (Act ss.3–17, Rules 3 and 5–16).
+- **Fixed today:**
+  - adults only: the server and the app refuse a birth year under 18;
+  - prescription consent can be withdrawn in Settings;
+  - the policy now covers one-year logs, nomination, complaints to the Board, and breaches;
+  - the deploy guide sets one-year log retention;
+  - a test keeps the two policy copies identical.
+- **Before launch:** see the review.
+  - **A:** an onboarding consent notice with "I agree" and 18+, recorded on the server. The biggest gap; it needs a Supabase migration.
+  - **D:** an in-app breach notice and a runbook.
+  - **B:** a way to see whose data was accessed.
+- **Founder and lawyer:**
+  - **Rule 8(3):** keep health data a year after deletion, or logs only? Logs-only is in place now.
+  - **Rule 9:** the contact person.
+  - **Rule 6:** data processing agreements with Supabase and Google; Supabase backups.
+- **Translations:** Khasi consent strings are in English until a speaker reviews them.
+
+## Done on 2026-10-29 (committed): "tabs don't load" + mobile audit
 - **Cause of "only Home loads":** the local server was stopped. Home kept what it had loaded; the other tabs had nothing to show.
   - The app now names this "Can't reach the CalFit server": `http.ClientException` maps to the network error kind.
   - Cold or idle requests to Supabase from this PC take about 1–5 s; one Insights call took 14 s, past the app's 10 s limit. Watch this; not fixed.

@@ -941,6 +941,80 @@ class AppLocalizationsAs extends AppLocalizations {
       'CalFit-ৰ ছাৰ্ভাৰৰ পৰা আপোনাৰ প্ৰফাইল, স্কেন আৰু ছবি মচি পেলায়।';
 
   @override
+  String get adultsOnlyBirthYear => 'CalFit প্ৰাপ্তবয়স্কৰ (18+) বাবে।';
+
+  @override
+  String get rxConsentSetting => 'প্ৰেছক্ৰিপচন পঢ়া';
+
+  @override
+  String get rxConsentSettingOn =>
+      'অন। আপুনি বাছি লোৱা প্ৰেছক্ৰিপচনৰ ফটো পঢ়িবলৈ পঠোৱা হয়। সন্মতি উঠাই ল\'বলৈ অফ কৰক।';
+
+  @override
+  String get rxConsentSettingOff => 'অফ। প্ৰেছক্ৰিপচনৰ পৰা একো পঠোৱা নহয়।';
+
+  @override
+  String get rxConsentWithdrawn =>
+      'সন্মতি উঠাই লোৱা হ\'ল। প্ৰেছক্ৰিপচনৰ ফটো পঠোৱা নহ\'ব।';
+
+  @override
+  String get consentTitle => 'আৰম্ভ কৰাৰ আগতে';
+
+  @override
+  String get consentIntro =>
+      'CalFit-এ আপুনি দিয়া স্বাস্থ্যৰ তথ্য ব্যৱহাৰ কৰে। আমি কি লওঁ আৰু কিয়, পঢ়ি লৈ সন্মতি দিয়ক।';
+
+  @override
+  String get consentWhatTitle => 'আমি কি লওঁ, আৰু কিয়';
+
+  @override
+  String get consentItemProfile =>
+      'আপোনাৰ স্বাস্থ্য প্ৰফাইল: ৰোগ, এলাৰ্জী, খাদ্যাভ্যাস, লক্ষ্য, আৰু ইচ্ছাধীন শাৰীৰিক তথ্য (উচ্চতা, ওজন, জন্মৰ বছৰ, লিংগ, সক্ৰিয়তা)। প্ৰতিটো সামগ্ৰী আপোনাৰ বাবে মূল্যায়ন কৰিবলৈ।';
+
+  @override
+  String get consentItemScans =>
+      'আপুনি স্কেন কৰা লেবেলৰ ফটো, আৰু তাৰ ফলাফল। লেবেল পঢ়িবলৈ, স্ক\'ৰ দিবলৈ আৰু আপোনাৰ ইতিহাস ৰাখিবলৈ।';
+
+  @override
+  String get consentItemToken =>
+      'এই ফোনৰ বাবে এটা ছাইন-ইন ক\'ড। কোনো নাম, ইমেইল বা ফোন নম্বৰ নহয়। আপোনাৰ তথ্য আনৰ পৰা পৃথক ৰাখিবলৈ আৰু দৈনিক স্কেনৰ সীমা প্ৰয়োগ কৰিবলৈ।';
+
+  @override
+  String get consentSharedTitle => 'আৰু কোনে ইয়াক চম্ভালে';
+
+  @override
+  String get consentShared =>
+      'Google Gemini-এ লেবেলৰ ফটো পঢ়ে আৰু ব্যাখ্যা লিখে। ই সামগ্ৰীটোৰ ফলাফল পায়, আপোনাৰ প্ৰফাইল নহয়। আপোনাৰ তথ্য ছিংগাপুৰত Supabase-ত ৰখা হয়। একো বিক্ৰী কৰা নহয় বা বিজ্ঞাপনত ব্যৱহাৰ কৰা নহয়।';
+
+  @override
+  String get consentChoicesTitle => 'আপোনাৰ পছন্দ';
+
+  @override
+  String get consentChoices =>
+      'আপুনি যিকোনো সময়ত প্ৰফাইল সলনি কৰিব বা কোনো স্কেন মচিব পাৰে। ছেটিংছ → মোৰ তথ্য মচক-এ সকলো মচি পেলায় আৰু এই সন্মতি উঠাই লয়। আপুনি আমাক লিখিবও পাৰে, বা ভাৰতৰ ডেটা সুৰক্ষা ব\'ৰ্ডত অভিযোগ দিব পাৰে।';
+
+  @override
+  String get consentReadPolicy => 'সম্পূৰ্ণ গোপনীয়তা নীতি পঢ়ক';
+
+  @override
+  String get consentAdult => 'মোৰ বয়স 18 বা তাতকৈ বেছি';
+
+  @override
+  String get consentAgree => 'মই সন্মত';
+
+  @override
+  String get consentDeclineNote =>
+      'সন্মত নহ\'লে এপটো বন্ধ কৰক। কোনো স্বাস্থ্যৰ তথ্য পঠোৱা হোৱা নাই।';
+
+  @override
+  String get errorConsentRequired =>
+      'অনুগ্ৰহ কৰি প্ৰথমে গোপনীয়তা জাননীত সন্মতি দিয়ক।';
+
+  @override
+  String get errorAppOutdated =>
+      'CalFit-ৰ এই সংস্কৰণটো পুৰণি। আগবাঢ়িবলৈ ইয়াক আপডেট কৰক।';
+
+  @override
   String get deleteConfirmTitle => 'আপোনাৰ সকলো ডাটা মচিব নেকি?';
 
   @override

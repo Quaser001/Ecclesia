@@ -20,6 +20,17 @@ class PrescriptionConsent {
   static Future<void> forget() async =>
       (await SharedPreferences.getInstance()).remove(_key);
 
+  static Future<bool> isGiven() async =>
+      (await SharedPreferences.getInstance()).getBool(_key) == true;
+
+  /// Withdrawing must be as easy as agreeing (DPDP Rules r.3(c)(i)). Also
+  /// clears the un-namespaced key builds before family profiles wrote.
+  static Future<void> withdraw() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key);
+    await prefs.remove(_base);
+  }
+
   /// Returns true if the user has agreed (now or earlier).
   static Future<bool> ensure(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();

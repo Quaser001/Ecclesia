@@ -1,10 +1,10 @@
 # CalFit Privacy Policy
 
-**Effective:** 2026-10-28 (draft — not yet reviewed by a lawyer)
+**Effective:** 2026-10-29 (draft — not yet reviewed by a lawyer)
 **Applies to:** CalFit mobile app (Android) and the CalFit API.
 **Contact:** _(fill in before Play Store submission — a working email the user can reach, e.g. privacy@calfit.app)_
 
-CalFit is published by _(fill in: your legal name or company, address, country)_. This policy explains what we collect, why, how long we keep it, and the choices you have. It is written under India's **Digital Personal Data Protection Act, 2023 ("DPDP Act")** because our first users are in India. It covers you wherever you use CalFit.
+CalFit is published by _(fill in: your legal name or company, address, country)_. This policy explains what we collect, why, how long we keep it, and the choices you have. It is written under India's **Digital Personal Data Protection Act, 2023 ("DPDP Act")** and the **Digital Personal Data Protection Rules, 2025 ("DPDP Rules")** because our first users are in India. It covers you wherever you use CalFit.
 
 ## 1. What CalFit does
 
@@ -49,7 +49,7 @@ If you choose "Prescription" in your profile, you can photograph a prescription 
 - We never add anything to your profile automatically. You see the suggestions, tick the ones that apply, and confirm. Only what you confirm is saved, as part of your profile.
 - We do not store medicine names at all.
 - Some suggestions are inferred from a medicine name (for example, a diabetes medicine suggesting diabetes). These are labelled "inferred" and are not a diagnosis. **This is not medical advice.**
-- Legal basis: your explicit consent, given in the app before first use (you can decline, and nothing is sent until you also pick a photo). The app currently remembers your consent on the device and does not yet offer a way to withdraw it; clearing the app's data resets it.
+- Legal basis: your explicit consent, given in the app before first use (you can decline, and nothing is sent until you also pick a photo). Each family profile gives its own consent. You can withdraw it at any time in **Settings → Prescription reading**: once it is off, nothing from a prescription is sent until you agree again.
 
 ### 2.5 What we do **not** collect
 
@@ -61,7 +61,7 @@ If you choose "Prescription" in your profile, you can photograph a prescription 
 
 ## 3. Why we process this data (DPDP §5, §6)
 
-- **Scan evaluation.** Legal basis: your consent, given each time you tap "scan" and in advance by setting a profile.
+- **Scan evaluation and your health profile.** Legal basis: your consent. Before anything about your health is saved or scored, the app shows a short notice of what we collect and why, and asks you to confirm you are 18 or older and tap **I agree**. Each family profile agrees separately. We record that you agreed, which version of the notice, and when; our server refuses to save a profile or score a scan without that record. If the notice changes, we ask again.
 - **Daily scan cap.** Legal basis: our legitimate business interest in keeping the service affordable and resistant to abuse.
 - **Scan history (if enabled).** Legal basis: your consent — history is bound to the device identifier you control.
 - **Service health and errors.** Legal basis: legitimate interest in keeping the service running. Logs include a random request id, which part of the app was called, status codes, timings, which AI model answered, and the type of any error. They never include your photo, the label text, your profile, your explanation or error messages (which can repeat what was sent).
@@ -77,7 +77,8 @@ Each of these is a **data processor** under the DPDP Act. CalFit is the **data f
 ## 5. Retention
 
 - **Profile, body details, scan history, photos, saved serving sizes and your "Was this result right?" answers:** kept until you delete them. You can remove a single scan from its result screen. Use **Settings → Delete my data** to remove your profile, every scan, every photo, every saved serving size and every answer from our servers immediately. An automatic retention limit will be added before public launch and stated here.
-- **Logs:** 30 days.
+- **Record of your consent:** which notice version you agreed to and when (no health data). **Delete my data** marks it withdrawn but keeps it, as proof that what we did before was with your consent.
+- **Logs:** 1 year, as the DPDP Rules require (Rules 6(1)(e) and 8(3)), so that unauthorised access can be detected and investigated. Logs contain no health data and not your identifier (see 3): a random request id, which part of the app was called, status codes, timings and error types. Deleting your data does not delete these log lines; they expire after a year.
 
 ## 6. International transfers
 
@@ -99,19 +100,24 @@ You can at any time:
 - **Correct** or **update** it.
 - **Erase** it — in the app under **Settings → Delete my data**, or by writing to us.
 - **Withdraw consent** for any purpose.
+- **Nominate** someone to exercise these rights for you if you die or become unable to (DPDP §14, Rules 14(4)). Write to us with their name and how to reach them.
 - **Grieve** — raise a complaint with us or escalate to the Data Protection Board of India.
 
-Write to _(privacy contact above)_. We will respond within **30 days**. You do not need to give a reason, and we will not charge you for a reasonable request. If you are not satisfied, you can escalate to the Data Protection Board of India under DPDP §27.
+Most of these you can do yourself in the app, at once: see and edit your profile, remove a single scan, withdraw prescription consent, or **Delete my data**. For anything else, write to _(privacy contact above)_. CalFit has no accounts, so before acting on a written request we will ask you to show it comes from the phone holding that profile. We will respond within **30 days** (the law allows at most 90). You do not need to give a reason, and we will not charge you for a reasonable request. If you are not satisfied, you can complain to the Data Protection Board of India (DPDP §13(3), §27) through its online portal.
 
 ## 9. Children
 
-The CalFit app is intended for users aged 18 and above. We do not knowingly collect data from children under 18. If you are a parent or guardian and believe your child has used CalFit, contact us and we will delete the data.
+The CalFit app is intended for users aged 18 and above, and family profiles are for adults too. Under the DPDP Act a child's data needs verifiable consent from a parent (§9, Rules 10), which CalFit does not collect, so we do not knowingly process data of anyone under 18: the app and our server refuse a year of birth that makes someone younger than 18. If you are a parent or guardian and believe your child has used CalFit, contact us and we will delete the data.
 
 ## 10. Changes to this policy
 
 If we change this policy in a way that affects your rights, we will show you the new policy inside the app and ask for your consent before continuing. Smaller clarifications will be published here with the effective date updated at the top.
 
-## 11. Grievance Officer (DPDP §13)
+## 11. If there is a data breach (DPDP Rules 7)
+
+If personal data we hold is exposed, we will tell everyone affected without delay: what happened and when, what it may mean for you, what we are doing about it, what you can do to protect yourself, and whom to contact. CalFit has no email address or phone number for you, so we will tell you inside the app. We will also report it to the Data Protection Board of India, with a full report within 72 hours.
+
+## 12. Grievance Officer (DPDP §13, Rules 9)
 
 _(fill in before Play Store submission — one named contact with an email you reliably check within 30 days.)_
 

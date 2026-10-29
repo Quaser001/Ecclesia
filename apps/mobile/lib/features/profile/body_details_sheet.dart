@@ -27,6 +27,9 @@ class _BodyDetailsSheet extends StatefulWidget {
   State<_BodyDetailsSheet> createState() => _BodyDetailsSheetState();
 }
 
+/// Matches ADULT_AGE on the server.
+const adultAge = 18;
+
 class _BodyDetailsSheetState extends State<_BodyDetailsSheet> {
   final _form = GlobalKey<FormState>();
   late final TextEditingController _height;
@@ -67,6 +70,17 @@ class _BodyDetailsSheetState extends State<_BodyDetailsSheet> {
     if (v == null || v < range.$1 || v > range.$2) {
       return l.invalidRange(range.$1.toStringAsFixed(0), range.$2.toStringAsFixed(0));
     }
+    return null;
+  }
+
+  /// Adults only: a child's data needs verifiable parental consent (DPDP
+  /// Act s.9), which CalFit doesn't collect. Same line as the server: turning
+  /// 18 this calendar year is allowed.
+  String? _validateBirthYear(String? raw, (double, double) range, AppLocalizations l) {
+    final error = _validate(raw, range, l);
+    if (error != null) return error;
+    final year = int.tryParse((raw ?? '').trim());
+    if (year != null && DateTime.now().year - year < adultAge) return l.adultsOnlyBirthYear;
     return null;
   }
 
@@ -135,7 +149,12 @@ class _BodyDetailsSheetState extends State<_BodyDetailsSheet> {
                     Expanded(child: numberField(_target, l.targetWeight, l.unitKg, _weightRange)),
                     const SizedBox(width: 12),
                     Expanded(
-                        child: numberField(_birthYear, l.birthYear, '', yearRange, decimal: false)),
+                        child: TextFormField(
+                          controller: _birthYear,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(labelText: l.birthYear),
+                          validator: (v) => _validateBirthYear(v, yearRange, l),
+                        )),
                   ],
                 ),
                 const SizedBox(height: 18),

@@ -94,3 +94,36 @@ async def test_an_old_profile_without_body_details_still_loads(db, make_device):
         got = (await client.get("/api/v1/profile", headers=headers)).json()
     assert got["name"] == "Old"
     assert got["height_cm"] is None and got["bmi"] is None
+
+
+# --- adults only: DPDP Act s.9 needs parental consent for a child ---------
+
+
+def test_a_child_birth_year_is_refused_both_sides_of_the_line():
+    from datetime import datetime, timezone
+
+    from src.domain.models import ADULT_AGE, UserProfileRequest
+
+    this_year = datetime.now(timezone.utc).year
+    # Turns 18 this calendar year: let through (a year can't pin the birthday).
+    assert UserProfileRequest(birth_year=this_year - ADULT_AGE).birth_year == this_year - ADULT_AGE
+    # Turns 17 this year: a child.
+    with pytest.raises(ValidationError):
+        UserProfileRequest(birth_year=this_year - ADULT_AGE + 1)
+
+
+def test_a_stored_profile_still_loads_whatever_its_birth_year():
+    # The check is on the request; rows already saved must keep loading.
+    from datetime import datetime, timezone
+
+    assert UserProfile(user_id="u", birth_year=datetime.now(timezone.utc).year - 10).birth_year
+
+
+async def test_the_api_refuses_a_child_profile(db, make_device):
+    from datetime import datetime, timezone
+
+    _, headers = make_device()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.put("/api/v1/profile", headers=headers,
+                        json={"birth_year": datetime.now(timezone.utc).year - 12})
+    assert r.status_code == 422

@@ -148,6 +148,16 @@ class SupabaseProvider(ABC):
         """Remember (or replace) the user's serving size for a product."""
         ...
 
+    @abstractmethod
+    async def record_consent(self, user_id: str, notice_version: str) -> datetime:
+        """Store that the user agreed to this notice version (and is 18+). Returns when."""
+        ...
+
+    @abstractmethod
+    async def has_consent(self, user_id: str, notice_version: str) -> bool:
+        """True if the user has a consent for this version that wasn't withdrawn."""
+        ...
+
 
 class StorageProvider(ABC):
     """Interface for file/image storage."""

@@ -1784,6 +1784,132 @@ abstract class AppLocalizations {
   /// **'Removes your profile, scans and photos from CalFit\'s servers.'**
   String get deleteMyDataBody;
 
+  /// No description provided for @adultsOnlyBirthYear.
+  ///
+  /// In en, this message translates to:
+  /// **'CalFit is for adults (18+).'**
+  String get adultsOnlyBirthYear;
+
+  /// No description provided for @rxConsentSetting.
+  ///
+  /// In en, this message translates to:
+  /// **'Prescription reading'**
+  String get rxConsentSetting;
+
+  /// No description provided for @rxConsentSettingOn.
+  ///
+  /// In en, this message translates to:
+  /// **'On. Prescription photos you choose are sent to be read. Turn off to withdraw your consent.'**
+  String get rxConsentSettingOn;
+
+  /// No description provided for @rxConsentSettingOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off. Nothing from a prescription is sent.'**
+  String get rxConsentSettingOff;
+
+  /// No description provided for @rxConsentWithdrawn.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent withdrawn. Prescription photos won\'t be sent.'**
+  String get rxConsentWithdrawn;
+
+  /// No description provided for @consentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Before you start'**
+  String get consentTitle;
+
+  /// No description provided for @consentIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'CalFit uses health details you give it. Please read what we collect and why, then agree.'**
+  String get consentIntro;
+
+  /// No description provided for @consentWhatTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What we collect, and why'**
+  String get consentWhatTitle;
+
+  /// No description provided for @consentItemProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Your health profile: conditions, allergies, diet, goals, and optional body details (height, weight, year of birth, sex, activity). Used to grade each product for you.'**
+  String get consentItemProfile;
+
+  /// No description provided for @consentItemScans.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos of labels you scan, and their results. Used to read the label, score it and keep your history.'**
+  String get consentItemScans;
+
+  /// No description provided for @consentItemToken.
+  ///
+  /// In en, this message translates to:
+  /// **'A sign-in code for this phone. No name, email or phone number. Used to keep your data apart from everyone else\'s and to apply the daily scan limit.'**
+  String get consentItemToken;
+
+  /// No description provided for @consentSharedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Who else handles it'**
+  String get consentSharedTitle;
+
+  /// No description provided for @consentShared.
+  ///
+  /// In en, this message translates to:
+  /// **'Google Gemini reads label photos and writes explanations. It gets the findings for a product, not your profile. Your data is stored with Supabase in Singapore. Nothing is sold or used for ads.'**
+  String get consentShared;
+
+  /// No description provided for @consentChoicesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your choices'**
+  String get consentChoicesTitle;
+
+  /// No description provided for @consentChoices.
+  ///
+  /// In en, this message translates to:
+  /// **'You can edit your profile or delete a scan at any time. Settings → Delete my data erases everything and withdraws this consent. You can also write to us, or complain to the Data Protection Board of India.'**
+  String get consentChoices;
+
+  /// No description provided for @consentReadPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Read the full privacy policy'**
+  String get consentReadPolicy;
+
+  /// No description provided for @consentAdult.
+  ///
+  /// In en, this message translates to:
+  /// **'I am 18 or older'**
+  String get consentAdult;
+
+  /// No description provided for @consentAgree.
+  ///
+  /// In en, this message translates to:
+  /// **'I agree'**
+  String get consentAgree;
+
+  /// No description provided for @consentDeclineNote.
+  ///
+  /// In en, this message translates to:
+  /// **'If you don\'t agree, close the app. No health details have been sent.'**
+  String get consentDeclineNote;
+
+  /// No description provided for @errorConsentRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please agree to the privacy notice first.'**
+  String get errorConsentRequired;
+
+  /// No description provided for @errorAppOutdated.
+  ///
+  /// In en, this message translates to:
+  /// **'This version of CalFit is out of date. Please update it to continue.'**
+  String get errorAppOutdated;
+
   /// No description provided for @deleteConfirmTitle.
   ///
   /// In en, this message translates to:

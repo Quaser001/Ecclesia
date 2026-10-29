@@ -940,6 +940,80 @@ class AppLocalizationsBn extends AppLocalizations {
       'CalFit-এর সার্ভার থেকে আপনার প্রোফাইল, স্ক্যান ও ছবি মুছে দেয়।';
 
   @override
+  String get adultsOnlyBirthYear => 'CalFit প্রাপ্তবয়স্কদের (18+) জন্য।';
+
+  @override
+  String get rxConsentSetting => 'প্রেসক্রিপশন পড়া';
+
+  @override
+  String get rxConsentSettingOn =>
+      'চালু। আপনার বেছে নেওয়া প্রেসক্রিপশনের ছবি পড়ার জন্য পাঠানো হয়। সম্মতি তুলে নিতে বন্ধ করুন।';
+
+  @override
+  String get rxConsentSettingOff =>
+      'বন্ধ। প্রেসক্রিপশন থেকে কিছুই পাঠানো হয় না।';
+
+  @override
+  String get rxConsentWithdrawn =>
+      'সম্মতি তুলে নেওয়া হয়েছে। প্রেসক্রিপশনের ছবি পাঠানো হবে না।';
+
+  @override
+  String get consentTitle => 'শুরু করার আগে';
+
+  @override
+  String get consentIntro =>
+      'CalFit আপনার দেওয়া স্বাস্থ্য-তথ্য ব্যবহার করে। আমরা কী নিই এবং কেন, তা পড়ে নিয়ে সম্মতি দিন।';
+
+  @override
+  String get consentWhatTitle => 'আমরা কী নিই, এবং কেন';
+
+  @override
+  String get consentItemProfile =>
+      'আপনার স্বাস্থ্য প্রোফাইল: অসুখ, অ্যালার্জি, খাদ্যাভ্যাস, লক্ষ্য, এবং ঐচ্ছিক শারীরিক তথ্য (উচ্চতা, ওজন, জন্মসাল, লিঙ্গ, সক্রিয়তা)। প্রতিটি পণ্য আপনার জন্য মূল্যায়ন করতে।';
+
+  @override
+  String get consentItemScans =>
+      'আপনার স্ক্যান করা লেবেলের ছবি, এবং তার ফলাফল। লেবেল পড়তে, স্কোর দিতে এবং আপনার ইতিহাস রাখতে।';
+
+  @override
+  String get consentItemToken =>
+      'এই ফোনের জন্য একটি সাইন-ইন কোড। কোনো নাম, ইমেল বা ফোন নম্বর নয়। আপনার তথ্য অন্য সবার থেকে আলাদা রাখতে এবং দৈনিক স্ক্যান সীমা প্রয়োগ করতে।';
+
+  @override
+  String get consentSharedTitle => 'আর কে এটি সামলায়';
+
+  @override
+  String get consentShared =>
+      'Google Gemini লেবেলের ছবি পড়ে এবং ব্যাখ্যা লেখে। সে পণ্যের ফলাফল পায়, আপনার প্রোফাইল নয়। আপনার তথ্য সিঙ্গাপুরে Supabase-এ রাখা হয়। কিছুই বিক্রি করা হয় না বা বিজ্ঞাপনে ব্যবহার হয় না।';
+
+  @override
+  String get consentChoicesTitle => 'আপনার পছন্দ';
+
+  @override
+  String get consentChoices =>
+      'আপনি যেকোনো সময় প্রোফাইল বদলাতে বা কোনো স্ক্যান মুছতে পারেন। সেটিংস → আমার তথ্য মুছুন সব কিছু মুছে দেয় এবং এই সম্মতি তুলে নেয়। আপনি আমাদের লিখতেও পারেন, বা ভারতের ডেটা সুরক্ষা বোর্ডে অভিযোগ জানাতে পারেন।';
+
+  @override
+  String get consentReadPolicy => 'সম্পূর্ণ গোপনীয়তা নীতি পড়ুন';
+
+  @override
+  String get consentAdult => 'আমার বয়স 18 বা তার বেশি';
+
+  @override
+  String get consentAgree => 'আমি সম্মত';
+
+  @override
+  String get consentDeclineNote =>
+      'সম্মত না হলে অ্যাপটি বন্ধ করুন। কোনো স্বাস্থ্য-তথ্য পাঠানো হয়নি।';
+
+  @override
+  String get errorConsentRequired => 'আগে গোপনীয়তা বিজ্ঞপ্তিতে সম্মতি দিন।';
+
+  @override
+  String get errorAppOutdated =>
+      'CalFit-এর এই সংস্করণটি পুরনো। চালিয়ে যেতে আপডেট করুন।';
+
+  @override
   String get deleteConfirmTitle => 'আপনার সব ডেটা মুছবেন?';
 
   @override

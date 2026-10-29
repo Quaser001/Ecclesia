@@ -57,6 +57,10 @@ enum ApiErrorKind {
   // The old identity was replaced by a new, empty one: set up the profile again.
   profileReset,
   prescriptionLimit,
+  // The server needs agreement to the privacy notice first (HTTP 428).
+  consentRequired,
+  // The notice this app shows is older than the server's: update the app (409).
+  appOutdated,
 }
 
 class ApiException implements Exception {
@@ -344,6 +348,41 @@ class ApiService {
   /// Deletes the user's profile, scans, photos and usage on the server.
   /// The local sign-in token is dropped too, so the next request starts a
   /// fresh, empty identity.
+  /// Set when the server answers 428: this person hasn't agreed to the
+  /// current privacy notice (or withdrew by deleting their data). The
+  /// consent gate listens and shows the notice.
+  final ValueNotifier<bool> consentNeeded = ValueNotifier(false);
+
+  /// Whether this person has agreed to the server's current notice.
+  Future<({String currentVersion, bool agreed})> getConsent() async {
+    return _run(() async {
+      final res = await _authed((h) => client
+          .get(_uri('/api/v1/consent'), headers: h)
+          .timeout(ApiConfig.lightTimeout));
+      if (res.statusCode != 200) throw _fromResponse('check your consent', res);
+      final j = jsonDecode(res.body) as Map<String, dynamic>;
+      return (currentVersion: j['current_version'] as String, agreed: j['agreed'] == true);
+    });
+  }
+
+  /// Records agreement to the notice the app showed ([noticeVersion]),
+  /// including "I am 18 or older".
+  Future<void> giveConsent(String noticeVersion) async {
+    await _run(() async {
+      final res = await _authed((h) => client
+          .post(_uri('/api/v1/consent'),
+              headers: {...h, 'Content-Type': 'application/json'},
+              body: jsonEncode({'notice_version': noticeVersion, 'adult_confirmed': true}))
+          .timeout(ApiConfig.lightTimeout));
+      if (res.statusCode == 201) return;
+      if (res.statusCode == 409) {
+        throw ApiException('The notice is out of date.', statusCode: 409, kind: ApiErrorKind.appOutdated);
+      }
+      throw _fromResponse('record your consent', res);
+    });
+    consentNeeded.value = false;
+  }
+
   Future<void> deleteMyData() async {
     await _run(() async {
       // Not through _authed: on a 401 that would register a brand-new
@@ -357,6 +396,8 @@ class ApiService {
     });
     await tokenStore.clear();
     await tokenStore.setProfileResetPending(false); // deliberate: nothing to warn about
+    // Deleting withdraws consent: using CalFit again starts with the notice.
+    consentNeeded.value = true;
   }
 
   /// Totals across every scan (Home's numbers), not just the latest page.
@@ -462,12 +503,14 @@ class ApiService {
     // debugPrint is not stripped from release builds.
     debugPrint('API ${res.statusCode} on $action');
     final code = res.statusCode;
+    if (code == 428) consentNeeded.value = true;
     return ApiException("Couldn't $action (HTTP $code).", statusCode: code, kind: _kindFor(code));
   }
 
   static ApiErrorKind _kindFor(int code) => switch (code) {
         400 || 413 || 422 => ApiErrorKind.badRequest,
         401 || 403 => ApiErrorKind.unauthorized,
+        428 => ApiErrorKind.consentRequired,
         404 => ApiErrorKind.notFound,
         429 => ApiErrorKind.rateLimited,
         >= 500 => ApiErrorKind.server,

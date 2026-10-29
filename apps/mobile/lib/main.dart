@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app/app_theme.dart';
 import 'app/theme_controller.dart';
+import 'features/consent/consent_notice.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'l10n/l10n.dart';
 import 'navigation/bottom_navigation.dart';
@@ -77,19 +78,26 @@ class _CalFitAppState extends State<CalFitApp> {
               child: child!,
             );
           },
-          home: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 350),
-            child: _onboarding
-                ? OnboardingScreen(
-                    apiService: apiService,
-                    onDone: () => setState(() => _onboarding = false),
-                  )
-                // Keyed by profile: switching rebuilds every tab from scratch,
-                // so no screen keeps the previous person's data.
-                : BottomNavigation(
-                    key: ValueKey(widget.profiles?.activeId),
-                    apiService: apiService,
-                  ),
+          // Each person agrees to the privacy notice before anything about
+          // their health is saved or scored; a new family member too.
+          home: ConsentGate(
+            key: ValueKey(('consent', widget.profiles?.activeId)),
+            apiService: apiService,
+            profileId: widget.profiles?.activeId,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              child: _onboarding
+                  ? OnboardingScreen(
+                      apiService: apiService,
+                      onDone: () => setState(() => _onboarding = false),
+                    )
+                  // Keyed by profile: switching rebuilds every tab from scratch,
+                  // so no screen keeps the previous person's data.
+                  : BottomNavigation(
+                      key: ValueKey(widget.profiles?.activeId),
+                      apiService: apiService,
+                    ),
+            ),
           ),
         );
       },

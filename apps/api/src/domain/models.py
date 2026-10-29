@@ -178,6 +178,21 @@ class UserProfileRequest(BaseModel):
     sex: Optional[Sex] = None
     activity_level: Optional[ActivityLevel] = None
 
+    @field_validator("birth_year")
+    @classmethod
+    def _adults_only(cls, v: Optional[int]) -> Optional[int]:
+        # CalFit is for adults: a child's data needs verifiable parental
+        # consent (DPDP Act s.9, Rules r.10), which we don't collect. A year
+        # alone can't pin the birthday, so someone who turns 18 this calendar
+        # year is let through; the app's 18+ notice covers that edge.
+        # On the request only: rows already stored must still load.
+        if v is not None and datetime.now(timezone.utc).year - v < ADULT_AGE:
+            raise ValueError(f"CalFit is for adults ({ADULT_AGE}+)")
+        return v
+
+
+ADULT_AGE = 18
+
 
 # ---------------------------------------------------------------------------
 # Product Observation (from Gemini analysis)

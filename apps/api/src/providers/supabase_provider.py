@@ -221,6 +221,10 @@ class SupabaseDBProvider(SupabaseProvider):
     async def delete_user_data(self, user_id: str) -> int:
         client = await self._get_client()
         try:
+            # First, so even a delete that fails halfway stops processing.
+            # Kept as proof that the processing before now was consented to;
+            # withdrawn, so nothing new is processed until they agree again.
+            await client.table("consents").update({"withdrawn_at": _utc_now()})                 .eq("user_id", user_id).is_("withdrawn_at", "null").execute()
             await client.table("scan_feedback").delete().eq("user_id", user_id).execute()
             await client.table("serving_memory").delete().eq("user_id", user_id).execute()
             scans = await client.table("scans").delete().eq("user_id", user_id).execute()
@@ -326,6 +330,30 @@ class SupabaseDBProvider(SupabaseProvider):
             }).execute()
         except Exception as exc:
             logger.error("Save serving memory failed: %s", type(exc).__name__)
+            raise
+
+
+    async def record_consent(self, user_id: str, notice_version: str) -> datetime:
+        client = await self._get_client()
+        try:
+            res = await client.table("consents").insert({
+                "user_id": user_id,
+                "notice_version": notice_version,
+                "adult_confirmed": True,
+            }).execute()
+            return datetime.fromisoformat(res.data[0]["agreed_at"])
+        except Exception as exc:
+            logger.error("Record consent failed: %s", type(exc).__name__)
+            raise
+
+    async def has_consent(self, user_id: str, notice_version: str) -> bool:
+        client = await self._get_client()
+        try:
+            res = await client.table("consents").select("id").eq("user_id", user_id)                 .eq("notice_version", notice_version).is_("withdrawn_at", "null")                 .limit(1).execute()
+            return bool(res.data)
+        except Exception as exc:
+            # Unknown is not "yes": the gate must not wave health data through.
+            logger.error("Consent lookup failed: %s", type(exc).__name__)
             raise
 
 
@@ -457,6 +485,10 @@ def _row_to_knowledge(row: dict) -> KnowledgeEntry:
         relevance_tags=row.get("relevance_tags") or [],
         source=row.get("source", "calfit_knowledge_base"),
     )
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _utc_today() -> str:

@@ -956,6 +956,80 @@ class AppLocalizationsKha extends AppLocalizations {
       'Weng noh ïa ka profile, ki scan bad ki dur jong phi na ki server jong CalFit.';
 
   @override
+  String get adultsOnlyBirthYear => 'CalFit is for adults (18+).';
+
+  @override
+  String get rxConsentSetting => 'Prescription reading';
+
+  @override
+  String get rxConsentSettingOn =>
+      'On. Prescription photos you choose are sent to be read. Turn off to withdraw your consent.';
+
+  @override
+  String get rxConsentSettingOff => 'Off. Nothing from a prescription is sent.';
+
+  @override
+  String get rxConsentWithdrawn =>
+      'Consent withdrawn. Prescription photos won\'t be sent.';
+
+  @override
+  String get consentTitle => 'Before you start';
+
+  @override
+  String get consentIntro =>
+      'CalFit uses health details you give it. Please read what we collect and why, then agree.';
+
+  @override
+  String get consentWhatTitle => 'What we collect, and why';
+
+  @override
+  String get consentItemProfile =>
+      'Your health profile: conditions, allergies, diet, goals, and optional body details (height, weight, year of birth, sex, activity). Used to grade each product for you.';
+
+  @override
+  String get consentItemScans =>
+      'Photos of labels you scan, and their results. Used to read the label, score it and keep your history.';
+
+  @override
+  String get consentItemToken =>
+      'A sign-in code for this phone. No name, email or phone number. Used to keep your data apart from everyone else\'s and to apply the daily scan limit.';
+
+  @override
+  String get consentSharedTitle => 'Who else handles it';
+
+  @override
+  String get consentShared =>
+      'Google Gemini reads label photos and writes explanations. It gets the findings for a product, not your profile. Your data is stored with Supabase in Singapore. Nothing is sold or used for ads.';
+
+  @override
+  String get consentChoicesTitle => 'Your choices';
+
+  @override
+  String get consentChoices =>
+      'You can edit your profile or delete a scan at any time. Settings → Delete my data erases everything and withdraws this consent. You can also write to us, or complain to the Data Protection Board of India.';
+
+  @override
+  String get consentReadPolicy => 'Read the full privacy policy';
+
+  @override
+  String get consentAdult => 'I am 18 or older';
+
+  @override
+  String get consentAgree => 'I agree';
+
+  @override
+  String get consentDeclineNote =>
+      'If you don\'t agree, close the app. No health details have been sent.';
+
+  @override
+  String get errorConsentRequired =>
+      'Please agree to the privacy notice first.';
+
+  @override
+  String get errorAppOutdated =>
+      'This version of CalFit is out of date. Please update it to continue.';
+
+  @override
   String get deleteConfirmTitle => 'Weng noh ïa ka data baroh jong phi?';
 
   @override

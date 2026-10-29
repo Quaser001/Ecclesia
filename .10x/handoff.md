@@ -1,21 +1,35 @@
 # Handoff
 
-**From:** Production hardening (2026-10-29). **To:** the founder (review and commit), then DevOps (deploy).
+**From:** the 2026-10-28/29 session (production hardening, data audit, family profiles, CI).
+**To:** the next chat. Start by reading `status.md`, then this file.
 
-- **What changed:** 47 audited issues were verified, and the fix-now set was implemented. See `specs/2026-10-29-production-hardening.md`, ADR-006, and `reviews/2026-10-29-production-hardening.md`.
-- **New rules for everyone (ADR-006):**
-  - Production fails loudly at startup.
-  - A failed dependency is a 503, never a quiet fallback.
-  - Scoring never runs on a profile that failed to load.
-- **Run from `apps/api/.venv`,** which matches `uv.lock`. The root `.venv` is stale: it has FastAPI 0.141 and holds all 22 known vulnerabilities, and it can be deleted.
-- **Check every key works:** `cd apps/api && .venv/Scripts/python.exe -m src.check_config`. On 2026-10-29 it reports the Gemini key as invalid.
+## Read first
+- **Rules:** `AGENTS.md`.
+- **Decisions:** ADRs 001–008, especially:
+  - 006: fail loudly; no silent fallbacks;
+  - 007: ratings are history;
+  - 008: family profiles = separate identities.
+- **Reviews:** `reviews/2026-10-29-production-hardening.md` and `reviews/2026-10-29-data-privacy-audit.md`.
+- **Docs:** `docs/` (scoring formula, deploy, privacy policy; the app keeps an identical copy of the policy in `apps/mobile/assets/legal/`).
 
-- **Sources of truth:**
-  - `AGENTS.md` (rules);
-  - `docs/MARKET_READY_CHECKLIST.md` (progress and decisions);
-  - `docs/SCORING_FORMULA.md`, `docs/AI_PROVIDER_OPTIONS.md`, `docs/EVALS_AND_OBSERVABILITY.md`, `docs/DEPLOY_CLOUD_RUN.md`, `docs/PRIVACY_POLICY.md`;
-  - `docs/BUILDER_NOTES.md` (lessons).
-- **Architecture:** `decisions/architect/_index.md` and ADRs 001–005.
-- **Run locally:** see `decisions/devops/cloud-run-deploy.md`. Phone: the founder's Android (find its serial with `adb devices`; not recorded in the repo).
-- **Never touch the founder's real account** (its id is in the founder's local notes, not the repo) without explicit approval. Use throwaway accounts.
-- **Discovery findings were confirmed by the founder** on 2026-10-28. New features start with a brainstorm and an ADR before code.
+## How to run (Windows)
+- **Python:** always use `apps/api/.venv`, which matches `uv.lock`. The root `.venv` is stale; don't use it.
+- **Backend:** `cd apps/api && .venv/Scripts/python.exe -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --no-access-log`.
+- **Check that keys work:** `.venv/Scripts/python.exe -m src.check_config`.
+- **Tests:**
+  - backend: `.venv/Scripts/python.exe -m pytest -q`;
+  - app: `cd apps/mobile && flutter analyze && flutter test`.
+- **Phone:**
+  - adb lives at `%LOCALAPPDATA%/Android/Sdk/platform-tools/adb.exe` (not on PATH);
+  - prefix commands with `MSYS_NO_PATHCONV=1` in Git Bash;
+  - run `adb reverse tcp:8000 tcp:8000` after every reconnect;
+  - build with `flutter build apk --debug --dart-define=API_BASE_URL=http://127.0.0.1:8000`.
+  - Taps work only with "USB debugging (Security settings)" on. Find the serial with `adb devices`.
+
+## Working agreements with the founder
+- **Commit and push only when asked.** Never push `backup/pre-scrub-*`.
+- **Never print `.env` values**; the founder adds keys themselves.
+- **Never modify the founder's own account or scans without explicit approval.** Use throwaway accounts.
+- **Only synthetic prescriptions,** and never to the free Gemini tier.
+- **On Pro:** keep multi-agent workflows small (about 4–6 agents); reuse earlier results.
+- **The founder is new to app development.** Explain the why briefly, in plain words.

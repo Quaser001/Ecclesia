@@ -35,7 +35,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: localizationsDelegates,
-      home: BottomNavigation(apiService: api, userId: 'u'),
+      home: BottomNavigation(apiService: api),
     ));
     await tester.pumpAndSettle();
     expect(find.text('Home'), findsOneWidget);

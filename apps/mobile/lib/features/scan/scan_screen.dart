@@ -19,12 +19,10 @@ import 'scan_result_screen.dart';
 /// happens.
 class ScanScreen extends StatefulWidget {
   final ApiService apiService;
-  final String userId;
 
   const ScanScreen({
     super.key,
     required this.apiService,
-    required this.userId,
   });
 
   @override
@@ -206,7 +204,8 @@ class _ScanScreenState extends State<ScanScreen> {
               ? ImageSource.camera
               : ImageSource.gallery),
       child: Container(
-        height: 300,
+        // 300 on a phone held upright; shorter in landscape or split screen.
+        height: (MediaQuery.sizeOf(context).height * 0.4).clamp(180.0, 300.0),
         decoration: BoxDecoration(
           color: _selectedImageBytes != null
               ? theme.colorScheme.surface

@@ -52,7 +52,6 @@ const _goalKeys = [
 /// (goals, conditions, diet, allergies). Settings sit behind the gear icon.
 class ProfileScreen extends StatefulWidget {
   final ApiService apiService;
-  final String userId;
 
   /// Bumped by the tab bar to refresh quietly when the tab is shown again.
   final int refreshTick;
@@ -61,7 +60,6 @@ class ProfileScreen extends StatefulWidget {
     super.key,
     this.refreshTick = 0,
     required this.apiService,
-    required this.userId,
   });
 
   @override
@@ -162,6 +160,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       file = await _picker.pickImage(source: source, maxWidth: 2000, imageQuality: 85);
       if (file == null) return;
       final bytes = await file.readAsBytes();
+      if (!mounted) return; // left the screen while the photo was picked
       setState(() => _readingPrescription = true);
       final suggestions = await widget.apiService.analyzePrescription(
         photoBytes: bytes,

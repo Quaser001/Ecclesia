@@ -111,6 +111,12 @@ void main() {
     });
   }
 
+  test('the old per-phone id, never used or sent, is wiped', () async {
+    SharedPreferences.setMockInitialValues({'calfit.device_id': '9606aeb9-0000-4000-8000-000000000000'});
+    await ProfileRegistry.load(secrets);
+    expect(await _prefsDump(), isNot(contains('9606aeb9')));
+  });
+
   test('a new sign-in is written to the Keystore, never to prefs', () async {
     SharedPreferences.setMockInitialValues({});
     final r = await ProfileRegistry.load(secrets);

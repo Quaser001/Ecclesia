@@ -56,6 +56,8 @@ class ProfileRegistry extends ChangeNotifier {
   static const _activeKey = 'calfit.profiles.active';
   static const _legacyTokenKey = 'calfit.auth_token';
   static const _legacyResetKey = 'calfit.profile_reset_pending';
+  // A per-phone id from before server-issued identities; never sent anywhere.
+  static const _legacyDeviceIdKey = 'calfit.device_id';
 
   /// The loaded registry, for per-profile device settings (prescription
   /// consent). Null in tests that never load one.
@@ -135,6 +137,7 @@ class ProfileRegistry extends ChangeNotifier {
     // Only after the token is safely in the Keystore or the registry.
     await prefs.remove(_legacyTokenKey);
     await prefs.remove(_legacyResetKey);
+    await prefs.remove(_legacyDeviceIdKey);
     return current = registry;
   }
 

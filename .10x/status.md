@@ -4,6 +4,20 @@
 **Snapshot:** `main` = `origin/main` at `b4c6c3b` (plus this handoff commit). CI is green: secret scan, backend, app.
 **Tests:** backend 508 (pytest), app 82 (`flutter test`), `flutter analyze` clean.
 
+## Done on 2026-10-29 (uncommitted): "tabs don't load" + mobile audit
+- **Cause of "only Home loads":** the local server was stopped. Home kept what it had loaded; the other tabs had nothing to show.
+  - The app now names this "Can't reach the CalFit server": `http.ClientException` maps to the network error kind.
+  - Cold or idle requests to Supabase from this PC take about 1–5 s; one Insights call took 14 s, past the app's 10 s limit. Watch this; not fixed.
+- **Audit, against five reported AI-built-app risks:**
+  - No Supabase or third-party keys in the client: the app talks only to our API.
+  - The unused per-phone `device_id` is removed and wiped from prefs.
+  - One `setState` after an `await` without a `mounted` check (prescription photo) is fixed.
+  - The scan photo box scales in landscape.
+  - The backend returns 503 + `Retry-After` when Supabase or another upstream times out (`httpx.TransportError`), instead of a bare 500.
+  - No deep links or client-side auth exist, so nothing to fix there. No iOS folder.
+- **Rules:** `AGENTS.md` sections 5–6; `CLAUDE.md` imports it.
+- Tests: app 84, backend 509. The latest APK is built but not yet installed (the phone was unplugged).
+
 ## Done on 2026-10-29 (Keystore)
 - **Sign-in tokens moved to the Android Keystore** (`flutter_secure_storage` 11.2.0, `resetOnError: false`).
   - Interface: `lib/services/secret_store.dart`. Plain preferences now keep only a "signed in" marker.

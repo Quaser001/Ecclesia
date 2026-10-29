@@ -27,7 +27,6 @@ import '../../core/utils/score_format.dart';
 /// does not compute a running "health score" and never implies one.
 class HomeScreen extends StatefulWidget {
   final ApiService apiService;
-  final String userId;
   final VoidCallback? onNavigateToHistory;
   final VoidCallback? onNavigateToProfile;
   final VoidCallback? onStartScan;
@@ -39,7 +38,6 @@ class HomeScreen extends StatefulWidget {
     super.key,
     this.refreshTick = 0,
     required this.apiService,
-    required this.userId,
     this.onNavigateToHistory,
     this.onNavigateToProfile,
     this.onStartScan,

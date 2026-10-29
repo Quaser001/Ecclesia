@@ -64,7 +64,7 @@ void main() {
                          'dietary_preferences': [], 'health_goals': []})),
         tokenStore: MemoryAuthTokenStore(),
       );
-      await tester.pumpWidget(_app(BottomNavigation(apiService: api, userId: 'u')));
+      await tester.pumpWidget(_app(BottomNavigation(apiService: api)));
       await tester.pumpAndSettle();
 
       final l = await AppLocalizations.delegate.load(locale);

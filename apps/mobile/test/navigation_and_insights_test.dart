@@ -103,7 +103,7 @@ void main() {
       '/api/v1/profile': _profile,
       '/api/v1/scans/history': <Object>[],
     });
-    await tester.pumpWidget(_app(BottomNavigation(apiService: api, userId: 'u1')));
+    await tester.pumpWidget(_app(BottomNavigation(apiService: api)));
     await tester.pumpAndSettle();
 
     final scan = tester.getCenter(find.byTooltip('Scan a product')).dx;

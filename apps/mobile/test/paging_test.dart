@@ -64,7 +64,7 @@ Widget _app(Widget home) => MaterialApp(
 void main() {
   testWidgets('History loads the next page when you scroll to the end', (tester) async {
     final seen = <Uri>[];
-    await tester.pumpWidget(_app(HistoryScreen(apiService: _api(seen), userId: 'u')));
+    await tester.pumpWidget(_app(HistoryScreen(apiService: _api(seen))));
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(find.text('Product 0'), 400, maxScrolls: 60);
@@ -79,7 +79,7 @@ void main() {
 
   testWidgets('Home shows totals across all scans, not just one page', (tester) async {
     final seen = <Uri>[];
-    await tester.pumpWidget(_app(HomeScreen(apiService: _api(seen), userId: 'u')));
+    await tester.pumpWidget(_app(HomeScreen(apiService: _api(seen))));
     await tester.pumpAndSettle();
     expect(find.text('31'), findsOneWidget);
     expect(find.text('1.8'), findsOneWidget); // average 18 tenths, shown out of 10

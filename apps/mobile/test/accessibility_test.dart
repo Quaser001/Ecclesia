@@ -93,7 +93,7 @@ void main() {
       {'calfit.disclaimer_acknowledged.v1': true, 'calfit.onboarded.v1': true}));
 
   testWidgets('every tab fits at double text size on a small phone', (tester) async {
-    await _check(tester, BottomNavigation(apiService: _api(), userId: 'u'),
+    await _check(tester, BottomNavigation(apiService: _api()),
         tabs: ['History', 'Insights', 'Profile', 'Home']);
   });
 
@@ -141,7 +141,7 @@ void main() {
   });
 
   testWidgets('icon-only buttons all have a label for screen readers', (tester) async {
-    await _check(tester, BottomNavigation(apiService: _api(), userId: 'u'), tabs: ['Profile']);
+    await _check(tester, BottomNavigation(apiService: _api()), tabs: ['Profile']);
     for (final b in tester.widgetList<IconButton>(find.byType(IconButton))) {
       expect(b.tooltip, isNotNull, reason: 'IconButton without a tooltip');
     }

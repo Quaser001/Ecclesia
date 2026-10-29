@@ -431,6 +431,11 @@ class ApiService {
     } on SocketException catch (e) {
       debugPrint('Network error: $e');
       throw ApiException("Can't reach the server.", kind: ApiErrorKind.network);
+    } on http.ClientException catch (e) {
+      // How package:http reports a refused or dropped connection, e.g. the
+      // server is down behind `adb reverse`. Not "something went wrong".
+      debugPrint('Network error: ${e.runtimeType}');
+      throw ApiException("Can't reach the server.", kind: ApiErrorKind.network);
     } on FormatException catch (e) {
       // Type only: FormatException text includes a snippet of the response,
       // which for some endpoints is health data.

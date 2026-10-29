@@ -111,6 +111,25 @@ async def test_gemini_outage_is_a_503(wired, make_device):
     assert "clearer" not in r.json()["detail"]
 
 
+# --- a database that doesn't answer is a 503, and its URL stays in the server -
+
+
+async def test_database_timeout_is_a_503_without_upstream_details(wired, make_device):
+    import httpx
+
+    _, headers = make_device()
+
+    async def timeout(*_a, **_k):
+        raise httpx.ConnectTimeout("connect to https://secret-ref.supabase.co timed out")
+    wired.db.get_scan_history = timeout
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.get(f"{SCANS}/history", headers=headers)
+    assert r.status_code == 503 and r.headers["retry-after"]
+    assert r.json()["request_id"]
+    assert "supabase" not in r.text
+
+
 # --- [K] Gemini: stop on errors every model would repeat ---------------------
 
 

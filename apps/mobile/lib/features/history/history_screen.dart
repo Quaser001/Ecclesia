@@ -13,7 +13,6 @@ import '../scan/scan_detail_screen.dart';
 /// History: past scans grouped by day. Tap one to open its full result.
 class HistoryScreen extends StatefulWidget {
   final ApiService apiService;
-  final String userId;
   final VoidCallback? onStartScan;
 
   /// Bumped by the tab bar to refresh quietly when the tab is shown again.
@@ -23,7 +22,6 @@ class HistoryScreen extends StatefulWidget {
     super.key,
     this.refreshTick = 0,
     required this.apiService,
-    required this.userId,
     this.onStartScan,
   });
 

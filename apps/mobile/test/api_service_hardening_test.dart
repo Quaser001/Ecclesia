@@ -28,6 +28,18 @@ http.Response _json(Object body, [int status = 200]) => http.Response(
 final _photo = Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE0]);
 
 void main() {
+  test('a server that is down reads as "can\'t reach the server", not a generic error', () async {
+    final store = MemoryAuthTokenStore();
+    await store.write('tok');
+    final client = MockClient((req) async =>
+        throw http.ClientException('Connection closed before full header was received', req.url));
+    final api = ApiService(baseUrl: 'http://test', client: client, tokenStore: store);
+    await expectLater(
+      api.getScanHistory(),
+      throwsA(isA<ApiException>().having((e) => e.kind, 'kind', ApiErrorKind.network)),
+    );
+  });
+
   test('[AP] a 401 on a scan is never retried on a fresh, empty identity', () async {
     final scans = <String?>[];
     final store = MemoryAuthTokenStore();

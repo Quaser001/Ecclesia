@@ -6,6 +6,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -49,6 +50,20 @@ async def service_unavailable(_: Request, exc: ServiceUnavailable) -> JSONRespon
     return JSONResponse(
         status_code=503,
         content={"detail": exc.message, "request_id": current_request_id()},
+        headers={"Retry-After": "30"},
+    )
+
+
+@app.exception_handler(httpx.TransportError)
+async def upstream_unreachable(_: Request, exc: httpx.TransportError) -> JSONResponse:
+    """Supabase (or another upstream) didn't answer: a timeout or a dropped
+    connection. That's "try again shortly" (503), not a bug in our code (500).
+    The type only goes to the log; its text can include the upstream URL."""
+    logger.warning("Upstream unreachable: %s", type(exc).__name__)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "A service CalFit depends on is temporarily unavailable.",
+                 "request_id": current_request_id()},
         headers={"Retry-After": "30"},
     )
 

@@ -21,12 +21,10 @@ import '../services/api_service.dart';
 /// construction (the old bar had one tab on the left and two on the right).
 class BottomNavigation extends StatefulWidget {
   final ApiService apiService;
-  final String userId;
 
   const BottomNavigation({
     super.key,
     required this.apiService,
-    required this.userId,
   });
 
   @override
@@ -81,7 +79,7 @@ class _BottomNavigationState extends State<BottomNavigation> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ScanScreen(apiService: widget.apiService, userId: widget.userId),
+        builder: (_) => ScanScreen(apiService: widget.apiService),
       ),
     );
     // A new scan changes Home, History and Insights.
@@ -99,7 +97,6 @@ class _BottomNavigationState extends State<BottomNavigation> {
       case 0:
         return HomeScreen(
           apiService: widget.apiService,
-          userId: widget.userId,
           refreshTick: _refresh[0],
           onNavigateToHistory: () => _select(1),
           onNavigateToProfile: () => _select(3),
@@ -108,7 +105,6 @@ class _BottomNavigationState extends State<BottomNavigation> {
       case 1:
         return HistoryScreen(
           apiService: widget.apiService,
-          userId: widget.userId,
           refreshTick: _refresh[1],
           onStartScan: _startScan,
         );
@@ -117,7 +113,7 @@ class _BottomNavigationState extends State<BottomNavigation> {
             apiService: widget.apiService, onStartScan: _startScan, refreshTick: _refresh[2]);
       default:
         return ProfileScreen(
-            apiService: widget.apiService, userId: widget.userId, refreshTick: _refresh[3]);
+            apiService: widget.apiService, refreshTick: _refresh[3]);
     }
   }
 

@@ -26,3 +26,18 @@
 * **Test meaningful changes**: All changes to business logic, scoring rules, and API endpoints require automated tests.
 * **Verify before claiming success**: Never declare a feature complete without compiling, analyzing, and successfully running tests.
 * **Scope control**: Keep MVP scope focused. Do not expand MVP scope or build speculative infrastructure.
+
+## 5. Mobile Client Security & Robustness
+* **The app talks only to our API**: The Flutter client never calls Supabase, Gemini or any third party directly and never holds their URLs or keys (no `supabase_flutter`, no anon key). The only build-time value is `--dart-define=API_BASE_URL`, which is not a secret.
+* **Credentials live in the Keystore**: Bearer tokens and anything that unlocks a person's data go through `SecretStore` (`lib/services/secret_store.dart`, flutter_secure_storage with `resetOnError: false`). Never in `SharedPreferences`. Plain prefs are for non-sensitive settings only (theme, language, "disclaimer seen").
+* **No device identifiers**: Don't store or send a per-phone id. Identity is the server-issued token, one per profile (ADR-008).
+* **A lost credential is never a new user**: If the Keystore can't produce a token it had, mark the profile "save your profile again" (reset pending). Never mint a fresh, empty identity silently.
+* **Keystore package majors are manual**: A major version can drop the cipher saved tokens use. Dependabot ignores them; upgrade one major at a time after testing the upgrade over an existing install on a phone (`adb install -r`, never uninstall first).
+* **`mounted` after every await**: In a `State`, check `if (!mounted) return;` after each `await` before `setState`, `Navigator` or `ScaffoldMessenger`. Outside a `State`, check `context.mounted`. Dispose every controller, subscription and timer a `State` creates.
+* **Network errors are named, not generic**: `ApiService._run` maps timeouts, `SocketException` and `http.ClientException` to their `ApiErrorKind`, so the screen says "can't reach the server" rather than "something went wrong". Screens show `UserMessage.of(context, e)`, never `e.toString()`.
+* **Layouts adapt**: Screens without an `AppBar` wrap their body in `SafeArea`; bottom sheets too. No fixed heights that assume a portrait phone; scale with `MediaQuery.sizeOf` and clamp. Content scrolls.
+
+## 6. Backend Error Handling
+* **Errors reach the app as JSON with a request id, never as raw text**: No exception message, stack trace, SQL or upstream URL in a response. Log the exception *type* only (`type(exc).__name__`), since messages can contain health data.
+* **Upstream down = 503, our bug = 500**: A dependency that times out or drops (`httpx.TransportError`, `ServiceUnavailable`) is a 503 with `Retry-After`. A PostgREST `APIError` is a bug in our query and stays a 500. Never turn either into an empty or default result (ADR-006).
+* **Database calls go through the provider interfaces** (`SupabaseProvider`, `StorageProvider`), and each provider method logs and re-raises; routes don't swallow them.

@@ -81,7 +81,7 @@ All commands are in `docs/DEPLOY_CLOUD_RUN.md`.
 - [ ] **BLOCKER** Generate the release keystore and back it up somewhere you won't lose it — losing it means you can never update the app on the Play Store
 - [ ] Fill in `android/key.properties` from `key.properties.example`; confirm it is gitignored
 - [ ] Build: `flutter build apk --release --dart-define=API_BASE_URL=https://<deployed-url>`
-- [ ] Install on the phone (Xiaomi 2201117PI). The release build is signed with a different key from the debug build, so Android requires uninstalling the debug app first. That wipes its stored token, and the release app registers as a **new user**: the current profile and 31 imported scans stay under the old ID (`d0ea3a51…`) and must be moved across if you want them.
+- [ ] Install on the phone (Xiaomi 2201117PI). The release build is signed with a different key from the debug build, so Android requires uninstalling the debug app first. That wipes its stored token, and the release app registers as a **new user**: the current profile and 31 imported scans stay under the old ID (in the founder's local notes) and must be moved across if you want them.
 - [ ] **End-to-end test with the laptop off**: on mobile data, scan three real labels (the back of the pack, with ingredients and nutrition) and confirm History survives an app restart
 
 Reaching the end of this section means it runs independently. Everything below is about being fit for other people.

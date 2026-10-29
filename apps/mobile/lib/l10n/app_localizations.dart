@@ -434,6 +434,42 @@ abstract class AppLocalizations {
   /// **'No allergies, conditions, diets or goals were set.'**
   String get scoredForNone;
 
+  /// No description provided for @switchProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch profile'**
+  String get switchProfile;
+
+  /// No description provided for @profilesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Profiles on this phone'**
+  String get profilesTitle;
+
+  /// No description provided for @profileMe.
+  ///
+  /// In en, this message translates to:
+  /// **'Me'**
+  String get profileMe;
+
+  /// No description provided for @addFamilyMember.
+  ///
+  /// In en, this message translates to:
+  /// **'Add family member'**
+  String get addFamilyMember;
+
+  /// No description provided for @memberNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Their name'**
+  String get memberNameLabel;
+
+  /// No description provided for @familyAdultsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'For adults (18+). Each person\'s conditions, allergies, scans and history are kept separately.'**
+  String get familyAdultsNote;
+
   /// No description provided for @allergyChip.
   ///
   /// In en, this message translates to:

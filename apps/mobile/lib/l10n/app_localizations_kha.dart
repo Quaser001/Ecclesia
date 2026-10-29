@@ -195,6 +195,25 @@ class AppLocalizationsKha extends AppLocalizations {
       'Ym don ki allergy, ki jingpang, ki jingbam ne ki thong ba la buh.';
 
   @override
+  String get switchProfile => 'Kylla profile';
+
+  @override
+  String get profilesTitle => 'Ki profile ha kane ka phone';
+
+  @override
+  String get profileMe => 'Nga';
+
+  @override
+  String get addFamilyMember => 'Bud kawei na ka iing';
+
+  @override
+  String get memberNameLabel => 'Ka kyrteng jong u/ka';
+
+  @override
+  String get familyAdultsNote =>
+      'Na ki rangbah (18+). Ki jingpang, ki allergy, ki scan bad ka jingsngew jong man la ki briew la buh pat pat.';
+
+  @override
   String allergyChip(String name) {
     return 'Allergy $name';
   }

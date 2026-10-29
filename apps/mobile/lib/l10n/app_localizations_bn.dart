@@ -192,6 +192,25 @@ class AppLocalizationsBn extends AppLocalizations {
       'কোনো অ্যালার্জি, রোগ, খাদ্যাভ্যাস বা লক্ষ্য দেওয়া ছিল না।';
 
   @override
+  String get switchProfile => 'প্রোফাইল বদলান';
+
+  @override
+  String get profilesTitle => 'এই ফোনের প্রোফাইল';
+
+  @override
+  String get profileMe => 'আমি';
+
+  @override
+  String get addFamilyMember => 'পরিবারের সদস্য যোগ করুন';
+
+  @override
+  String get memberNameLabel => 'তাঁর নাম';
+
+  @override
+  String get familyAdultsNote =>
+      'প্রাপ্তবয়স্কদের (১৮+) জন্য। প্রত্যেকের রোগ, অ্যালার্জি, স্ক্যান ও ইতিহাস আলাদা রাখা হয়।';
+
+  @override
   String allergyChip(String name) {
     return '$name-এ অ্যালার্জি';
   }

@@ -528,3 +528,28 @@ async def test_past_ratings_keep_the_profile_they_were_scored_for(wired, make_de
     assert detail["score_result"]["score"] == 0
     assert detail["score_result"]["scored_for"]["allergies"] == ["peanut"]
     assert history[0]["score"] == 0
+
+
+# --- data minimisation: the AI gets the findings, never the profile -----------
+
+
+async def test_the_explanation_prompt_holds_no_profile_beyond_the_findings():
+    from src.services.explanation_service import ExplanationService
+
+    sent = []
+
+    class Capture(LabelGemini):
+        async def generate_explanation(self, messages):
+            sent.append(" ".join(m["content"] for m in messages))
+            return "Contains peanut, which you are allergic to."
+
+    user = UserProfile(user_id="u-secret-id", name="Sharon", birth_year=1990, weight_kg=70,
+                       allergies=["peanut"],
+                       health_conditions=[HealthCondition.LACTOSE_INTOLERANCE, HealthCondition.ANAEMIA])
+    bar = ProductObservation(product_name="Peanut bar", ingredients=["peanuts"], allergens_declared=["peanut"],
+                             nutrition=NutritionInfo(serving_size_g=40, sugars_g=2), extraction_confidence=0.95)
+    await ExplanationService(Capture()).explain(bar, calculate_score(bar, user), user)
+    prompt = sent[0].lower()
+    assert "peanut" in prompt                      # the finding this product triggers
+    for private in ("sharon", "1990", "u-secret-id", "lactose", "anaemia", "70"):
+        assert private not in prompt, private      # identity and unrelated conditions never leave

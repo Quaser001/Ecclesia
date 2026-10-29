@@ -36,10 +36,8 @@ class ExplanationService:
         try:
             findings_summary = _format_findings(score_result)
             nutrition_summary = _format_nutrition(product)
-            conditions = ", ".join(c.value for c in profile.health_conditions) or "None"
-            allergies = ", ".join(profile.allergies) or "None"
-            preferences = ", ".join(p.value for p in profile.dietary_preferences) or "None"
-            goals = ", ".join(g.value for g in profile.health_goals) or "None"
+            # The profile itself is not sent (prompts/explanation.py): the
+            # findings already name what this product affects, and only that.
 
             messages = build_explanation_messages(
                 product_name=product.product_name or "Unknown Product",
@@ -48,10 +46,6 @@ class ExplanationService:
                 score=format_score(score_result.score),
                 suitability=score_result.suitability.value,
                 findings_summary=findings_summary,
-                conditions=conditions,
-                allergies=allergies,
-                preferences=preferences,
-                goals=goals,
                 nutrition_summary=nutrition_summary,
             )
 

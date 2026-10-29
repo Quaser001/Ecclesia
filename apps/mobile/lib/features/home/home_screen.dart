@@ -7,6 +7,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/utils/user_message.dart';
 import '../../core/widgets/brand_mark.dart';
 import '../../core/widgets/profile_chips.dart';
+import '../../core/widgets/profile_switcher.dart';
 import '../../core/widgets/scan_row.dart';
 import '../../core/widgets/score_badge.dart';
 import '../../core/widgets/skeleton.dart';
@@ -16,6 +17,7 @@ import '../../l10n/l10n.dart';
 import '../../models/scan_result.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
+import '../../services/profile_registry.dart';
 import '../scan/scan_detail_screen.dart';
 import '../../core/utils/score_format.dart';
 
@@ -81,8 +83,10 @@ class _HomeScreenState extends State<HomeScreen> {
         widget.apiService.getScanStats(),
       ]);
       if (!mounted) return;
+      final profile = await _syncName(results[0] as UserProfile);
+      if (!mounted) return;
       setState(() {
-        _profile = results[0] as UserProfile;
+        _profile = profile;
         _history = results[1] as List<ScanHistoryItem>;
         _stats = results[2] as ScanStats;
         _isLoading = false;
@@ -95,6 +99,24 @@ class _HomeScreenState extends State<HomeScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  /// A new family member's name was typed in the switcher: save it to their
+  /// server profile once. Later edits on the Profile tab rename the switcher.
+  Future<UserProfile> _syncName(UserProfile profile) async {
+    final registry = ProfileRegistry.current;
+    if (registry == null) return profile;
+    final label = registry.active.label;
+    final name = profile.name?.trim() ?? '';
+    if (name.isEmpty && label.isNotEmpty) {
+      try {
+        return await widget.apiService.updateProfile(profile.copyWith(name: label));
+      } catch (_) {
+        return profile; // shown from the label; saved on the next visit
+      }
+    }
+    if (name.isNotEmpty && name != label) await registry.rename(registry.activeId, name);
+    return profile;
   }
 
   void _open(ScanHistoryItem item) {
@@ -211,6 +233,7 @@ class _Header extends StatelessWidget {
         children: [
           const BrandLockup(),
           const Spacer(),
+          if (ProfileRegistry.current != null) const ProfileSwitcherButton(),
           ValueListenableBuilder<ThemeMode>(
             valueListenable: ThemeController.themeMode,
             builder: (context, mode, _) => IconButton(

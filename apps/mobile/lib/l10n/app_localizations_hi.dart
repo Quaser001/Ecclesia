@@ -192,6 +192,25 @@ class AppLocalizationsHi extends AppLocalizations {
       'कोई एलर्जी, बीमारी, आहार या लक्ष्य नहीं चुना गया था।';
 
   @override
+  String get switchProfile => 'प्रोफ़ाइल बदलें';
+
+  @override
+  String get profilesTitle => 'इस फ़ोन पर प्रोफ़ाइल';
+
+  @override
+  String get profileMe => 'मैं';
+
+  @override
+  String get addFamilyMember => 'परिवार का सदस्य जोड़ें';
+
+  @override
+  String get memberNameLabel => 'उनका नाम';
+
+  @override
+  String get familyAdultsNote =>
+      'वयस्कों (18+) के लिए। हर व्यक्ति की बीमारियाँ, एलर्जी, स्कैन और इतिहास अलग रखे जाते हैं।';
+
+  @override
   String allergyChip(String name) {
     return '$name से एलर्जी';
   }

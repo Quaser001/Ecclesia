@@ -4,6 +4,11 @@ Explanation prompt template.
 Kept separate from application logic per CalFit engineering rules.
 The LLM receives ONLY structured, verified facts, never the raw image.
 It explains a verdict that was already decided by deterministic code.
+
+It never receives the user's profile: no name, age or body details, and not
+the list of conditions, allergies, diets or goals either. The findings name
+only the ones this product affects ("declared allergen: peanut"), so a scan
+of a biscuit tells the AI nothing about an unrelated condition.
 """
 
 EXPLANATION_SYSTEM_PROMPT = """You write the short explanation shown under a CalFit scan result. The score and verdict were already decided by fixed rules. Your job is to explain them in plain language, not to reconsider them.
@@ -27,12 +32,6 @@ EXPLANATION_USER_TEMPLATE = """<product>{product_name} by {brand} (category: {ca
 {findings_summary}
 </findings>
 
-<profile>
-Conditions: {conditions}
-Allergies: {allergies}
-Dietary preferences: {preferences}
-Goals: {goals}
-</profile>
 
 <nutrition>
 {nutrition_summary}
@@ -48,10 +47,6 @@ def build_explanation_messages(
     score: int,
     suitability: str,
     findings_summary: str,
-    conditions: str,
-    allergies: str,
-    preferences: str,
-    goals: str,
     nutrition_summary: str,
 ) -> list[dict[str, str]]:
     """Build the chat messages list for the explanation LLM call."""
@@ -62,10 +57,6 @@ def build_explanation_messages(
         score=score,
         suitability=suitability,
         findings_summary=findings_summary or "No specific negative findings.",
-        conditions=conditions or "None specified",
-        allergies=allergies or "None",
-        preferences=preferences or "None",
-        goals=goals or "None",
         nutrition_summary=nutrition_summary or "Nutritional details unavailable.",
     )
     return [

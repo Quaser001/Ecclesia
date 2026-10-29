@@ -3,11 +3,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/app_theme.dart';
 import '../../l10n/l10n.dart';
+import '../../services/profile_registry.dart';
 
 /// One-time, plain-language consent before a prescription photo is sent
 /// anywhere. Declining changes nothing. Agreement is remembered on the device.
 class PrescriptionConsent {
-  static const _key = 'calfit.rx_consent';
+  static const _base = 'calfit.rx_consent';
+
+  // Per profile: one family member agreeing doesn't agree for the others.
+  static String get _key {
+    final id = ProfileRegistry.current?.activeId;
+    return id == null ? _base : '$_base.$id';
+  }
 
   /// After "Delete my data": the next identity asks for consent again.
   static Future<void> forget() async =>

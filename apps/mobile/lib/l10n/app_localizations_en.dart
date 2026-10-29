@@ -193,6 +193,25 @@ class AppLocalizationsEn extends AppLocalizations {
       'No allergies, conditions, diets or goals were set.';
 
   @override
+  String get switchProfile => 'Switch profile';
+
+  @override
+  String get profilesTitle => 'Profiles on this phone';
+
+  @override
+  String get profileMe => 'Me';
+
+  @override
+  String get addFamilyMember => 'Add family member';
+
+  @override
+  String get memberNameLabel => 'Their name';
+
+  @override
+  String get familyAdultsNote =>
+      'For adults (18+). Each person\'s conditions, allergies, scans and history are kept separately.';
+
+  @override
   String allergyChip(String name) {
     return '$name allergy';
   }

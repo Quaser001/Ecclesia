@@ -7,27 +7,48 @@ import 'l10n/l10n.dart';
 import 'navigation/bottom_navigation.dart';
 import 'services/api_service.dart';
 import 'services/device_id_service.dart';
+import 'services/profile_registry.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ThemeController.init();
   final deviceId = await DeviceIdService.load();
   final onboard = await Onboarding.shouldShow();
-  runApp(CalFitApp(deviceId: deviceId, showOnboarding: onboard));
+  final profiles = await ProfileRegistry.load();
+  runApp(CalFitApp(deviceId: deviceId, showOnboarding: onboard, profiles: profiles));
 }
 
 class CalFitApp extends StatefulWidget {
   final DeviceIdService deviceId;
   final bool showOnboarding;
-  const CalFitApp({super.key, required this.deviceId, this.showOnboarding = false});
+
+  /// The people on this phone. Null in tests that don't need family profiles.
+  final ProfileRegistry? profiles;
+
+  const CalFitApp({
+    super.key,
+    required this.deviceId,
+    this.showOnboarding = false,
+    this.profiles,
+  });
 
   @override
   State<CalFitApp> createState() => _CalFitAppState();
 }
 
 class _CalFitAppState extends State<CalFitApp> {
-  final apiService = ApiService();
   late bool _onboarding = widget.showOnboarding;
+
+  // One client per profile, each signed in as that person only.
+  final _apis = <String, ApiService>{};
+  final _single = ApiService();
+
+  ApiService get apiService {
+    final profiles = widget.profiles;
+    if (profiles == null) return _single;
+    return _apis.putIfAbsent(
+        profiles.activeId, () => ApiService(tokenStore: ProfileTokenStore(profiles, profiles.activeId)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +57,7 @@ class _CalFitAppState extends State<CalFitApp> {
         ThemeController.themeMode,
         ThemeController.textScale,
         ThemeController.locale,
+        ?widget.profiles,
       ]),
       builder: (context, _) {
         return MaterialApp(
@@ -63,7 +85,13 @@ class _CalFitAppState extends State<CalFitApp> {
                     apiService: apiService,
                     onDone: () => setState(() => _onboarding = false),
                   )
-                : BottomNavigation(apiService: apiService, userId: widget.deviceId.deviceId),
+                // Keyed by profile: switching rebuilds every tab from scratch,
+                // so no screen keeps the previous person's data.
+                : BottomNavigation(
+                    key: ValueKey(widget.profiles?.activeId),
+                    apiService: apiService,
+                    userId: widget.deviceId.deviceId,
+                  ),
           ),
         );
       },

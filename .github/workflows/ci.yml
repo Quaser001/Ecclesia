@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # the whole history: a key deleted later is still leaked
       - uses: gitleaks/gitleaks-action@v2
@@ -39,7 +39,7 @@ jobs:
       run:
         working-directory: apps/api
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The same uv that wrote uv.lock and that the Dockerfile pins.
       - uses: astral-sh/setup-uv@v5
@@ -70,7 +70,7 @@ jobs:
       run:
         working-directory: apps/mobile
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The Flutter version this app is developed and tested with.
       - uses: subosito/flutter-action@v2

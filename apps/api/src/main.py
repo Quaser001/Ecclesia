@@ -15,6 +15,7 @@ from src.body_limit import BodyLimitMiddleware
 from src.config.settings import settings
 from src.observability import configure_logging, current_request_id, request_context_middleware
 from src.providers.interfaces import ServiceUnavailable
+from src.request_limit import RequestLimitMiddleware
 
 configure_logging(settings.LOG_FORMAT)
 logger = logging.getLogger(__name__)
@@ -76,6 +77,14 @@ app.add_middleware(
 
 # Size and token-presence checks before any route parses a body.
 app.add_middleware(BodyLimitMiddleware, max_upload_bytes=settings.MAX_SCAN_UPLOAD_BYTES)
+
+# Per-caller request cap on every route; before the body is read.
+app.add_middleware(
+    RequestLimitMiddleware,
+    per_token=settings.REQUESTS_PER_HOUR_PER_TOKEN,
+    per_ip=settings.REQUESTS_PER_HOUR_PER_IP,
+    trusted_proxy_hops=settings.TRUSTED_PROXY_HOPS,
+)
 
 # Added last, so it runs first: every request (CORS preflights and 413s too) gets an id.
 app.middleware("http")(request_context_middleware)

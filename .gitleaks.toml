@@ -1,0 +1,10 @@
+# gitleaks (CI "No secrets in the code"): the default rules, plus one
+# exception. Supabase *publishable* keys are meant to be public: with RLS on
+# and no policies they can read nothing (checked live on 2026-10-29). Secret
+# and service-role keys are NOT excepted.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Supabase publishable keys are public by design"
+regexes = ['''sb_publishable_[A-Za-z0-9_-]+''']

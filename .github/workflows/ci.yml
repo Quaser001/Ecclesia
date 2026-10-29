@@ -19,6 +19,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  secrets:
+    name: No secrets in the code
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the whole history: a key deleted later is still leaked
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   backend:
     name: Backend (apps/api)
     runs-on: ubuntu-latest

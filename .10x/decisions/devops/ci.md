@@ -12,6 +12,12 @@
 - **Triggers:** push to `main` and every pull request. Read-only token. A newer push cancels the stale run. Time limits are 15 and 20 minutes.
 - **Deploys:** none from CI. Deploying stays a manual step (`cloud-run-deploy.md`) until Cloud Run exists.
 
+## Added 2026-10-29 (pentester checklist)
+- **Secret scan:** gitleaks over the pushed commits. `.gitleaks.toml` allow-lists only Supabase *publishable* keys, which are public by design.
+- **Dependabot** (`.github/dependabot.yml`): weekly for uv and pub, monthly for actions and Docker. Each update arrives as a PR that CI checks.
+- **Request cap:** every route, per install and per IP (`src/request_limit.py`).
+- **RLS check, attempted live with the public key:** 0 rows from every table, writes refused (401), photo bucket listing empty.
+
 ## Options weighed
 | Option | Why / why not |
 |---|---|

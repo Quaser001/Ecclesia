@@ -19,6 +19,18 @@ from src.domain.models import (
 # ---------------------------------------------------------------------------
 
 
+def _request_limiters():
+    """The live RequestLimitMiddleware instances in the app's built stack."""
+    from src.main import app
+    from src.request_limit import RequestLimitMiddleware
+
+    node = app.middleware_stack
+    while node is not None:
+        if isinstance(node, RequestLimitMiddleware):
+            yield node
+        node = getattr(node, "app", None)
+
+
 @pytest.fixture(autouse=True)
 def _no_live_supabase(monkeypatch):
     """`.env` may hold real Supabase keys; tests must use the local providers.
@@ -37,6 +49,9 @@ def _no_live_supabase(monkeypatch):
     monkeypatch.setattr(settings, "PRESCRIPTION_AI_ENABLED", False)
     monkeypatch.setattr(settings, "GEMINI_PAID_TIER_CONFIRMED", False)
     monkeypatch.setattr(settings, "APP_ENV", "development")
+    # The whole suite comes from one test client: start each test with fresh counts.
+    for mw in _request_limiters():
+        mw.reset()
     # Never call Open Food Facts from tests (flaky, and it spends the shared
     # rate limit). Tests that need a lookup inject a fake via get_food_lookup.
     monkeypatch.setattr(settings, "FOOD_LOOKUP_ENABLED", False)

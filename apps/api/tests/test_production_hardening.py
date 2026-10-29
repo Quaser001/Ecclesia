@@ -553,3 +553,40 @@ async def test_the_explanation_prompt_holds_no_profile_beyond_the_findings():
     assert "peanut" in prompt                      # the finding this product triggers
     for private in ("sharon", "1990", "u-secret-id", "lactose", "anaemia", "70"):
         assert private not in prompt, private      # identity and unrelated conditions never leave
+
+
+# --- general request cap (every route) ---------------------------------------
+
+
+async def test_one_caller_is_capped_per_hour_and_told_when_to_retry():
+    from src.request_limit import RequestLimitMiddleware
+
+    async def ok(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b""})
+
+    mw = RequestLimitMiddleware(ok, per_token=3, per_ip=100, trusted_proxy_hops=0)
+    statuses = []
+
+    async def call(token, ip="1.2.3.4", path="/api/v1/scans/history"):
+        sent = []
+
+        async def send(m):
+            sent.append(m)
+        scope = {"type": "http", "path": path, "client": (ip, 1),
+                 "headers": [(b"authorization", f"Bearer {token}".encode())]}
+        await mw(scope, None, send)
+        return sent[0]
+
+    for _ in range(4):
+        statuses.append((await call("tok-a"))["status"])
+    assert statuses == [200, 200, 200, 429]
+    assert dict((await call("tok-a"))["headers"])[b"retry-after"]
+    assert (await call("tok-b"))["status"] == 200          # another install is unaffected
+    for _ in range(10):
+        assert (await call("tok-a", path="/health"))["status"] == 200  # probes never count
+
+    shared = RequestLimitMiddleware(ok, per_token=1000, per_ip=5, trusted_proxy_hops=0)
+    mw = shared
+    codes = [(await call(f"t{n}", ip="9.9.9.9"))["status"] for n in range(6)]
+    assert codes[-1] == 429                                  # one address hammering is capped too

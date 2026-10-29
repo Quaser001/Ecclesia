@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     # proxies appended (counted from the right) are trusted. services/client_ip.py
     TRUSTED_PROXY_HOPS: int = 0
 
+    # Requests per hour on every route (src/request_limit.py). Per app install
+    # (token), and a much higher cap per IP because carriers share addresses.
+    REQUESTS_PER_HOUR_PER_TOKEN: int = 600
+    REQUESTS_PER_HOUR_PER_IP: int = 3000
+
     # Prescription reading sends a medical document to Gemini. Keep OFF until the
     # key is on the paid, no-training tier (docs/GEMINI_BILLING.md). Even when
     # ON, it only runs on Vertex or when the paid tier is confirmed: see

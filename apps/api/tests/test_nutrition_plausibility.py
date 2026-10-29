@@ -86,3 +86,46 @@ async def test_an_impossible_value_is_dropped_and_the_rest_still_scored(tmp_path
     state = await _run(tmp_path, product, profile)
     assert state.insufficient_data is False
     assert state.product.nutrition.sodium_mg is None  # unknown, not a "low sodium" pass
+
+
+# The distinct real labels among the founder's 31 scans (product data only;
+# the rows whose sodium was stored in grams before the unit fix are left out).
+REAL_LABELS = [
+    dict(serving_size_g=15, calories_kcal=74, total_fat_g=3.3, saturated_fat_g=1.65,
+         total_carbs_g=10.05, sugars_g=3.3, protein_g=1.05, sodium_mg=15.3),
+    dict(serving_size_g=9.6, calories_kcal=43.6, total_fat_g=2.4, saturated_fat_g=2.04,
+         trans_fat_g=0, total_carbs_g=4.8, sugars_g=3.4, added_sugars_g=2.8, protein_g=0.6,
+         dietary_fiber_g=3, sodium_mg=9.7),
+    dict(calories_kcal=558, total_fat_g=34.7, saturated_fat_g=15.6, trans_fat_g=0.1,
+         total_carbs_g=55.2, sugars_g=1, added_sugars_g=0, protein_g=6.4, dietary_fiber_g=0),
+    dict(calories_kcal=88.5, total_fat_g=2.1, saturated_fat_g=1.25, total_carbs_g=14.5,
+         sugars_g=14.5, added_sugars_g=10.71, protein_g=2.1),
+    dict(calories_kcal=493.5, total_fat_g=20.3, saturated_fat_g=10.1, total_carbs_g=72.7,
+         sugars_g=37, added_sugars_g=35.1, protein_g=5),
+    dict(calories_kcal=537, total_fat_g=33.1, saturated_fat_g=14.9, trans_fat_g=0.1,
+         total_carbs_g=53, sugars_g=3.4, protein_g=6.7),
+    dict(calories_kcal=28, total_fat_g=0, saturated_fat_g=0, total_carbs_g=7, sugars_g=6.8,
+         added_sugars_g=3.415, protein_g=0),
+]
+
+
+@pytest.mark.parametrize("label", REAL_LABELS)
+def test_real_labels_from_the_founders_scans_pass(label):
+    r = check_nutrition(NutritionInfo(**label))
+    assert r.reliable, r.contradictions
+    assert r.dropped == []
+
+
+async def test_database_numbers_that_contradict_the_label_are_not_merged(tmp_path):
+    from src.repositories.product_repository import FoodProduct
+
+    # The label gives carbs only; the database row says 60 g sugar per 100 g.
+    # Converted to the 30 g serving that's 18 g sugar against 5 g carbs.
+    product = ProductObservation(product_name="Biscuit", brand="X", extraction_confidence=0.95,
+                                 ingredients=["wheat", "sugar"],
+                                 nutrition=NutritionInfo(serving_size_g=30, total_carbs_g=5.0))
+    match = FoodProduct(code="1", product_name="Biscuit", brand="X",
+                        nutrition=NutritionInfo(sugars_g=60.0, sugar_confidence=True))
+    profile = UserProfile(user_id="u", health_conditions=[HealthCondition.DIABETES_TYPE_1])
+    state = await _run(tmp_path, product, profile, match=match)
+    assert state.product.nutrition.sugars_g is None  # the label alone was scored

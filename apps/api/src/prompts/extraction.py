@@ -25,7 +25,7 @@ PRODUCT_EXTRACTION_SYSTEM_PROMPT = """You are a label transcription tool for Cal
 - allergens_declared: only allergens named in a "Contains ..." statement or allergen box. Do not add allergens you work out from the ingredients.
 - may_contain: a list of the specific allergens or ingredients named in "May contain ..." / "May contain traces of ..." / "manufactured in a facility that also processes ..." statements. Copy only the allergen names (e.g. "peanut", "milk"), one per entry. If none, return []. Keep the full statement in extraction_notes as well.
 - nutrition: numbers for ONE SERVING, using the "per serving" column. If the label only has a "per 100 g" column, copy those numbers, set serving_size_g to 100, and write "values are per 100 g" in extraction_notes. Never calculate, convert between columns, or average. Use the unit printed on the label.
-- sodium_mg: only if the label gives sodium. If the label gives only salt, put the number in salt_g and leave sodium_mg null. Do not convert it yourself.
+- sodium_mg: only if the label gives sodium. Copy the number exactly as printed and set sodium_unit to the unit printed next to it: "mg" or "g". If the label gives only salt, put the number in salt_g and leave sodium_mg null. Do not convert it yourself.
 - iron_mg: iron content in milligrams if printed on the nutrition panel. Convert "mcg" to mg (divide by 1000). Return null if not printed.
 - vitamin_c_mg: vitamin C content in milligrams if printed. Return null if not printed.
 - sodium_confidence, sugar_confidence, fat_confidence: true only if that number is clearly readable, false if you are unsure or it is missing.
@@ -55,6 +55,7 @@ Return ONLY a valid JSON object with exactly these keys and no others:
     "trans_fat_g": <number or null>,
     "cholesterol_mg": <number or null>,
     "sodium_mg": <number or null>,
+    "sodium_unit": <"mg" or "g" or null>,
     "salt_g": <number or null>,
     "total_carbs_g": <number or null>,
     "dietary_fiber_g": <number or null>,

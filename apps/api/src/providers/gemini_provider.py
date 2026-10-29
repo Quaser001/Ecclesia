@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Retired models only add a failing call (and its latency) to every fallback.
 _FALLBACK_MODELS = [
     "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
+    "gemini-3.5-flash-lite",  # correct but slow (19.5 s on a label, 2026-10-29): last resort
 ]
 
 # A bad key (401) or no permission (403) fails the same way on every model:
@@ -262,6 +262,7 @@ _EXTRACTION_SCHEMA: dict[str, Any] = {
                 "trans_fat_g": _NUM,
                 "cholesterol_mg": _NUM,
                 "sodium_mg": _NUM,
+                "sodium_unit": {"type": "STRING", "enum": ["mg", "g"], "nullable": True},
                 "salt_g": _NUM,
                 "total_carbs_g": _NUM,
                 "dietary_fiber_g": _NUM,
@@ -448,6 +449,11 @@ def _dict_to_product_observation(data: dict) -> ProductObservation:
     trans_fat = _get_val(nutrition_raw, ["trans_fat_g", "trans_fat"])
     cholesterol = _get_val(nutrition_raw, ["cholesterol_mg", "cholesterol"])
     sodium = _get_val(nutrition_raw, ["sodium_mg", "sodium"])
+    if sodium is not None and str(nutrition_raw.get("sodium_unit") or "").strip().lower() == "g":
+        # "Sodium 0.4 g" copied as printed: 400 mg. Converted here, in code,
+        # never by the model; left as-is it would be 1000x too low and wave
+        # salty food past the blood-pressure rules.
+        sodium = round(sodium * 1000.0, 1)
     if sodium is None:
         # Labels sometimes print only salt. Sodium is 40% of salt by weight
         # (1 g salt = 400 mg sodium). Convert in code, never trust the model's arithmetic.

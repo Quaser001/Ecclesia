@@ -254,6 +254,14 @@ async def node_match_product(
     logger.info("Matched product in local DB: %s (code=%s)", matched.product_name, matched.code)
     # Database rows are per 100 g/ml; convert onto the label's serving basis.
     merged_nutrition = merge_reference_nutrition(product.nutrition, matched.nutrition)
+    # The database can disagree with the label (or hold its own typos): if
+    # the merged numbers contradict each other, score the label alone.
+    merged_check = check_nutrition(merged_nutrition)
+    if not merged_check.reliable:
+        logger.info("Database nutrition contradicts the label, not merged: %s",
+                    merged_check.contradictions)
+        return {}
+    merged_nutrition = merged_check.nutrition
 
     enriched_product = product.model_copy(
         update={

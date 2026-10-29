@@ -34,3 +34,15 @@ def test_model_reported_uncertain_sodium_is_respected():
 def test_missing_value_has_no_confidence():
     obs = _dict_to_product_observation({"nutrition": {}})
     assert obs.nutrition.sodium_confidence is False
+
+
+def test_sodium_printed_in_grams_is_converted_to_mg():
+    # "Sodium 0.4 g": copied as printed; 1000x too low if taken as mg.
+    obs = _dict_to_product_observation({"nutrition": {"sodium_mg": 0.4, "sodium_unit": "g"}})
+    assert obs.nutrition.sodium_mg == 400.0
+
+
+def test_sodium_in_mg_is_kept_and_a_missing_unit_assumes_mg():
+    assert _dict_to_product_observation(
+        {"nutrition": {"sodium_mg": 520, "sodium_unit": "mg"}}).nutrition.sodium_mg == 520
+    assert _dict_to_product_observation({"nutrition": {"sodium_mg": 520}}).nutrition.sodium_mg == 520

@@ -10,10 +10,13 @@
 - **A failed scan gives its count back.** **Migration 012 (`refund_scan_usage`) is NOT applied yet**; until then refunds are logged and skipped.
 - **`Idempotency-Key` per photo** (app and server): a retry returns the saved scan. The local DB no longer overwrites on a duplicate id (it was `INSERT OR REPLACE`).
 - **Security headers on every response** (`src/security_headers.py`).
-- **New Gemini key in `.env`** (from the founder). `check_config` passes.
-  - A trivial call took 11.5 s on `gemini-3.5-flash-lite`; measure a real scan against the 35 s deadline.
+- **New Gemini key in `.env`** (from the founder). Real scan of a synthetic label: 22 s end to end.
+  - "Sodium 0.9 g" became 900 mg; peanut allergy scored 0; AI explanation used; a retry with the same key returned the same scan.
+  - **Model:** `GEMINI_MODEL=gemini-2.5-flash` (4.7 s per label). `gemini-3.5-flash-lite` took 19.5 s (and once hung past 25 s), so it's last in the fallback list now. `gemini-2.5-flash-lite` returns 404 on this key and was removed.
+- **Sodium unit:** the AI now reports the printed unit (`sodium_unit`), and grams are converted in code.
+- **Database nutrition** is re-checked after merging; if it contradicts the label it isn't merged.
 - **Note:** some old scans (8 Oct) hold sodium in grams labelled as mg, from before the unit fix. Old scans are never rescored (ADR-007).
-- **Tests:** backend 553, app 94.
+- **Tests:** backend 563, app 94. **Rotate the Gemini key pasted in chat** with the other exposed keys.
 
 ## Done on 2026-10-29: consent notice (DPDP item A)
 - **What:** a privacy notice with "I am 18 or older" and "I agree", per family profile, recorded on the server. Profile saves, scans and prescription reads answer 428 until there's a consent record.
@@ -96,7 +99,9 @@
 - **History scrubbed** of the phone serial before pushing. A local branch `backup/pre-scrub-2026-10-29` still has the old history: never push it, delete when happy.
 
 ## Blocking
-- [ ] **The Gemini key in `apps/api/.env` is invalid** (401). Every photo scan returns 503 until the founder replaces it. Check: `cd apps/api && .venv/Scripts/python.exe -m src.check_config`.
+- [x] **New Gemini key in `apps/api/.env`** (2026-10-29). A real scan of a synthetic label passed end to end in 22 s.
+  - `GEMINI_MODEL` is now `gemini-2.5-flash` (4.7 s on a label); `gemini-3.5-flash-lite` took 19.5 s and hung once.
+  - The key was pasted into chat, so it's on the rotate list.
 
 ## Waiting on the founder
 - [ ] **GitHub settings:**

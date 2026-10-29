@@ -65,7 +65,7 @@ Each `[x]` names the test that proves it. `[~]` means built but not tested.
 
 | Scenario | What happens today | Status |
 |---|---|---|
-| **Gemini misreads a number**: negative sugar, more fat than the serving weighs, kcal far from 4×protein + 4×carbs + 9×fat | an impossible value becomes unknown; numbers that contradict each other make the scan "insufficient data". It passes all the real labels in the founder's 31 scans | [x] `test_nutrition_plausibility.py` (`src/domain/nutrition_plausibility.py`) |
+| **Gemini misreads a number**: negative sugar, more fat than the serving weighs, kcal far from 4×protein + 4×carbs + 9×fat | an impossible value becomes unknown; numbers that contradict each other make the scan "insufficient data". It passes the 7 distinct real labels among the founder's 31 scans (run as a test). Sodium printed in grams is converted in code; database nutrition is re-checked after merging | [x] `test_nutrition_plausibility.py` (`src/domain/nutrition_plausibility.py`) |
 | Gemini down, rate-limited (429), or slow | tries the next model, then a 503 "AI unavailable", never "take a clearer photo" | [x] `test_production_hardening.py` |
 | Bad or revoked Gemini key | stops after the first model (401/403 fail the same everywhere) and returns 503 | [x] `test_production_hardening.py`, `test_gemini_backend.py` |
 | Gemini returns malformed JSON or the wrong shape | schema-constrained output, then Pydantic validation; unusable output moves to the next model | [x] `test_production_hardening.py` |
@@ -88,6 +88,8 @@ Each `[x]` names the test that proves it. `[~]` means built but not tested.
 | The app crashes in the field | **nobody finds out** | [ ] add crash reporting (D) |
 | The same AI result for different photos (caching) | not cached, so every scan costs a Gemini call | [ ] later: cache by barcode or image hash |
 | Spend runs away (a bug loop, or abuse) | daily cap per person; no project-wide limit | [ ] Gemini quota cap plus a Cloud budget alert (`GEMINI_BILLING.md`) |
+
+**Refund abuse (note):** a scan crafted to be slow gets its count back on timeout. Only the per-route request cap limits it; consider a daily cap on refunds.
 
 **Fallback not built:** a second AI provider. The code has Groq and Cerebras settings but no wiring. Leave it out. A second provider doubles the privacy review (DPDP, and where the data goes); the 503 path is honest; and two Gemini models already back each other up.
 

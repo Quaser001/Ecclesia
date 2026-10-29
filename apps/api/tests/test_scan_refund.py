@@ -13,7 +13,27 @@ from src.domain.models import ProductObservation, UserProfile
 from src.main import app
 from src.providers.interfaces import ServiceUnavailable
 from src.services.rate_limit import ScanLimiter, SupabaseCounterStore
-from tests.test_production_hardening import JPEG, SCANS, LabelGemini, wired  # noqa: F401
+from types import SimpleNamespace
+
+import pytest
+
+from src.config.dependencies import get_gemini_provider, get_storage_provider, get_supabase_provider
+from src.providers.local_db_provider import LocalDBProvider, LocalStorageProvider
+from tests.test_production_hardening import JPEG, SCANS, LabelGemini
+
+
+@pytest.fixture
+def wired(tmp_path):
+    """The app on a fresh local DB and storage, with a chosen Gemini fake."""
+    db = LocalDBProvider(db_path=str(tmp_path / "t.db"))
+    storage = LocalStorageProvider(base_dir=str(tmp_path / "uploads"))
+    state = SimpleNamespace(db=db, storage=storage, gemini=LabelGemini())
+    app.dependency_overrides[get_supabase_provider] = lambda: state.db
+    app.dependency_overrides[get_storage_provider] = lambda: state.storage
+    app.dependency_overrides[get_gemini_provider] = lambda: state.gemini
+    yield state
+    for dep in (get_supabase_provider, get_storage_provider, get_gemini_provider, get_scan_limiter):
+        app.dependency_overrides.pop(dep, None)
 
 
 def _today_count(db, user_id):

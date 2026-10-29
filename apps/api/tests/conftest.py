@@ -30,6 +30,13 @@ def _no_live_supabase(monkeypatch):
 
     monkeypatch.setattr(settings, "SUPABASE_URL", "")
     monkeypatch.setattr(settings, "SUPABASE_SERVICE_ROLE_KEY", "")
+    # Same for the AI settings: tests must pass identically with no .env (CI).
+    # A test that needs Gemini injects a fake via get_gemini_provider.
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "")
+    monkeypatch.setattr(settings, "GEMINI_BACKEND", "developer_api")
+    monkeypatch.setattr(settings, "PRESCRIPTION_AI_ENABLED", False)
+    monkeypatch.setattr(settings, "GEMINI_PAID_TIER_CONFIRMED", False)
+    monkeypatch.setattr(settings, "APP_ENV", "development")
     # Never call Open Food Facts from tests (flaky, and it spends the shared
     # rate limit). Tests that need a lookup inject a fake via get_food_lookup.
     monkeypatch.setattr(settings, "FOOD_LOOKUP_ENABLED", False)

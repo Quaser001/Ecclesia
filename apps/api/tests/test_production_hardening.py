@@ -230,7 +230,7 @@ def test_prescriptions_need_vertex_or_a_confirmed_paid_tier(backend, confirmed, 
     assert s.prescription_ai_allowed is allowed
 
 
-async def test_prescription_endpoint_is_off_on_an_unconfirmed_tier(monkeypatch, make_device):
+async def test_prescription_endpoint_is_off_on_an_unconfirmed_tier(wired, monkeypatch, make_device):
     monkeypatch.setattr(settings, "PRESCRIPTION_AI_ENABLED", True)
     monkeypatch.setattr(settings, "GEMINI_BACKEND", "developer_api")
     monkeypatch.setattr(settings, "GEMINI_PAID_TIER_CONFIRMED", False)

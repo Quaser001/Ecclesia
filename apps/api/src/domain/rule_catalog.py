@@ -31,7 +31,7 @@ Sensitivity (non-medical, user-toggled):
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 from src.domain.models import EvidenceTier, FindingSeverity

@@ -3,22 +3,16 @@
 import io
 import pytest
 from httpx import ASGITransport, AsyncClient
-from unittest.mock import AsyncMock
 
 from src.main import app
 from src.domain.models import (
-    DietaryPreference,
     HealthCondition,
     NutritionInfo,
     ProductObservation,
-    RiskLevel,
-    ScoreResult,
-    SuitabilityStatus,
     UserProfile,
 )
-from src.providers.interfaces import GeminiProvider, StorageProvider, SupabaseProvider
-from src.config.dependencies import get_gemini_provider, get_supabase_provider, get_storage_provider
-from src.providers.local_db_provider import LocalDBProvider, LocalStorageProvider
+from src.providers.interfaces import GeminiProvider
+from src.config.dependencies import get_gemini_provider
 from src.repositories.product_repository import ProductRepository, FoodProduct
 from src.services.scoring_service import ScoringService
 from src.services.alternative_service import AlternativeService

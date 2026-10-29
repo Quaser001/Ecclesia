@@ -105,7 +105,6 @@ def test_high_sugar_no_penalty_for_healthy_user(sugary_drink_product, healthy_pr
     """A high-sugar product should not trigger diabetes rules for a healthy user."""
     result = calculate_score(sugary_drink_product, healthy_profile)
 
-    diabetes_rules = [r for r in result.rules_applied if "sugar_diabetes" in r or "SUGAR" in r]
     # The general sodium rule might fire, but not the diabetes-specific one
     assert "_rule_high_sugar_diabetes" not in result.rules_applied, (
         "Diabetes sugar rule should NOT apply to healthy users"

@@ -1,0 +1,72 @@
+# CalFit CI: every push to main and every pull request runs the backend and
+# app checks on a clean machine, with no .env, so "works on my machine" can't
+# hide. Nothing is deployed from here. Decisions: .10x/decisions/devops/ci.md
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Read-only token: CI only needs to check out the code.
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the run it makes stale.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (apps/api)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+
+      # The same uv that wrote uv.lock and that the Dockerfile pins.
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.18"
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+
+      - name: Install exactly what uv.lock pins (Python from .python-version)
+        run: uv sync --frozen
+
+      - name: Lint for real bugs (undefined names, unused imports, syntax)
+        run: uv run ruff check src tests --select F,E9
+
+      - name: Tests
+        run: uv run pytest -q
+
+      - name: Known vulnerabilities in what ships (the lock, not a dev venv)
+        run: |
+          uv export --frozen --no-dev --no-emit-project --format requirements-txt -o "$RUNNER_TEMP/requirements.txt"
+          uvx pip-audit -r "$RUNNER_TEMP/requirements.txt" --disable-pip --no-deps
+
+  app:
+    name: App (apps/mobile)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Flutter version this app is developed and tested with.
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test

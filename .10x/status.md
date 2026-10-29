@@ -30,4 +30,4 @@ The spec is `specs/2026-10-29-production-hardening.md`, the review is `reviews/2
 - [ ] The photos already stored for your 31 scans may still hold GPS. New uploads are stripped. Re-processing old photos touches your account, so it needs your approval.
 
 ## Next engineering candidates
-Deploy to Cloud Run (`APP_ENV=production`, `TRUSTED_PROXY_HOPS=1`), CI, Google sign-in, Play Store release. The order is in `decisions/engineering-manager/_index.md`.
+CI is written (`decisions/devops/ci.md`). It runs on GitHub after the next push. Next: deploy to Cloud Run (`APP_ENV=production`, `TRUSTED_PROXY_HOPS=1`), Google sign-in, Play Store release. The order is in `decisions/engineering-manager/_index.md`.

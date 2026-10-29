@@ -8,7 +8,6 @@ import json
 import logging
 from types import SimpleNamespace
 
-import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.config.dependencies import get_gemini_provider, get_supabase_provider

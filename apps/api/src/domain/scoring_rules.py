@@ -15,11 +15,9 @@ from typing import Callable
 
 from src.domain.models import (
     DietaryPreference,
-    EvidenceTier,
     FindingSeverity,
     HealthCondition,
     HealthGoal,
-    NutritionInfo,
     ProductObservation,
     RiskLevel,
     ScoreResult,

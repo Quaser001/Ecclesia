@@ -7,15 +7,19 @@ import io
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from src.config.dependencies import get_token_issue_limiter
+from src.config.dependencies import get_gemini_provider, get_token_issue_limiter
 from src.main import app
 from src.services.rate_limit import InMemoryStore, ScanLimiter
 
 
 @pytest.fixture
 async def client():
+    # A stand-in AI: routes that take a photo resolve the Gemini provider
+    # before their own checks run, and tests have no real key (CI has no .env).
+    app.dependency_overrides[get_gemini_provider] = lambda: object()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
+    app.dependency_overrides.pop(get_gemini_provider, None)
 
 
 @pytest.fixture(autouse=True)

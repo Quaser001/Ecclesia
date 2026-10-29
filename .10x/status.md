@@ -7,6 +7,15 @@
 **Live Cloud Run (Mumbai `asia-south1`):** `https://calfit-api-661871935612.asia-south1.run.app` — GCP project `gen-lang-client-0252924706` ("aaa1"), service account `calfit-api@gen-lang-client-0252924706.iam.gserviceaccount.com`, image tag `e569254`, revision `calfit-api-00001-9rs`. Health, 401 and device-token smoke tests passed. Secrets in Secret Manager: GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, AUTH_SECRET_KEY (pinned to version 1).
 **Founder's phone:** runs the consent-notice build (not the latest, which adds `Idempotency-Key`). Install the latest with `adb install -r` next time it's plugged in.
 
+## Done on 2026-10-30: Release keystore and signed app bundle (production-readiness item 6)
+- **Upload keystore generated:** `apps/mobile/android/calfit-upload.jks` (RSA 2048, valid until 2054, alias `calfit-upload`).
+- **SHA-256 fingerprint:** `7C:A7:0C:2C:CA:B7:E3:B6:98:0E:52:37:8D:61:90:0C:C4:49:AD:1A:23:F5:06:4E:97:C3:4E:15:4E:A0:0C:52`.
+- **`key.properties` created** (gitignored). Gradle picks it up automatically for release builds.
+- **App bundle built:** `build/app/outputs/bundle/release/app-release.aab` (47 MB), signed with the upload key, pointed at the live Cloud Run URL.
+- **Not installed on the founder's phone** — a release-signed build can't install over the debug one without uninstalling first, which wipes the Keystore token and loses the 31 scans. Keep the phone on debug builds until accounts (item 8) can re-link identity.
+- **Back up now:** copy `calfit-upload.jks` and `key.properties` to two safe places (password manager, USB drive, cloud vault). Losing the keystore means you can never update the app on Play. If it's lost after enrolling in Play App Signing, you can request an upload key reset in Play Console.
+- **`isMinifyEnabled` is still `false`:** R8 code shrinking is off. Turn it on and test before launch (it can break plugins).
+
 ## Done on 2026-10-30: Crash reporting (production-readiness item 5)
 - **Backend**: unhandled exceptions now log full stack frames (file, line, function) — never the exception message (can contain health data). `observability.py` `_frames()`.
 - **Backend**: new `POST /api/v1/client-errors` endpoint. Accepts error type and frames from the app. No auth required (crashes during sign-in must be reportable). Pydantic-validated, bounded fields. Returns 204 always.

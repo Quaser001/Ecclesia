@@ -81,6 +81,22 @@ def _where(exc: BaseException) -> str:
     return f"{tb.tb_frame.f_code.co_filename.replace(chr(92), '/').rsplit('/', 1)[-1]}:{tb.tb_lineno}"
 
 
+def _frames(exc: BaseException, limit: int = 10) -> list[dict[str, Any]]:
+    """Stack frames for structured logging: file, line, function. Never the
+    exception message — it can contain health data echoed by an upstream."""
+    result: list[dict[str, Any]] = []
+    tb = exc.__traceback__
+    while tb is not None:
+        co = tb.tb_frame.f_code
+        result.append({
+            "file": co.co_filename.replace(chr(92), "/").rsplit("/", 1)[-1],
+            "line": tb.tb_lineno,
+            "fn": co.co_name,
+        })
+        tb = tb.tb_next
+    return result[-limit:]
+
+
 def configure_logging(fmt: str = "text") -> None:
     handler = logging.StreamHandler()
     handler.addFilter(_RequestIdFilter())
@@ -116,8 +132,15 @@ async def request_context_middleware(request: Any, call_next: Callable[..., Any]
         except Exception as exc:
             # A bug, not a handled error: answer in JSON with the request id
             # so a user's report can be matched to this log line. The type and
-            # place only: exception text can carry a user's health data.
-            access_logger.error("Unhandled %s at %s", type(exc).__name__, _where(exc))
+            # frames only: exception text can carry a user's health data.
+            access_logger.error(
+                "Unhandled %s at %s", type(exc).__name__, _where(exc),
+                extra={"fields": {
+                    "event": "unhandled_error",
+                    "exc_type": type(exc).__name__,
+                    "frames": _frames(exc),
+                }},
+            )
             from starlette.responses import JSONResponse
             response = JSONResponse(
                 status_code=500,

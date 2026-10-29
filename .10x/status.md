@@ -1,11 +1,20 @@
 # Status
 
-**Updated:** 2026-10-29
-**Snapshot:** `main` = `origin/main` at `dfbff35` (plus this handoff commit). CI not checked since the push.
-**Tests:** backend 563 (pytest), app 94 (`flutter test`), `flutter analyze` clean.
+**Updated:** 2026-10-30
+**Snapshot:** `main` = `origin/main` at `c3cde3a`. CI not checked since the push.
+**Tests:** backend 571 (pytest), app 99 (`flutter test`), `flutter analyze` clean.
 **Live Supabase (Singapore `rxqsyksydnmwtslfvwll`):** migrations 001–012 applied (010 consents, 011 rls_auto_enable lockdown, 012 refund_scan_usage). There's no tracking table, so record each migration here.
 **Live Cloud Run (Mumbai `asia-south1`):** `https://calfit-api-661871935612.asia-south1.run.app` — GCP project `gen-lang-client-0252924706` ("aaa1"), service account `calfit-api@gen-lang-client-0252924706.iam.gserviceaccount.com`, image tag `e569254`, revision `calfit-api-00001-9rs`. Health, 401 and device-token smoke tests passed. Secrets in Secret Manager: GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, AUTH_SECRET_KEY (pinned to version 1).
 **Founder's phone:** runs the consent-notice build (not the latest, which adds `Idempotency-Key`). Install the latest with `adb install -r` next time it's plugged in.
+
+## Done on 2026-10-30: Crash reporting (production-readiness item 5)
+- **Backend**: unhandled exceptions now log full stack frames (file, line, function) — never the exception message (can contain health data). `observability.py` `_frames()`.
+- **Backend**: new `POST /api/v1/client-errors` endpoint. Accepts error type and frames from the app. No auth required (crashes during sign-in must be reportable). Pydantic-validated, bounded fields. Returns 204 always.
+- **Mobile**: `ErrorReporter` in `lib/services/error_reporter.dart`. Hooks `FlutterError.onError` and `PlatformDispatcher.instance.onError` in release builds. Sends `error.runtimeType` and stack frames, never `error.toString()`. Capped at 5 reports per app run (a crash loop mustn't exhaust the 600 req/hr rate limit). Fire-and-forget with 5 s timeout.
+- **No new dependency** — crashes go to Cloud Logging (already set up with 365-day retention). No Sentry, no Crashlytics, no consent bump needed.
+- **Privacy policy already covers this** (sections 3, 4, 5): "status codes, timings and error types" on Google Cloud, 1-year retention.
+- **Not covered**: native Android crashes (OOM, ANR) — Play's Android Vitals is the signal for those. Sentry or Crashlytics would need an exception to agents.md §5 plus a consent-notice bump; that's a separate decision.
+- **Tests**: backend 8 new (`test_client_errors.py`), including a test that health data never appears in log output. App 5 new (`error_reporter_test.dart`).
 
 ## Done on 2026-10-29: Cloud Run deployment (production-readiness item 3)
 - **API deployed** to Cloud Run at `https://calfit-api-661871935612.asia-south1.run.app` (Mumbai, `asia-south1`).

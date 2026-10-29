@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from src.api.v1.auth import router as auth_router
+from src.api.v1.client_errors import router as client_errors_router
 from src.api.v1.consent import router as consent_router
 from src.api.v1.insights import router as insights_router
 from src.api.v1.prescriptions import router as prescriptions_router
@@ -20,6 +21,7 @@ async def health_check():
 
 # Feature routers
 router.include_router(auth_router)
+router.include_router(client_errors_router)
 router.include_router(consent_router)
 router.include_router(profiles_router)
 router.include_router(prescriptions_router)

@@ -10,7 +10,7 @@
 **To:** the next chat. Start by reading `status.md`, then this file.
 
 ## Start here
-1. **What's next:** `.10x/reviews/2026-10-29-production-readiness.md`, the ticked checklist. Its "Order of work" is the plan. Items 1–3 are done (Cloud Run deployed 2026-10-29, URL in `status.md`). Next is: Supabase Pro, crash reporting, a release keystore with an app bundle, Play Console, then Google sign-in, then payments. Still pending from item 3: Gemini quota cap (GCP Console), and optional `--min-instances 1`.
+1. **What's next:** `.10x/reviews/2026-10-29-production-readiness.md`, the ticked checklist. Its "Order of work" is the plan. Items 1–3 and 5 are done (Cloud Run deployed 2026-10-29, crash reporting added 2026-10-30; URLs in `status.md`). Next is: Supabase Pro (item 4), a release keystore with an app bundle (item 6), Play Console (item 7), then Google sign-in (item 8), then payments (item 9). Still pending from item 3: Gemini quota cap (GCP Console), and optional `--min-instances 1`.
 2. **DPDP:** `.10x/reviews/2026-10-29-dpdp-rules.md`. The duties apply from 13 May 2027. Open items: the breach notice, seeing whose data was accessed, and the Rule 8(3) question for a lawyer.
 3. **Rules for every edit:** `agents.md` sections 5–6 (loaded through `CLAUDE.md`).
 

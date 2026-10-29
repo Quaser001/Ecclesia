@@ -498,7 +498,7 @@ async def test_explanation_fallback_says_out_of_10(monkeypatch):
 
 # --- [AY] every API route needs a token, except the few that must not ---------
 
-PUBLIC = {"/api/v1/health", "/api/v1/auth/device", "/api/v1/openapi.json"}
+PUBLIC = {"/api/v1/health", "/api/v1/auth/device", "/api/v1/openapi.json", "/api/v1/client-errors"}
 
 
 async def test_every_api_route_requires_a_token(caplog):

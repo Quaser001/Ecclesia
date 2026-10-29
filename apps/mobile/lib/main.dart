@@ -8,11 +8,13 @@ import 'l10n/l10n.dart';
 import 'navigation/bottom_navigation.dart';
 import 'services/api_service.dart';
 import 'services/auth_token_store.dart';
+import 'services/error_reporter.dart';
 import 'services/profile_registry.dart';
 import 'services/secret_store.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  ErrorReporter().install();
   await ThemeController.init();
   final onboard = await Onboarding.shouldShow();
   final profiles = await ProfileRegistry.load(KeystoreSecretStore());

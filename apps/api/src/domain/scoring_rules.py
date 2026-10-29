@@ -26,6 +26,7 @@ from src.domain.models import (
     ScanFinding,
     SuitabilityStatus,
     UserProfile,
+    ScoredFor,
 )
 from src.domain.rule_catalog import (
     KETO_CARBS_G,
@@ -270,16 +271,18 @@ def _rule_allergy_conflict(
 def _rule_high_sodium_hypertension(
     product: ProductObservation, profile: UserProfile
 ) -> list[ScanFinding]:
-    """RULE-002: High sodium for users with hypertension or heart disease.
+    """RULE-002: High sodium for hypertension, heart disease or a heart-health goal.
 
     Thresholds and sources: rule_catalog.py (SODIUM_CRITICAL / HIGH / MODERATE /
-    COMPOUNDS). WHO sodium guideline: < 2 g sodium per day.
+    COMPOUNDS). WHO sodium guideline: < 2 g sodium per day. Salt is the main
+    heart risk on a label, so the heart-health goal checks it too (it used to
+    check only fats and cholesterol).
     """
     findings: list[ScanFinding] = []
     has_bp_condition = bool(
         {HealthCondition.HYPERTENSION, HealthCondition.HEART_DISEASE}
         & set(profile.health_conditions)
-    )
+    ) or (HealthGoal.HEART_HEALTH in profile.health_goals)
     if not has_bp_condition:
         return findings
 
@@ -935,4 +938,5 @@ def calculate_score(
         risk_level=risk_level,
         findings=all_findings,
         rules_applied=rules_applied,
+        scored_for=ScoredFor.of(profile),
     )

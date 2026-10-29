@@ -232,7 +232,7 @@ SUGAR_HIGH_GI = RuleSpec(
 
 SODIUM_CRITICAL = RuleSpec(
     rule_id="RULE-002A-SODIUM-CRITICAL",
-    condition="Hypertension or heart disease",
+    condition="Hypertension, heart disease or 'heart health' goal",
     nutrient_or_ingredient="sodium",
     threshold=800, unit="mg", direction=">",
     severity=FindingSeverity.CRITICAL, score_impact=40,
@@ -244,7 +244,7 @@ SODIUM_CRITICAL = RuleSpec(
 
 SODIUM_HIGH = RuleSpec(
     rule_id="RULE-002B-SODIUM-HIGH",
-    condition="Hypertension or heart disease",
+    condition="Hypertension, heart disease or 'heart health' goal",
     nutrient_or_ingredient="sodium",
     threshold=400, unit="mg", direction=">",
     severity=FindingSeverity.ALERT, score_impact=25,
@@ -256,7 +256,7 @@ SODIUM_HIGH = RuleSpec(
 
 SODIUM_MODERATE = RuleSpec(
     rule_id="RULE-002C-SODIUM-MODERATE",
-    condition="Hypertension or heart disease",
+    condition="Hypertension, heart disease or 'heart health' goal",
     nutrient_or_ingredient="sodium",
     threshold=200, unit="mg", direction=">",
     severity=FindingSeverity.WARNING, score_impact=15,
@@ -268,7 +268,7 @@ SODIUM_MODERATE = RuleSpec(
 
 SODIUM_COMPOUNDS = RuleSpec(
     rule_id="RULE-002D-SODIUM-COMPOUNDS",
-    condition="Hypertension or heart disease, when sodium value cannot be read",
+    condition="Hypertension, heart disease or 'heart health' goal, when sodium value cannot be read",
     nutrient_or_ingredient="salt / sodium additives (ingredients)",
     threshold=None, unit="", direction="presence",
     severity=FindingSeverity.ALERT, score_impact=25,

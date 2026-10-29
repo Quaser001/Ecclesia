@@ -1,7 +1,7 @@
 # Status
 
 **Phase:** Production hardening implemented and verified (2026-10-29). It is **not committed**.
-**Updated:** 2026-10-29
+**Updated:** 2026-10-29 (ADR-007 ratings are history; heart-health goal now checks sodium; CI in progress)
 **Snapshot:** working tree on `main`, from commit cf18218, which is local and not pushed.
 
 **Verified on the final code:**
@@ -23,8 +23,10 @@ The spec is `specs/2026-10-29-production-hardening.md`, the review is `reviews/2
 - [ ] Buy the AI plan: Vertex AI, asia-south1.
 - [ ] Label 50–100 pack photos for the label-reading accuracy test.
 - [ ] Get a Khasi review of the translations. Two new error strings were added.
-- [ ] Decide: Nutri-Score general layer; profile snapshot per scan; delete the 7 stub scans; vegetarian, vegan and halal as hard stops (built; confirm).
-- [ ] Weight-loss sugar rule (new, RULE-010C): the 31 stored scans were not rescored. Decide whether to rescore them.
+- [x] Profile snapshot per scan: **decided 2026-10-29.** A rating is history; it keeps the profile it was scored for (ADR-007, built).
+- [ ] Decide: Nutri-Score general layer; delete the 7 stub scans; vegetarian, vegan and halal as hard stops (built; confirm).
+- [x] Rescoring old scans: **no** (ADR-007). New rules, like RULE-010C sugar and the heart-health sodium check, apply to new scans only.
+- [ ] Optional: fill in `scored_for` on your 31 old scans. They were rescored on 2026-10-28 against "high cholesterol only". This touches your account, so it needs your approval.
 - [ ] The photos already stored for your 31 scans may still hold GPS. New uploads are stripped. Re-processing old photos touches your account, so it needs your approval.
 
 ## Next engineering candidates

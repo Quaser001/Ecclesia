@@ -5,11 +5,13 @@ import '../../app/app_theme.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/health_score_ring.dart';
 import '../../core/widgets/medical_disclaimer.dart';
+import '../../core/widgets/profile_chips.dart';
 import '../../core/widgets/scan_photo.dart';
 import '../../core/widgets/status_view.dart';
 import '../../core/widgets/surface_card.dart';
 import '../../l10n/l10n.dart';
 import '../../models/scan_result.dart';
+import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
 import '../../core/utils/score_format.dart';
 
@@ -62,6 +64,7 @@ class ScanResultScreen extends StatelessWidget {
               children: [
                 _Hero(scanResult: scanResult, isPastScan: isPastScan),
                 const SizedBox(height: 28),
+                _ScoredFor(profile: scanResult.scoreResult.scoredFor, isPastScan: isPastScan),
                 if (scanResult.identification?.chosen != null) ...[
                   _IdentifiedAs(
                     chosen: scanResult.identification!.chosen!,
@@ -90,6 +93,40 @@ class ScanResultScreen extends StatelessWidget {
                 const MedicalDisclaimerFooter(),
               ],
             ),
+    );
+  }
+}
+
+/// What this rating was for. Past ratings are history: they keep the profile
+/// they were scored for, and editing the profile doesn't change them.
+class _ScoredFor extends StatelessWidget {
+  final UserProfile? profile;
+  final bool isPastScan;
+  const _ScoredFor({required this.profile, required this.isPastScan});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = profile;
+    if (p == null && !isPastScan) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final l = context.l10n;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l.scoredForTitle, style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          if (p != null && !ProfileChips.isEmpty(p)) ...[
+            ProfileChips(profile: p),
+            const SizedBox(height: 8),
+          ] else if (p != null) ...[
+            Text(l.scoredForNone, style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 4),
+          ],
+          if (isPastScan) Text(l.scoredForNote, style: theme.textTheme.bodySmall),
+        ],
+      ),
     );
   }
 }

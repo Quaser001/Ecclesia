@@ -1,3 +1,5 @@
+import 'user_profile.dart';
+
 enum SuitabilityStatus {
   excellent,
   good,
@@ -202,12 +204,18 @@ class ScoreResult {
   final List<ScanFinding> findings;
   final List<String> rulesApplied;
 
+  /// The profile this was scored for, as it was at scan time. A past rating
+  /// never changes when the profile is edited (ADR-007). Null for scans saved
+  /// before this was recorded.
+  final UserProfile? scoredFor;
+
   ScoreResult({
     required this.score,
     required this.suitability,
     required this.riskLevel,
     required this.findings,
     required this.rulesApplied,
+    this.scoredFor,
   });
 
   factory ScoreResult.fromJson(Map<String, dynamic>? json) {
@@ -226,6 +234,9 @@ class ScoreResult {
       riskLevel: json['risk_level'] ?? 'unknown',
       findings: (json['findings'] as List<dynamic>?)?.map((e) => ScanFinding.fromJson(e)).toList() ?? [],
       rulesApplied: (json['rules_applied'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      scoredFor: json['scored_for'] is Map<String, dynamic>
+          ? UserProfile.fromJson(json['scored_for'] as Map<String, dynamic>)
+          : null,
     );
   }
 }

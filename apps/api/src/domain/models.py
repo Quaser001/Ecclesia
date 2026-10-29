@@ -297,6 +297,30 @@ class ScanFinding(BaseModel):
     evidence_tier: EvidenceTier = EvidenceTier.STRONG
 
 
+class ScoredFor(BaseModel):
+    """The parts of the profile a score was computed against, kept with the scan.
+
+    A rating is history: editing the profile later never changes it, and this
+    says what it was for (ADR-007). Only what scoring reads; no name or body.
+    """
+
+    health_conditions: list[HealthCondition] = Field(default_factory=list)
+    allergies: list[str] = Field(default_factory=list)
+    dietary_preferences: list[DietaryPreference] = Field(default_factory=list)
+    health_goals: list[HealthGoal] = Field(default_factory=list)
+    avoid_caffeine: bool = False
+
+    @classmethod
+    def of(cls, profile: "UserProfile") -> "ScoredFor":
+        return cls(
+            health_conditions=profile.health_conditions,
+            allergies=profile.allergies,
+            dietary_preferences=profile.dietary_preferences,
+            health_goals=profile.health_goals,
+            avoid_caffeine=profile.avoid_caffeine,
+        )
+
+
 class ScoreResult(BaseModel):
     """Deterministic scoring output — computed entirely in code, not by LLM."""
 
@@ -305,6 +329,8 @@ class ScoreResult(BaseModel):
     risk_level: RiskLevel
     findings: list[ScanFinding] = Field(default_factory=list)
     rules_applied: list[str] = Field(default_factory=list)
+    # None for scans saved before 2026-10-29 and for unscored results.
+    scored_for: Optional[ScoredFor] = None
 
 
 # ---------------------------------------------------------------------------

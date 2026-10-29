@@ -181,6 +181,17 @@ class AppLocalizationsBn extends AppLocalizations {
       'এখনও কিছু যোগ করা হয়নি, তাই স্কোর সাধারণ নির্দেশিকা অনুযায়ী।';
 
   @override
+  String get scoredForTitle => 'যার জন্য স্কোর করা হয়েছে';
+
+  @override
+  String get scoredForNote =>
+      'স্ক্যান করার সময় আপনার প্রোফাইল। পরে প্রোফাইল বদলালে এই রেটিং বদলায় না।';
+
+  @override
+  String get scoredForNone =>
+      'কোনো অ্যালার্জি, রোগ, খাদ্যাভ্যাস বা লক্ষ্য দেওয়া ছিল না।';
+
+  @override
   String allergyChip(String name) {
     return '$name-এ অ্যালার্জি';
   }

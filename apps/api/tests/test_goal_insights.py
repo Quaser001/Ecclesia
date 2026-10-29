@@ -43,11 +43,13 @@ def test_blood_sugar_goal_counts_sugary_scans_against_it():
 
 
 def test_heart_goal_flags_saturated_fat():
-    """The heart-health goal uses the fat/cholesterol rules (RULE-004). The cola
-    has no fat values, so it isn't counted either way."""
+    """The heart-health goal uses the sodium rules (RULE-002) and the
+    fat/cholesterol rules (RULE-004). The cola has a sodium value now checked
+    (low, so it fits); the namkeen fails."""
     g = _by_goal(build_goal_insights([COLA, OATS, NAMKEEN], [HealthGoal.HEART_HEALTH]))
     heart = g[HealthGoal.HEART_HEALTH]
-    assert (heart.checked, heart.fits) == (2, 1)
+    assert (heart.checked, heart.fits) == (3, 2)
+    assert heart.basis.startswith("Sodium")
 
 
 def test_scans_without_the_needed_data_are_not_counted_as_fitting():

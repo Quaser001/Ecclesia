@@ -182,6 +182,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'Nothing added yet, so scores use general guidance only.';
 
   @override
+  String get scoredForTitle => 'Scored for';
+
+  @override
+  String get scoredForNote =>
+      'Your profile when you scanned this. Changing your profile later doesn\'t change this rating.';
+
+  @override
+  String get scoredForNone =>
+      'No allergies, conditions, diets or goals were set.';
+
+  @override
   String allergyChip(String name) {
     return '$name allergy';
   }

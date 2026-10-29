@@ -181,6 +181,17 @@ class AppLocalizationsAs extends AppLocalizations {
       'এতিয়াও একো যোগ কৰা হোৱা নাই, সেয়ে স্ক\'ৰ সাধাৰণ নিৰ্দেশনা অনুসৰি।';
 
   @override
+  String get scoredForTitle => 'কাৰ বাবে স্ক\'ৰ কৰা হৈছিল';
+
+  @override
+  String get scoredForNote =>
+      'স্কেন কৰাৰ সময়ৰ আপোনাৰ প্ৰফাইল। পিছত প্ৰফাইল সলনি কৰিলে এই ৰেটিং সলনি নহয়।';
+
+  @override
+  String get scoredForNone =>
+      'কোনো এলাৰ্জী, ৰোগ, খাদ্যাভ্যাস বা লক্ষ্য দিয়া হোৱা নাছিল।';
+
+  @override
   String allergyChip(String name) {
     return '$nameত এলাৰ্জী';
   }

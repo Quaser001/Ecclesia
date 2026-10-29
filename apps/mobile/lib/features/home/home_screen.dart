@@ -6,6 +6,7 @@ import '../../app/theme_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/user_message.dart';
 import '../../core/widgets/brand_mark.dart';
+import '../../core/widgets/profile_chips.dart';
 import '../../core/widgets/scan_row.dart';
 import '../../core/widgets/score_badge.dart';
 import '../../core/widgets/skeleton.dart';
@@ -464,25 +465,8 @@ class _ProfileAtAGlance extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final c = context.colors;
     final l = context.l10n;
-    final chips = <(String, Color, IconData)>[];
     final p = profile;
-    if (p != null) {
-      for (final a in p.allergies) {
-        final name = a.isEmpty ? a : '${a[0].toUpperCase()}${a.substring(1)}';
-        chips.add((l.allergyChip(name), c.critical, Icons.warning_amber_rounded));
-      }
-      for (final x in p.healthConditions) {
-        chips.add((l.conditionLabel(x), c.accent, Icons.monitor_heart_outlined));
-      }
-      for (final d in p.dietaryPreferences) {
-        chips.add((l.dietLabel(d), c.good, Icons.restaurant_outlined));
-      }
-      for (final g in p.healthGoals) {
-        chips.add((l.goalLabel(g), c.brand, Icons.flag_outlined));
-      }
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -503,31 +487,10 @@ class _ProfileAtAGlance extends StatelessWidget {
               Skeleton(width: 120, height: 32, borderRadius: 999),
             ],
           )
-        else if (chips.isEmpty)
+        else if (p == null || ProfileChips.isEmpty(p))
           Text(l.scoringEmpty, style: theme.textTheme.bodyMedium)
         else
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final (label, tone, icon) in chips)
-                Container(
-                  padding: const EdgeInsets.fromLTRB(10, 7, 12, 7),
-                  decoration: BoxDecoration(
-                    color: c.tint(tone, theme.brightness),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon, size: 15, color: tone),
-                      const SizedBox(width: 6),
-                      Text(label, style: AppTheme.ui(13, weight: FontWeight.w600, color: tone)),
-                    ],
-                  ),
-                ),
-            ],
-          ),
+          ProfileChips(profile: p),
       ],
     );
   }

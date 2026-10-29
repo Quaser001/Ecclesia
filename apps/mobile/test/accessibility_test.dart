@@ -115,7 +115,12 @@ void main() {
                        'findings': [{'rule_id': 'R', 'severity': 'critical',
                                      'title': 'Critical sugar level for diabetes',
                                      'detail': '27 g of sugar per serving', 'score_impact': 45}],
-                       'rules_applied': []},
+                       'rules_applied': [],
+                       // the longest chips: the "Scored for" section must fit too
+                       'scored_for': {'allergies': ['peanut', 'tree nuts'],
+                                      'health_conditions': ['diabetes_type_2', 'high_cholesterol'],
+                                      'dietary_preferences': ['vegetarian'],
+                                      'health_goals': ['manage_blood_sugar']}},
       'explanation': 'High sugar and sodium for your profile.',
       'serving_size_unknown': true,
       'identification': {'status': 'confident',

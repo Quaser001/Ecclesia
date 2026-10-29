@@ -181,6 +181,17 @@ class AppLocalizationsHi extends AppLocalizations {
       'अभी कुछ नहीं जोड़ा, इसलिए स्कोर सामान्य सलाह पर हैं।';
 
   @override
+  String get scoredForTitle => 'किसके लिए स्कोर किया गया';
+
+  @override
+  String get scoredForNote =>
+      'स्कैन करते समय की आपकी प्रोफ़ाइल। बाद में प्रोफ़ाइल बदलने से यह रेटिंग नहीं बदलती।';
+
+  @override
+  String get scoredForNone =>
+      'कोई एलर्जी, बीमारी, आहार या लक्ष्य नहीं चुना गया था।';
+
+  @override
   String allergyChip(String name) {
     return '$name से एलर्जी';
   }

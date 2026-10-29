@@ -41,7 +41,7 @@ Each curve is 1.0 exactly where its rule starts to fire, so there are no cliffs.
 | Curve | Value → factor |
 |---|---|
 | Sugar, for diabetes or blood-sugar goal (g per serving) | 3 → 1.0 · 6 → 0.55 · 12 → 0.30 · 20 → 0.15 · 40 → 0.05 |
-| Sodium, for hypertension or heart disease (mg) | 200 → 1.0 · 400 → 0.55 · 800 → 0.30 · 1600 → 0.05 |
+| Sodium, for hypertension, heart disease or the heart-health goal (mg) | 200 → 1.0 · 400 → 0.55 · 800 → 0.30 · 1600 → 0.05 |
 | Saturated fat, for cholesterol or heart disease (g) | 3.5 → 1.0 · 7 → 0.30 · 14 → 0.05 |
 | Dietary cholesterol (mg) | 60 → 1.0 · 120 → 0.55 · 240 → 0.05 |
 | Trans fat (g) | 0.1 → 1.0 · 0.2 → 0.30 · 0.4 → 0.05 |

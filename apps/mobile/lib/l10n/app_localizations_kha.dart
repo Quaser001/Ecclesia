@@ -184,6 +184,17 @@ class AppLocalizationsKha extends AppLocalizations {
       'Ym pat pyndap kano kano, te ki score ki bud tang ki jingmut baroh kawei.';
 
   @override
+  String get scoredForTitle => 'La pynshong nongrim na ka';
+
+  @override
+  String get scoredForNote =>
+      'Ka profile jong phi haba phi la scan. Lada phi kylla ia ka profile hadien, kane ka rating kam kylla.';
+
+  @override
+  String get scoredForNone =>
+      'Ym don ki allergy, ki jingpang, ki jingbam ne ki thong ba la buh.';
+
+  @override
   String allergyChip(String name) {
     return 'Allergy $name';
   }

@@ -416,6 +416,24 @@ abstract class AppLocalizations {
   /// **'Nothing added yet, so scores use general guidance only.'**
   String get scoringEmpty;
 
+  /// No description provided for @scoredForTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Scored for'**
+  String get scoredForTitle;
+
+  /// No description provided for @scoredForNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Your profile when you scanned this. Changing your profile later doesn\'t change this rating.'**
+  String get scoredForNote;
+
+  /// No description provided for @scoredForNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No allergies, conditions, diets or goals were set.'**
+  String get scoredForNone;
+
   /// No description provided for @allergyChip.
   ///
   /// In en, this message translates to:

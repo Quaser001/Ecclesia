@@ -211,8 +211,8 @@ _RULE_GOALS: dict[HealthGoal, tuple[HealthGoal, Any, str]] = {
     ),
     HealthGoal.HEART_HEALTH: (
         HealthGoal.HEART_HEALTH,
-        lambda p: _has(p, "saturated_fat_g", "trans_fat_g", "cholesterol_mg"),
-        "Saturated fat, trans fat and cholesterol",
+        lambda p: _has(p, "sodium_mg", "saturated_fat_g", "trans_fat_g", "cholesterol_mg"),
+        "Sodium, saturated fat, trans fat and cholesterol",
     ),
     HealthGoal.IMPROVE_DIGESTION: (
         HealthGoal.IMPROVE_DIGESTION,

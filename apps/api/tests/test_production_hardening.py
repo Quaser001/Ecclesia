@@ -496,3 +496,35 @@ async def test_every_api_route_requires_a_token(caplog):
                 assert r.status_code == 401, (method, path, r.status_code)
                 checked += 1
     assert checked >= 13
+
+
+# --- heart-health goal checks salt (MARKET_READY_CHECKLIST scoring follow-up) ---
+
+
+def test_heart_health_goal_flags_high_sodium():
+    noodles = ProductObservation(
+        product_name="Instant noodles", ingredients=["wheat flour", "salt"], extraction_confidence=0.95,
+        nutrition=NutritionInfo(serving_size_g=70, sodium_mg=1200, saturated_fat_g=1))
+    result = calculate_score(noodles, UserProfile(user_id="u", health_goals=[HealthGoal.HEART_HEALTH]))
+    assert any(f.nutrient_or_ingredient == "sodium" for f in result.findings)
+    assert result.suitability in (SuitabilityStatus.POOR, SuitabilityStatus.NOT_SUITABLE)
+
+
+# --- ADR-007: a rating is history; editing the profile never changes it --------
+
+
+async def test_past_ratings_keep_the_profile_they_were_scored_for(wired, make_device):
+    user_id, headers = make_device()
+    await wired.db.upsert_profile(UserProfile(user_id=user_id, allergies=["peanut"]))
+    scanned = (await _scan(headers)).json()
+    assert scanned["score_result"]["score"] == 0  # peanut bar, peanut allergy
+    assert scanned["score_result"]["scored_for"]["allergies"] == ["peanut"]
+
+    await wired.db.upsert_profile(UserProfile(user_id=user_id))  # allergy removed later
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        detail = (await c.get(f"{SCANS}/{scanned['scan_id']}", headers=headers)).json()
+        history = (await c.get(f"{SCANS}/history", headers=headers)).json()
+    assert detail["score_result"]["score"] == 0
+    assert detail["score_result"]["scored_for"]["allergies"] == ["peanut"]
+    assert history[0]["score"] == 0

@@ -1,6 +1,6 @@
 # DevOps: CI (2026-10-29)
 
-**Workflow:** `.github/workflows/ci.yml`. **Status:** written and simulated locally, not yet run on GitHub (not pushed).
+**Workflow:** `.github/workflows/ci.yml`. **Status:** live. First GitHub run (25c5f6d, run 40827254774): backend and app both passed.
 
 ## What it does
 - **Backend job:** uv 0.11.18 (same as `uv.lock` and the Dockerfile).

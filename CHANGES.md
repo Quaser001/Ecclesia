@@ -39,6 +39,7 @@ once the app left the laptop. Every one of them was invisible locally.
 
 ### Live Supabase project
 - Project `calfit` created in `ap-south-1` (Mumbai), URL `https://trmohgpjtldwxbpoqvpn.supabase.co`.
+  - **Superseded (2026-10-29):** the app uses the Singapore project `CalFit` (`rxqsyksydnmwtslfvwll`). This one held only a test identity and is being deleted.
 - Schema applied, plus the migrations below. 12 knowledge-base rows seeded.
 - The `alternatives` rows from `002_seed_dev_data.sql` were deliberately NOT
   seeded: they are labelled "DEV DATA: Example entry", and a real user would

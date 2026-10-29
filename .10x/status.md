@@ -16,8 +16,13 @@
   - Home then showed all 31 scans and the profile, and `consents` holds the founder's live row.
   - **If the phone shows "Waiting For Debugger"**, a developer setting was switched on. Clear it with `adb shell am clear-debug-app`.
   - There's no migration tracking, so record each migration here.
-- **Security advisor, older issue:** `public.rls_auto_enable()` is a SECURITY DEFINER function anyone with the public key can run (`/rest/v1/rpc/rls_auto_enable`). Revoke EXECUTE from anon and authenticated (needs approval).
-- **Another active Supabase project:** "calfit" in Mumbai (`trmohgpjtldwxbpoqvpn`) isn't used by `.env`. Decide whether to keep or pause it.
+- **Migration 011 applied** (2026-10-29, with approval): `rls_auto_enable()` can no longer be run by anon or authenticated.
+  - The `ensure_rls` event trigger still enables RLS on new tables: a probe table created and dropped in one step got RLS.
+  - The advisor's two warnings about the function are gone. Left: the intended "RLS, no policies" note, and `vector` installed in public (low risk).
+- **The old Mumbai project "calfit"** (`trmohgpjtldwxbpoqvpn`) is unused.
+  - It holds one test identity from 27 Oct (1 profile, 1 scan) and an empty bucket.
+  - The founder will delete it from the dashboard (Project Settings → General → Delete project).
+  - The real project is "CalFit" in Singapore (`rxqsyksydnmwtslfvwll`).
 - **Speed:** each gated request now makes one more Supabase round trip (about 0.2–1 s after an idle period). Watch it next to the timeout item.
 
 ## Done on 2026-10-29 (uncommitted): DPDP Rules check

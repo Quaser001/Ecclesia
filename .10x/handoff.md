@@ -1,33 +1,34 @@
 # Handoff
 
-**From:** the 2026-10-30 session. It covered (on top of the 2026-10-29 work below):
-- crash reporting (production-readiness item 5) and the release keystore + signed bundle (item 6);
-- a Play Console reference checklist (`.10x/play-console-checklist.md`);
-- a system-design hardening audit: fixed the delete-during-scan erasure race and capped `/client-errors` logging, added a Cloud Run rollback runbook (commit `3c70511`, pushed).
-**Earlier (2026-10-29):** the Keystore token move; the mobile security audit; the DPDP Rules check and consent notice; migrations 010–012; the production-readiness review; the scan-reliability fixes.
-**To:** the next chat. Start by reading `status.md`, then this file.
+**From:** the 2026-10-30 (second) session — commit `32bdb2a`, pushed to `origin/main`:
+- **Subscription paywall page** (`apps/mobile/lib/features/subscription/`): three tiers (Free 4/day · Plus 10/day ₹199/mo · Pro 20/day ₹249/mo), monthly/annual toggle, one-CTA Hick's-Law layout, honest `ComingSoonSubscriptionService` stub (no fake success), debug-only entry at the bottom of Settings. 5 new widget tests.
+- **Free scan cap 50 → 4/day** (`DAILY_SCAN_CAP`). Failed scans already don't count. Paid-tier caps (10/20) wait on entitlement.
+- **Play-console-checklist Data-safety fixes** (processor transfers aren't "sharing"; added crash-logs data type).
+- **Located the exact Gemini quota rows** (deferred by founder) and **adopted Hick's Law app-wide** (one obvious action per screen).
+- Full detail, and the precise next-step instructions, are in `status.md` (top three dated sections).
+**Earlier (2026-10-30, first):** crash reporting (item 5), release keystore + signed bundle (item 6), Play Console checklist, erasure-race + `/client-errors` hardening (commit `3c70511`).
+**Earlier (2026-10-29):** Keystore token move; mobile security audit; DPDP Rules check + consent notice; migrations 010–012; production-readiness review; scan-reliability fixes.
+**To:** the next chat. Read `status.md` first (it has the live detail), then this file.
 
-## Start here — the next session is gcloud + Play Console
-The work now is two things, both mostly in consoles the founder drives; the agent prepares, guides and verifies.
+## Start here — ordered for the next session
+The founder drives consoles; the agent prepares, guides, verifies, and edits code. Commit/push only when asked; never print `.env` values; Supabase changes need the migration shown and approval first.
 
-1. **gcloud — the spend backstop (pending from production-readiness item 3).**
-   - **Gemini quota cap** — the real hard stop on the AI bill (the ₹500 budget only emails; the per-IP caps reset when Cloud Run scales to zero). GCP Console → IAM & Admin → Quotas → filter "Generative Language API" → cap requests/min ≈ 60 and requests/day ≈ 5,000. Bills to project `gen-lang-client-0252924706` ("aaa1"), which the budget covers.
-   - `--min-instances 1` is optional (≈₹1,000/month idle) — skip for now. `--max-instances 3` and `TRUSTED_PROXY_HOPS=1` are already in the deploy config (`docs/DEPLOY_CLOUD_RUN.md`), so the caps are correctly per-phone.
-   - Rollback runbook is in `docs/DEPLOY_CLOUD_RUN.md` §7 if a deploy goes bad.
+1. **Reduce app languages to English + Hindi** (founder asked 2026-10-30). Remove Assamese/Bangla/Khasi: delete `lib/l10n/app_as.arb|app_bn.arb|app_kha.arb` + their generated `app_localizations_as|bn|kha.dart`; trim `supportedLanguages` in `lib/l10n/l10n.dart` to en+hi; re-run `flutter gen-l10n`; then `flutter analyze && flutter test` (the settings "app shell renders in <name>" loop auto-adjusts; grep for stray `as`/`bn`/`kha`). Exact steps in `status.md`.
 
-2. **Play Console (production-readiness item 7).** The reference is **`.10x/play-console-checklist.md`** — Data safety answers, health declaration, content rating, and the store-listing text are all written there. Agent work that remains:
-   - **Privacy policy blanks** in `apps/mobile/assets/legal/privacy_policy.md` and `docs/PRIVACY_POLICY.md`: publisher legal name, contact email, grievance officer name + email (founder supplies the facts; agent edits both copies so they stay identical).
-   - **Host the policy at a public URL** (GitHub Pages is free — the repo is `Quaser001/Ecclesia`); Play needs the URL, and the app's Settings screen already links the bundled copy.
-   - **Store-listing assets:** icon (512×512, already generated), phone screenshots, feature graphic (1024×500).
-   - Then the founder fills the console forms and uploads `app-release.aab` to a closed-testing track (12 testers, 14 days).
+2. **Privacy policy (blocks Play).** Fill the 4 blanks in BOTH `apps/mobile/assets/legal/privacy_policy.md` and `docs/PRIVACY_POLICY.md` (keep identical — `privacy_policy_copy_test.dart` enforces it): publisher legal name + address, contact email, grievance officer name + email, and the cross-ref on line 106. Founder supplies the facts (ask; don't invent). Then **host at a public URL** — a *small separate public repo* via GitHub Pages (do NOT make the monorepo public: `docs/DEPLOY_CLOUD_RUN.md` has project IDs/service account). The app shows the bundled copy already (no `url_launcher`), so only Play needs the URL. Rebuild `app-release.aab` after editing (the policy is a bundled asset). Consider tightening launch-time hedging ("when launched", "will run in India", "draft") to present tense — show the founder first.
 
-3. **Still queued after that:** Supabase Pro (item 4, founder does in dashboard — also unlocks backups), then Google sign-in (item 8), then payments (item 9).
+3. **Dodo payments viability** — confirm Dodo supports Google Play's **India alternative-billing** reporting before committing. India allows alternative billing *alongside* Play Billing (−4% service fee, with reporting). Real billing + tiered enforcement (Plus 10 / Pro 20) wait on **Google sign-in (item 8)** — a subscription needs durable identity (ADR-008: family profiles can't be linked server-side). Annual prices on the page are placeholders (10× monthly); confirm with founder.
 
-4. **Before any of it — two safety items that haven't been done:**
-   - **Back up the keystore** (`apps/mobile/android/calfit-upload.jks` + `apps/mobile/android/key.properties`) to two safe places. Losing it means you can never update the app on Play.
-   - **Rotate every key exposed in chat history** (Gemini, Groq, Cerebras, Supabase service-role, `AUTH_SECRET_KEY`) before launch. Note: rotating `AUTH_SECRET_KEY` invalidates every phone's token — see the warning in `docs/DEPLOY_CLOUD_RUN.md` §1.
-2. **DPDP:** `.10x/reviews/2026-10-29-dpdp-rules.md`. The duties apply from 13 May 2027. Open items: the breach notice, seeing whose data was accessed, and the Rule 8(3) question for a lawyer.
-3. **Rules for every edit:** `agents.md` sections 5–6 (loaded through `CLAUDE.md`).
+4. **Still pending from before (founder actions, guided):**
+   - **Back up the keystore** (`apps/mobile/android/calfit-upload.jks` + `key.properties`) to two safe places — lose it and you can never update the app on Play.
+   - **Rotate every key exposed in chat** (Gemini, Groq, Cerebras, Supabase service-role, `AUTH_SECRET_KEY`). Do `AUTH_SECRET_KEY` **before any tester installs** — it logs out every phone and orphans the 31 scans (`docs/DEPLOY_CLOUD_RUN.md` §1; re-pin Cloud Run to the new version after).
+   - **Gemini quota cap** — exact editable rows are in `status.md` (paid tier 1 per-model request limits; set ~60/min, ~1000/day). Deferred by founder.
+   - **Make cap=4 live** — the running service still has `DAILY_SCAN_CAP=50`: `gcloud run services update calfit-api --region=asia-south1 --update-env-vars DAILY_SCAN_CAP=4`.
+   - **Play Console (item 7):** store-listing assets (icon 512×512 done; phone screenshots with a *demo* profile not real health data; feature graphic 1024×500), then the Data safety / health / content-rating forms from `.10x/play-console-checklist.md`, then upload the AAB to closed testing (12 testers, 14 days).
+
+5. **Queued after launch prep:** Supabase Pro (item 4, dashboard — also backups), Google sign-in (item 8), payments wiring (item 9).
+
+**DPDP:** `.10x/reviews/2026-10-29-dpdp-rules.md` — duties from 13 May 2027; open: breach notice, access log, the Rule 8(3) lawyer question. **Rules for every edit:** `agents.md` (loaded via `CLAUDE.md`).
 
 ## Read first
 - **Rules:** `AGENTS.md`.

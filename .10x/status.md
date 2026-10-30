@@ -1,7 +1,7 @@
 # Status
 
 **Updated:** 2026-10-30
-**Snapshot:** `main` = `origin/main` at `c3cde3a`. CI not checked since the push.
+**Snapshot:** `main` = `origin/main` at `3c70511` (pushed 2026-10-30). CI not checked since the push. Untracked `apps/mobile/devtools_options.yaml` is an auto-generated Flutter file, deliberately left uncommitted.
 **Tests:** backend 574 (pytest), app 99 (`flutter test`), `flutter analyze` clean.
 **Live Supabase (Singapore `rxqsyksydnmwtslfvwll`):** migrations 001–012 applied (010 consents, 011 rls_auto_enable lockdown, 012 refund_scan_usage). There's no tracking table, so record each migration here.
 **Live Cloud Run (Mumbai `asia-south1`):** `https://calfit-api-661871935612.asia-south1.run.app` — GCP project `gen-lang-client-0252924706` ("aaa1"), service account `calfit-api@gen-lang-client-0252924706.iam.gserviceaccount.com`, image tag `e569254`, revision `calfit-api-00001-9rs`. Health, 401 and device-token smoke tests passed. Secrets in Secret Manager: GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, AUTH_SECRET_KEY (pinned to version 1).

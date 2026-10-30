@@ -54,6 +54,83 @@ class AppLocalizationsHi extends AppLocalizations {
   String get scanAProduct => 'प्रोडक्ट स्कैन करें';
 
   @override
+  String get subTitle => 'CalFit Premium';
+
+  @override
+  String get subTagline =>
+      'More scans a day, deeper insights, and prescription reading.';
+
+  @override
+  String get subPeriodMonthly => 'Monthly';
+
+  @override
+  String get subPeriodAnnual => 'Annual';
+
+  @override
+  String get subPlanFree => 'Free';
+
+  @override
+  String get subPlanPlus => 'Plus';
+
+  @override
+  String get subPlanPro => 'Pro';
+
+  @override
+  String get subRecommended => 'Recommended';
+
+  @override
+  String get subCurrentPlan => 'Current plan';
+
+  @override
+  String subScansPerDay(int n) {
+    return '$n scans a day';
+  }
+
+  @override
+  String get subPriceFree => 'Free';
+
+  @override
+  String subPriceMonthly(String price) {
+    return '$price / month';
+  }
+
+  @override
+  String subPriceAnnual(String price) {
+    return '$price / year';
+  }
+
+  @override
+  String get subPerkPersonalScoring => 'Personalized scoring for your profile';
+
+  @override
+  String get subPerkScanHistory => 'Scan history';
+
+  @override
+  String get subPerkAdvancedInsights => 'Advanced insights & full history';
+
+  @override
+  String get subPerkPrescription => 'Prescription reading';
+
+  @override
+  String subStart(String plan) {
+    return 'Start $plan';
+  }
+
+  @override
+  String get subComingSoonTitle => 'Coming soon';
+
+  @override
+  String get subComingSoon =>
+      'Payments aren\'t switched on yet. You\'ll be able to upgrade from here soon.';
+
+  @override
+  String get subFinePrint =>
+      'Plans auto-renew until cancelled. Cancel anytime. Introductory prices may change.';
+
+  @override
+  String get subPremiumPreview => 'CalFit Premium (preview)';
+
+  @override
   String get navHome => 'होम';
 
   @override

@@ -24,9 +24,18 @@ class Settings(BaseSettings):
     # Scan upload limits
     MAX_SCAN_UPLOAD_BYTES: int = 10 * 1024 * 1024  # 10 MB
 
-    # Daily scan cap per user. One bad actor should not run up the Gemini bill.
-    # UTC midnight reset. See services/rate_limit.py.
-    DAILY_SCAN_CAP: int = 50
+    # Daily scan cap per user: the FREE tier gets 4 *successful* scans per UTC
+    # day while we're starting out. One bad actor should not run up the Gemini
+    # bill. A scan that fails on our side or upstream (timeout, 5xx, bad file,
+    # product not found) is refunded and does not count; a scan that ran but
+    # found too little on the label still counts, because it already cost a real
+    # Gemini call. See services/rate_limit.py and the _Charge refund logic in
+    # api/v1/scans.py.
+    #
+    # Paid tiers (Plus = 10/day, Pro = 20/day) are not enforced yet: tiered caps
+    # need an entitlement record per user, which needs payments + a durable
+    # identity (Google sign-in, item 8). Until then everyone is on the free cap.
+    DAILY_SCAN_CAP: int = 4
 
     # Secret used to sign per-device tokens (>= 32 chars). Server-side only.
     # Generate one with: python -c "import secrets; print(secrets.token_urlsafe(48))"

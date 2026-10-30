@@ -88,7 +88,7 @@ gcloud run deploy calfit-api \
   --max-instances 3 \
   --timeout 60s \
   --set-env-vars "CORS_ALLOWED_ORIGINS=https://calfit.app,https://staging.calfit.app" \
-  --set-env-vars "DAILY_SCAN_CAP=50" \
+  --set-env-vars "DAILY_SCAN_CAP=4" \
   --set-env-vars "GEMINI_MODEL=gemini-2.5-flash" \
   --set-env-vars "DEVICE_TOKEN_DAILY_CAP_PER_IP=20" \
   --set-env-vars "PRESCRIPTION_AI_ENABLED=false" \
@@ -138,7 +138,7 @@ A scan smoke test needs a real image, so test it from a build on the device.
 
 ## 6. Cost ceiling
 
-- Daily scan cap: `DAILY_SCAN_CAP=50` per user. The counter lives in the Supabase `scan_usage` table and is incremented atomically, so it survives revision restarts and is shared across instances. (It used to be an in-process dict, which meant a redeploy cleared everyone's count and each replica counted separately — a user could take `cap * instances` scans a day.) The in-memory store is still used automatically when no Supabase credentials are configured, i.e. local runs only.
+- Daily scan cap: `DAILY_SCAN_CAP=4` *successful* scans per user per UTC day (the free tier while starting out; paid tiers Plus=10 / Pro=20 aren't enforced until payments + entitlement exist). A scan that fails on our side or upstream is refunded and never counts; only a completed scan does (see the `_Charge` refund logic in `api/v1/scans.py`). The counter lives in the Supabase `scan_usage` table and is incremented atomically, so it survives revision restarts and is shared across instances. (It used to be an in-process dict, which meant a redeploy cleared everyone's count and each replica counted separately — a user could take `cap * instances` scans a day.) The in-memory store is still used automatically when no Supabase credentials are configured, i.e. local runs only.
 - Cloud Run idle revenue is zero; you only pay while a request is live.
 - Set a Google Cloud **budget alert** at ~₹200/month and a **Gemini quota cap** (see `docs/GEMINI_BILLING.md`). Those two together are the real backstop.
 

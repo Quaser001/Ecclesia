@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -12,6 +13,7 @@ import '../../services/api_service.dart';
 import '../../services/profile_registry.dart';
 import '../consent/consent_notice.dart';
 import '../profile/prescription_consent.dart';
+import '../subscription/subscription_screen.dart';
 import 'privacy_policy_screen.dart';
 
 /// Settings: appearance (theme, text size), language, privacy and data,
@@ -272,6 +274,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
+          // Debug-only preview of the paywall while billing isn't wired, so a
+          // release build (closed testing) never shows testers a dead button.
+          // Placed last so it doesn't shift the rows above.
+          if (kDebugMode) ...[
+            const SizedBox(height: 24),
+            SurfaceCard(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: ListTile(
+                leading: Icon(Icons.workspace_premium_outlined, color: c.brand),
+                title: Text(l.subPremiumPreview),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SubscriptionScreen()),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

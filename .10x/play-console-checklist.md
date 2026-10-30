@@ -47,15 +47,19 @@ Answer these in Play Console → Policy → App content → Data safety:
 | Data type | Collected | Shared | Purpose | Optional |
 |---|---|---|---|---|
 | **Health info** (profile: conditions, allergies, goals, body details) | Yes | No | App functionality | No |
-| **Photos** (label scans) | Yes | Yes (Google Gemini, as processor) | App functionality | No |
+| **Photos** (label scans) | Yes | No | App functionality | No |
 | **App activity** (scan history, ratings feedback) | Yes | No | App functionality, Analytics | No |
 | **Device or other IDs** (anonymous token) | Yes | No | App functionality, Security | No |
+| **App info & performance** → Crash logs, Diagnostics (error type + stack frames from `/client-errors`) | Yes | No | App functionality, Analytics | No |
+
+**Why "Shared: No" even though photos go to Gemini.** Play defines "sharing" as transferring data to a *third party*, and it **excludes** transfers to a "service provider" that only processes the data on your behalf. Gemini (label reading) and Supabase (storage) are processors under contract — they don't use the data for their own purposes — so under Play's definition this is **not** sharing. (This matches the privacy policy, which calls them processors.) Keep a note of this reasoning in case Play asks. If you'd rather be conservative, you may still declare Photos as "Shared" — it won't get the app rejected, but "No" is the accurate answer.
 
 **Not collected:** name, email, phone, location, financial info, contacts, messages, files, audio, calendar, browsing history, search history, ads ID.
 
-**Shared with (as processors, not for their own use):**
+**Processors the data reaches (not "sharing" per Play, but good to know):**
 - Google Gemini — receives label photos and findings for transcription/explanation
 - Supabase — stores profile, scans and photos
+- Google Cloud Logging — receives crash reports (error type + stack frames, no health data)
 
 **Data retention:** until the user deletes it. Logs: 1 year.
 

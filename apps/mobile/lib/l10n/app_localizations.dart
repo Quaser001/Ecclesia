@@ -194,6 +194,138 @@ abstract class AppLocalizations {
   /// **'Scan a product'**
   String get scanAProduct;
 
+  /// No description provided for @subTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'CalFit Premium'**
+  String get subTitle;
+
+  /// No description provided for @subTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'More scans a day, deeper insights, and prescription reading.'**
+  String get subTagline;
+
+  /// No description provided for @subPeriodMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get subPeriodMonthly;
+
+  /// No description provided for @subPeriodAnnual.
+  ///
+  /// In en, this message translates to:
+  /// **'Annual'**
+  String get subPeriodAnnual;
+
+  /// No description provided for @subPlanFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get subPlanFree;
+
+  /// No description provided for @subPlanPlus.
+  ///
+  /// In en, this message translates to:
+  /// **'Plus'**
+  String get subPlanPlus;
+
+  /// No description provided for @subPlanPro.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro'**
+  String get subPlanPro;
+
+  /// No description provided for @subRecommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get subRecommended;
+
+  /// No description provided for @subCurrentPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Current plan'**
+  String get subCurrentPlan;
+
+  /// No description provided for @subScansPerDay.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} scans a day'**
+  String subScansPerDay(int n);
+
+  /// No description provided for @subPriceFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get subPriceFree;
+
+  /// No description provided for @subPriceMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'{price} / month'**
+  String subPriceMonthly(String price);
+
+  /// No description provided for @subPriceAnnual.
+  ///
+  /// In en, this message translates to:
+  /// **'{price} / year'**
+  String subPriceAnnual(String price);
+
+  /// No description provided for @subPerkPersonalScoring.
+  ///
+  /// In en, this message translates to:
+  /// **'Personalized scoring for your profile'**
+  String get subPerkPersonalScoring;
+
+  /// No description provided for @subPerkScanHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan history'**
+  String get subPerkScanHistory;
+
+  /// No description provided for @subPerkAdvancedInsights.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced insights & full history'**
+  String get subPerkAdvancedInsights;
+
+  /// No description provided for @subPerkPrescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Prescription reading'**
+  String get subPerkPrescription;
+
+  /// No description provided for @subStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Start {plan}'**
+  String subStart(String plan);
+
+  /// No description provided for @subComingSoonTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming soon'**
+  String get subComingSoonTitle;
+
+  /// No description provided for @subComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Payments aren\'t switched on yet. You\'ll be able to upgrade from here soon.'**
+  String get subComingSoon;
+
+  /// No description provided for @subFinePrint.
+  ///
+  /// In en, this message translates to:
+  /// **'Plans auto-renew until cancelled. Cancel anytime. Introductory prices may change.'**
+  String get subFinePrint;
+
+  /// No description provided for @subPremiumPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'CalFit Premium (preview)'**
+  String get subPremiumPreview;
+
   /// No description provided for @navHome.
   ///
   /// In en, this message translates to:

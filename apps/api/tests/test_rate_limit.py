@@ -15,6 +15,18 @@ from src.services.rate_limit import (
 )
 
 
+def test_shipped_default_free_cap_is_4_successful_scans():
+    """Product decision (2026-10-30): the FREE tier gets 4 *successful* scans
+    per user per UTC day while starting out (paid tiers Plus=10 / Pro=20 are
+    not enforced until payments + entitlement exist). Failed scans are refunded
+    and don't count (see test_scan_refund.py). Checks the declared default so an
+    env override in the test process can't mask a drift in the shipped value.
+    """
+    from src.config.settings import Settings
+
+    assert Settings.model_fields["DAILY_SCAN_CAP"].default == 4
+
+
 async def test_limiter_blocks_after_cap_reached():
     limiter = ScanLimiter(cap=3, store=InMemoryStore())
     for i in range(3):

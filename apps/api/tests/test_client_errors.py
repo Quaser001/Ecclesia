@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import logging
 
-import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.config.dependencies import get_client_error_limiter

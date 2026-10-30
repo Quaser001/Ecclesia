@@ -163,6 +163,40 @@ class SupabaseProvider(ABC):
         """True if the user has a consent for this version that wasn't withdrawn."""
         ...
 
+    @abstractmethod
+    async def get_entitlements(self, user_id: str) -> list[dict[str, Any]]:
+        """The user's subscription rows: each has tier, status, period_end.
+
+        The caller decides what they mean (domain/billing.py). Returns [] when
+        the user has none.
+        """
+        ...
+
+    @abstractmethod
+    async def apply_billing_event(
+        self,
+        *,
+        webhook_id: str,
+        event_type: str,
+        user_id: str,
+        subscription_id: str,
+        customer_id: str | None,
+        tier: str,
+        status: str,
+        period_end: datetime | None,
+        event_at: datetime,
+    ) -> bool:
+        """Record a verified webhook and update the subscription, atomically.
+
+        One transaction: insert `webhook_id` (ignored if already seen, so
+        retries are no-ops) and, only if this event is newer than the row's
+        last applied event, upsert the subscription keyed by `subscription_id`.
+        Returns True if the subscription row changed, False for a duplicate or a
+        stale (out-of-order) event. Never splits the record and the update into
+        two steps: a crash between them would drop a paid upgrade.
+        """
+        ...
+
 
 class StorageProvider(ABC):
     """Interface for file/image storage."""

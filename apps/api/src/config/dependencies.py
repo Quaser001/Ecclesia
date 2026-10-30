@@ -16,12 +16,18 @@ import logging
 from collections.abc import Callable
 from typing import Annotated, Any, TypeVar
 
-from fastapi import Depends
+from fastapi import Depends, Header
 
 from src.config.settings import settings
 from src.providers.food_lookup import FoodLookupProvider
 from src.providers.interfaces import GeminiProvider, StorageProvider, SupabaseProvider
-from src.services.rate_limit import InMemoryStore, ScanLimiter, SupabaseCounterStore
+from src.providers.payments import PaymentProvider
+from src.services.rate_limit import (
+    CounterStore,
+    InMemoryStore,
+    ScanLimiter,
+    SupabaseCounterStore,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -132,27 +138,64 @@ def get_storage_provider() -> StorageProvider:
     return _shared_instance(("local-storage",), LocalStorageProvider)
 
 
-# Fallback limiter for local runs with no database configured. Its counter
-# must live outside the per-request dependency so it counts across requests.
-_in_memory_limiter = ScanLimiter(cap=settings.DAILY_SCAN_CAP, store=InMemoryStore())
+# Process-local counter for local runs with no database configured. The STORE
+# (not a whole limiter) is module-level so the count persists across requests
+# even though the per-request cap now varies with the caller's tier. A new
+# store per request would reset the count every time and the cap would never bite.
+_scan_counter_store = InMemoryStore()
 
 
-def get_scan_limiter(
+def _scan_store(supabase: SupabaseProvider) -> CounterStore:
+    if settings.supabase_configured:
+        return SupabaseCounterStore(supabase)
+    _local_fallback("Daily scan limit")
+    return _scan_counter_store
+
+
+async def get_scan_limiter(
+    authorization: str | None = Header(default=None),
     supabase: SupabaseProvider = Depends(get_supabase_provider),
 ) -> ScanLimiter:
-    """Prefer the database-backed counter whenever Supabase is configured.
+    """The daily scan cap for this caller.
 
-    The in-memory counter resets on every restart and is not shared between
-    Cloud Run instances, so on its own it would let a user take
-    `cap * instances` scans a day. The Postgres counter has neither problem.
+    Billing off (the default): everyone gets the free DAILY_SCAN_CAP and we make
+    no entitlement read, so the production scan path is unchanged and gains no
+    extra round trip. Billing on: the cap is the caller's tier cap, read from
+    their entitlement. A failed entitlement read raises (ADR-006) — we never
+    quietly fall back to the free cap and wrongly throttle a paying user.
+
+    The Postgres counter is used whenever Supabase is configured (it survives
+    restarts and is shared across Cloud Run instances); the process-local store
+    is the dev/test fallback.
     """
-    if settings.supabase_configured:
-        return ScanLimiter(
-            cap=settings.DAILY_SCAN_CAP,
-            store=SupabaseCounterStore(supabase),
-        )
-    _local_fallback("Daily scan limit")
-    return _in_memory_limiter
+    store = _scan_store(supabase)
+    if not settings.BILLING_ENABLED:
+        return ScanLimiter(cap=settings.DAILY_SCAN_CAP, store=store)
+    from src.config.auth import get_current_user_id
+    from src.services.entitlements import EntitlementService, cap_for_tier
+
+    user_id = get_current_user_id(authorization)
+    tier = await EntitlementService(supabase).tier_for(user_id)
+    return ScanLimiter(cap=cap_for_tier(tier), store=store)
+
+
+def get_payment_provider() -> PaymentProvider:
+    """The Dodo payment provider, built from settings (one per process).
+
+    Built even when keys are empty; the billing routes guard on BILLING_ENABLED
+    and the specific key/secret they need, so an unconfigured provider never
+    silently does anything.
+    """
+    from src.providers.dodo_provider import DodoPaymentProvider
+
+    return _shared_instance(
+        ("dodo", settings.DODO_MODE, settings.DODO_API_KEY, settings.DODO_WEBHOOK_SECRET),
+        lambda: DodoPaymentProvider(
+            api_key=settings.DODO_API_KEY,
+            webhook_secret=settings.DODO_WEBHOOK_SECRET,
+            base_url=settings.dodo_base_url,
+        ),
+    )
 
 
 _token_issue_limiter = ScanLimiter(
@@ -207,3 +250,4 @@ FoodLookupDep = Annotated[FoodLookupProvider | None, Depends(get_food_lookup)]
 SupabaseDep = Annotated[SupabaseProvider, Depends(get_supabase_provider)]
 StorageDep = Annotated[StorageProvider, Depends(get_storage_provider)]
 ScanLimiterDep = Annotated[ScanLimiter, Depends(get_scan_limiter)]
+PaymentProviderDep = Annotated[PaymentProvider, Depends(get_payment_provider)]

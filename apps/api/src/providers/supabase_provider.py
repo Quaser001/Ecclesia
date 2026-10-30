@@ -240,6 +240,10 @@ class SupabaseDBProvider(SupabaseProvider):
             # them would reset the daily caps. They hold an id, a date and a count.
             await client.table("scan_usage").delete().in_(
                 "user_id", [user_id, f"rx:{user_id}"]).lt("usage_date", _utc_today()).execute()
+            # Stop honouring the subscription for this profile. This does NOT
+            # cancel it at Dodo (the founder's call — see status.md); the
+            # webhook-id ledger is kept so a late duplicate stays a no-op.
+            await client.table("entitlements").delete().eq("user_id", user_id).execute()
             await client.table("profiles").delete().eq("user_id", user_id).execute()
             return len(scans.data or [])
         except Exception as exc:
@@ -362,6 +366,55 @@ class SupabaseDBProvider(SupabaseProvider):
             # Unknown is not "yes": the gate must not wave health data through.
             logger.error("Consent lookup failed: %s", type(exc).__name__)
             raise
+
+    async def get_entitlements(self, user_id: str) -> list[dict[str, Any]]:
+        client = await self._get_client()
+        try:
+            res = await client.table("entitlements").select(
+                "tier, status, period_end"
+            ).eq("user_id", user_id).execute()
+            return res.data or []
+        except Exception as exc:
+            logger.error("Get entitlements failed: %s", type(exc).__name__)
+            raise
+
+    async def apply_billing_event(
+        self,
+        *,
+        webhook_id: str,
+        event_type: str,
+        user_id: str,
+        subscription_id: str,
+        customer_id: str | None,
+        tier: str,
+        status: str,
+        period_end: datetime | None,
+        event_at: datetime,
+    ) -> bool:
+        # One atomic RPC (migration 013): record the webhook id and apply the
+        # guarded upsert in a single transaction. A PostgREST APIError here is
+        # our bug and stays a 500 (ADR-006, agents.md §6); the webhook route
+        # lets it propagate so Dodo retries.
+        client = await self._get_client()
+        res = await client.rpc(
+            "apply_billing_event",
+            {
+                "p_webhook_id": webhook_id,
+                "p_event_type": event_type,
+                "p_user_id": user_id,
+                "p_subscription_id": subscription_id,
+                "p_customer_id": customer_id,
+                "p_tier": tier,
+                "p_status": status,
+                "p_period_end": period_end.isoformat() if period_end else None,
+                "p_event_at": event_at.isoformat(),
+            },
+        ).execute()
+        if isinstance(res.data, bool):
+            return res.data
+        raise RuntimeError(
+            f"apply_billing_event returned {res.data!r}, expected a boolean"
+        )
 
 
 class SupabaseStorageProvider(StorageProvider):

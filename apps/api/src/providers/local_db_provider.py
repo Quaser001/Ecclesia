@@ -148,6 +148,30 @@ class LocalDBProvider(SupabaseProvider):
                     created_at TEXT NOT NULL
                 )
             """)
+            # Billing: one row per subscription (not per user), plus a ledger of
+            # processed webhook ids for idempotency. Mirrors migration 013.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS entitlements (
+                    subscription_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    tier TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    period_end TEXT,
+                    customer_id TEXT,
+                    last_event_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_entitlements_user ON entitlements(user_id)"
+            )
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS billing_webhook_events (
+                    webhook_id TEXT PRIMARY KEY,
+                    event_type TEXT,
+                    received_at TEXT NOT NULL
+                )
+            """)
             conn.commit()
 
     async def query_knowledge_by_tags(
@@ -365,6 +389,11 @@ class LocalDBProvider(SupabaseProvider):
             today = datetime.now(timezone.utc).date().isoformat()
             conn.execute("DELETE FROM scan_usage WHERE user_id IN (?, ?) AND usage_date < ?",
                          (user_id, f"rx:{user_id}", today))
+            # Entitlement rows for this profile. Note: this stops US honouring
+            # the subscription; it does not cancel it at Dodo (the founder's
+            # call — see status.md). Webhook-id ledger rows carry no personal
+            # data and are kept so a late duplicate stays a no-op.
+            conn.execute("DELETE FROM entitlements WHERE user_id = ?", (user_id,))
             conn.execute("DELETE FROM profiles WHERE user_id = ?", (user_id,))
             conn.commit()
         return deleted
@@ -464,6 +493,70 @@ class LocalDBProvider(SupabaseProvider):
                 "SELECT 1 FROM consents WHERE user_id = ? AND notice_version = ? "
                 "AND withdrawn_at IS NULL LIMIT 1", (user_id, notice_version)).fetchone()
         return row is not None
+
+    async def get_entitlements(self, user_id: str) -> list[dict[str, Any]]:
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                "SELECT tier, status, period_end FROM entitlements WHERE user_id = ?",
+                (user_id,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    async def apply_billing_event(
+        self,
+        *,
+        webhook_id: str,
+        event_type: str,
+        user_id: str,
+        subscription_id: str,
+        customer_id: str | None,
+        tier: str,
+        status: str,
+        period_end: "datetime | None",
+        event_at: "datetime",
+    ) -> bool:
+        """Local mirror of the Postgres apply_billing_event RPC (migration 013).
+
+        One transaction: skip a webhook id we've already recorded (idempotent),
+        then upsert the subscription only if this event is newer than the last
+        one applied to it (ordering guard).
+        """
+        now = datetime.now(timezone.utc).isoformat()
+        period_end_s = period_end.isoformat() if period_end else None
+        event_at_s = event_at.isoformat()
+        with self._get_connection() as conn:
+            seen = conn.execute(
+                "SELECT 1 FROM billing_webhook_events WHERE webhook_id = ?",
+                (webhook_id,),
+            ).fetchone()
+            if seen is not None:
+                return False
+            conn.execute(
+                "INSERT INTO billing_webhook_events (webhook_id, event_type, received_at) "
+                "VALUES (?, ?, ?)",
+                (webhook_id, event_type, now),
+            )
+            cur = conn.execute(
+                """
+                INSERT INTO entitlements
+                    (subscription_id, user_id, tier, status, period_end,
+                     customer_id, last_event_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(subscription_id) DO UPDATE SET
+                    user_id = excluded.user_id,
+                    tier = excluded.tier,
+                    status = excluded.status,
+                    period_end = excluded.period_end,
+                    customer_id = excluded.customer_id,
+                    last_event_at = excluded.last_event_at,
+                    updated_at = excluded.updated_at
+                WHERE excluded.last_event_at > entitlements.last_event_at
+                """,
+                (subscription_id, user_id, tier, status, period_end_s,
+                 customer_id, event_at_s, now),
+            )
+            conn.commit()
+            return cur.rowcount > 0
 
 
 class LocalStorageProvider(StorageProvider):

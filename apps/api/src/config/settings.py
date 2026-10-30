@@ -32,10 +32,38 @@ class Settings(BaseSettings):
     # Gemini call. See services/rate_limit.py and the _Charge refund logic in
     # api/v1/scans.py.
     #
-    # Paid tiers (Plus = 10/day, Pro = 20/day) are not enforced yet: tiered caps
-    # need an entitlement record per user, which needs payments + a durable
-    # identity (Google sign-in, item 8). Until then everyone is on the free cap.
+    # Paid tiers (Plus = 10/day, Pro = 20/day) are enforced only when billing is
+    # on (BILLING_ENABLED) and the user has an active entitlement; otherwise
+    # everyone is on the free cap. Real paid billing also waits on a durable
+    # identity (Google sign-in, item 8): an entitlement keyed to a per-profile
+    # Keystore token is lost with the phone and can't cover family profiles
+    # (ADR-008). See .10x/reviews/2026-10-30-dodo-play-billing-viability.md.
     DAILY_SCAN_CAP: int = 4
+    PLUS_SCAN_CAP: int = 10
+    PRO_SCAN_CAP: int = 20
+
+    # --- Billing (Dodo Payments) -------------------------------------------
+    # OFF until explicitly turned on (like PRESCRIPTION_AI_ENABLED). While off,
+    # the scan limiter uses DAILY_SCAN_CAP for everyone and never reads an
+    # entitlement, so the scan path is unchanged and gains no extra round trip.
+    # Turning it on needs the Dodo keys below and migration 013.
+    BILLING_ENABLED: bool = False
+    # "test" -> https://test.dodopayments.com ; "live" -> https://live.dodopayments.com
+    DODO_MODE: Literal["test", "live"] = "test"
+    # Server-side only. Never shipped to the Flutter client (agents.md §3, §5).
+    DODO_API_KEY: str = ""
+    # Standard Webhooks signing secret (starts with "whsec_"). An empty secret
+    # must never be used to verify a signature — the webhook route 503s instead.
+    DODO_WEBHOOK_SECRET: str = ""
+    # Where Dodo returns the customer after checkout (optional).
+    DODO_RETURN_URL: str = ""
+    # One Dodo product id per (tier, billing period). Created in the Dodo
+    # dashboard; the four ids map a checkout request to a product and map a
+    # webhook's product_id back to a tier.
+    DODO_PRODUCT_PLUS_MONTHLY: str = ""
+    DODO_PRODUCT_PLUS_ANNUAL: str = ""
+    DODO_PRODUCT_PRO_MONTHLY: str = ""
+    DODO_PRODUCT_PRO_ANNUAL: str = ""
 
     # Secret used to sign per-device tokens (>= 32 chars). Server-side only.
     # Generate one with: python -c "import secrets; print(secrets.token_urlsafe(48))"
@@ -144,6 +172,14 @@ class Settings(BaseSettings):
         return bool(self.SUPABASE_URL and self.SUPABASE_SERVICE_ROLE_KEY)
 
     @property
+    def dodo_base_url(self) -> str:
+        return (
+            "https://live.dodopayments.com"
+            if self.DODO_MODE == "live"
+            else "https://test.dodopayments.com"
+        )
+
+    @property
     def prescription_ai_allowed(self) -> bool:
         """Prescriptions are health data: only on a tier that doesn't train on them."""
         return self.PRESCRIPTION_AI_ENABLED and (
@@ -164,6 +200,14 @@ class Settings(BaseSettings):
         if self.PRESCRIPTION_AI_ENABLED and not self.prescription_ai_allowed:
             problems.append("PRESCRIPTION_AI_ENABLED needs GEMINI_BACKEND=vertex "
                             "or GEMINI_PAID_TIER_CONFIRMED=true")
+        if self.BILLING_ENABLED:
+            # Fail closed: billing on without its keys would try to verify a
+            # signature with an empty secret (forgeable) or call Dodo with no
+            # key. Names only, never values.
+            if not self.DODO_API_KEY:
+                problems.append("BILLING_ENABLED needs DODO_API_KEY")
+            if not self.DODO_WEBHOOK_SECRET:
+                problems.append("BILLING_ENABLED needs DODO_WEBHOOK_SECRET")
         return problems
 
     def validate_for_production(self) -> None:

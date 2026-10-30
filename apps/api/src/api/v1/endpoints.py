@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from src.api.v1.auth import router as auth_router
+from src.api.v1.billing import router as billing_router
 from src.api.v1.client_errors import router as client_errors_router
 from src.api.v1.consent import router as consent_router
 from src.api.v1.insights import router as insights_router
@@ -27,3 +28,4 @@ router.include_router(profiles_router)
 router.include_router(prescriptions_router)
 router.include_router(scans_router)
 router.include_router(insights_router)
+router.include_router(billing_router)

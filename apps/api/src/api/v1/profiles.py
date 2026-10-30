@@ -60,9 +60,14 @@ async def delete_my_data(
 ) -> dict[str, int]:
     """Delete the caller's scan photos, scans, usage counters and profile.
 
-    Photos go first: if that fails the request errors and nothing else has
-    been removed, so the user can simply try again.
+    The database goes first because its first step withdraws consent: a scan
+    still running for this user re-checks consent before it persists (see
+    ScanOrchestrator._persist_scan), so once consent is withdrawn it won't
+    recreate the profile or save a new row behind the delete. A scan that
+    uploads its photo after delete_folder removes that photo itself, since it
+    won't be saved. If the photo delete then fails, the row data is already
+    gone and a retry clears the rest.
     """
-    photos = await storage.delete_folder(settings.STORAGE_BUCKET, f"scans/{user_id}")
     scans = await supabase.delete_user_data(user_id)
+    photos = await storage.delete_folder(settings.STORAGE_BUCKET, f"scans/{user_id}")
     return {"scans_deleted": scans, "photos_deleted": photos}

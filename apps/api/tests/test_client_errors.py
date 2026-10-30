@@ -8,7 +8,9 @@ import logging
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from src.config.dependencies import get_client_error_limiter
 from src.main import app
+from src.services.rate_limit import InMemoryStore, ScanLimiter
 
 
 def _client():
@@ -74,6 +76,24 @@ async def test_log_output_has_no_health_data(caplog):
             })
     assert any("StateError" in r.message for r in caplog.records)
     assert all(fake_allergy not in r.message for r in caplog.records)
+
+
+async def test_reports_over_the_per_ip_cap_are_dropped_without_logging(caplog):
+    """The endpoint is unauthenticated and writes a retained log line per call.
+    Past this IP's daily cap, extra reports are still answered 204 but never
+    logged, so one IP can't run up the Cloud Logging bill."""
+    capped = ScanLimiter(cap=2, store=InMemoryStore())  # one instance across requests
+    app.dependency_overrides[get_client_error_limiter] = lambda: capped
+    try:
+        with caplog.at_level(logging.WARNING, logger="calfit.client_error"):
+            async with _client() as c:
+                for _ in range(4):
+                    r = await c.post("/api/v1/client-errors", json={"error_type": "StateError"})
+                    assert r.status_code == 204
+    finally:
+        app.dependency_overrides.pop(get_client_error_limiter, None)
+    # Only the first two were logged; the rest were dropped.
+    assert len([r for r in caplog.records if "StateError" in r.message]) == 2
 
 
 async def test_unhandled_error_logs_frames(caplog):

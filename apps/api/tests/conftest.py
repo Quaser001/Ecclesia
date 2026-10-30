@@ -12,6 +12,7 @@ from src.domain.models import (
     ProductObservation,
     UserProfile,
 )
+from src.providers.local_db_provider import LocalDBProvider
 
 
 # ---------------------------------------------------------------------------
@@ -57,26 +58,39 @@ def _no_live_supabase(monkeypatch):
     monkeypatch.setattr(settings, "FOOD_LOOKUP_ENABLED", False)
 
 
+_REAL_HAS_CONSENT = LocalDBProvider.has_consent
+
+
 @pytest.fixture(autouse=True)
-def _consented():
+def _consented(monkeypatch):
     """Every test user has agreed to the privacy notice, unless the test is
-    about consent: those use the `no_consent_override` fixture."""
+    about consent: those use the `no_consent_override` fixture.
+
+    This fakes consent at two layers: the route gate (`require_consent`), and
+    the mid-scan data-layer re-check in `ScanOrchestrator._persist_scan`, which
+    calls `has_consent` directly to catch a withdrawal during a long scan."""
     from src.config.auth import get_current_user_id
     from src.main import app
     from src.services.consent import require_consent
 
     app.dependency_overrides[require_consent] = get_current_user_id
+
+    async def _always_consented(self, user_id, notice_version):
+        return True
+
+    monkeypatch.setattr(LocalDBProvider, "has_consent", _always_consented)
     yield
     app.dependency_overrides.pop(require_consent, None)
 
 
 @pytest.fixture
-def no_consent_override():
-    """The real consent gate, for tests of consent itself."""
+def no_consent_override(monkeypatch):
+    """The real consent gate and real `has_consent`, for tests of consent itself."""
     from src.main import app
     from src.services.consent import require_consent
 
     app.dependency_overrides.pop(require_consent, None)
+    monkeypatch.setattr(LocalDBProvider, "has_consent", _REAL_HAS_CONSENT)
 
 
 # ---------------------------------------------------------------------------

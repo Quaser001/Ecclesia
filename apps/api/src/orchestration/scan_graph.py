@@ -775,6 +775,14 @@ class ScanOrchestrator:
 
     async def _persist_scan(self, response: ScanResponse) -> bool:
         try:
+            # The scan was authorised at the start, then ran for up to 35 s. If
+            # the user deleted their data in that window, consent is now
+            # withdrawn: don't recreate the profile or save a new row behind the
+            # delete. The caller removes the photo when this returns False.
+            from src.services.consent import CONSENT_NOTICE_VERSION
+            if not await self._supabase.has_consent(response.user_id, CONSENT_NOTICE_VERSION):
+                logger.info("Not saving scan %s: consent withdrawn mid-scan", response.scan_id)
+                return False
             scan_data = {
                 "scan_id": response.scan_id,
                 "user_id": response.user_id,

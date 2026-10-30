@@ -165,6 +165,21 @@ def get_token_issue_limiter() -> ScanLimiter:
     return _token_issue_limiter
 
 
+_client_error_limiter = ScanLimiter(
+    cap=settings.CLIENT_ERROR_DAILY_CAP_PER_IP, store=InMemoryStore()
+)
+
+
+def get_client_error_limiter() -> ScanLimiter:
+    """Per-client-IP cap on crash reports (process-local).
+
+    Process-local is fine here: the point is to stop one IP from writing an
+    unbounded number of retained log lines through an unauthenticated route,
+    not to count exactly across instances.
+    """
+    return _client_error_limiter
+
+
 _prescription_memory_limiter = ScanLimiter(
     cap=settings.PRESCRIPTION_DAILY_CAP, store=InMemoryStore()
 )
@@ -186,6 +201,7 @@ def get_prescription_limiter(
 # Annotated dependency types for endpoint injection
 PrescriptionLimiterDep = Annotated[ScanLimiter, Depends(get_prescription_limiter)]
 TokenIssueLimiterDep = Annotated[ScanLimiter, Depends(get_token_issue_limiter)]
+ClientErrorLimiterDep = Annotated[ScanLimiter, Depends(get_client_error_limiter)]
 GeminiDep = Annotated[GeminiProvider, Depends(get_gemini_provider)]
 FoodLookupDep = Annotated[FoodLookupProvider | None, Depends(get_food_lookup)]
 SupabaseDep = Annotated[SupabaseProvider, Depends(get_supabase_provider)]

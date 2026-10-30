@@ -83,6 +83,10 @@ class _RecordingProvider:
     def __init__(self) -> None:
         self.calls: list[str] = []
 
+    async def has_consent(self, user_id: str, notice_version: str) -> bool:
+        self.calls.append("has_consent")
+        return True
+
     async def ensure_profile_exists(self, user_id: str) -> None:
         self.calls.append("ensure_profile_exists")
 
@@ -97,8 +101,30 @@ async def test_profile_is_created_before_the_scan_is_saved():
         gemini=None, supabase=provider, storage=None, storage_bucket="b"
     )
     await orchestrator._persist_scan(_response("fresh-device"))
-    assert provider.calls == ["ensure_profile_exists", "save_scan"], (
-        "the profile row must exist before the scan insert, or the FK fails"
+    assert provider.calls == ["has_consent", "ensure_profile_exists", "save_scan"], (
+        "consent is re-checked first, then the profile row must exist before "
+        "the scan insert or the FK fails"
+    )
+
+
+class _ConsentWithdrawnProvider(_RecordingProvider):
+    """Consent withdrawn by the time we persist (the user hit Delete mid-scan)."""
+
+    async def has_consent(self, user_id: str, notice_version: str) -> bool:
+        self.calls.append("has_consent")
+        return False
+
+
+async def test_a_withdrawn_consent_stops_the_profile_bootstrap_and_save():
+    """A delete mid-scan must not recreate the profile or save a row behind it."""
+    provider = _ConsentWithdrawnProvider()
+    orchestrator = ScanOrchestrator(
+        gemini=None, supabase=provider, storage=None, storage_bucket="b"
+    )
+    saved = await orchestrator._persist_scan(_response("deleting-device"))
+    assert saved is False
+    assert provider.calls == ["has_consent"], (
+        "consent was withdrawn, so neither ensure_profile_exists nor save_scan runs"
     )
 
 

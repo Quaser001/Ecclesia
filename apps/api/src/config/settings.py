@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     # How many new device identities one client IP may mint per UTC day.
     DEVICE_TOKEN_DAILY_CAP_PER_IP: int = 20
 
+    # How many crash reports one client IP may file per UTC day. The endpoint
+    # is unauthenticated and writes a retained log line per call, so the loose
+    # per-IP request cap isn't enough. The app sends at most 5 per run; reports
+    # over this cap are dropped (still answered 204) so they cost nothing.
+    CLIENT_ERROR_DAILY_CAP_PER_IP: int = 50
+
     # How many proxies in front of us append to X-Forwarded-For. 0 = use the
     # socket peer (local dev). Cloud Run's front end appends one entry: 1.
     # The client can put anything in the header, so only entries our own

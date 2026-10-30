@@ -114,6 +114,28 @@ async def test_a_failing_refund_doesnt_hide_the_real_error(wired, make_device):
     assert r.status_code == 503 and "AI" in r.json()["detail"]
 
 
+async def test_a_scan_is_not_saved_if_consent_is_withdrawn_mid_scan(wired, make_device, monkeypatch):
+    """If the user deletes their data while a scan is running, consent is
+    withdrawn. The scan must not recreate the profile or save a row behind the
+    delete, and its uploaded photo must not be left behind (DPDP erasure)."""
+    user_id, headers = make_device()
+    await wired.db.upsert_profile(UserProfile(user_id=user_id))
+    _cap(wired)
+
+    async def _withdrawn(self, uid, ver):  # consent gone by the time we persist
+        return False
+    monkeypatch.setattr(LocalDBProvider, "has_consent", _withdrawn)
+
+    r = await _post(headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["saved"] is False
+    assert await wired.db.get_scan(user_id, body["scan_id"]) is None
+    assert await wired.db.get_scan_history(user_id) == []
+    user_dir = wired.storage._base_dir / "calfit-scans" / "scans" / user_id
+    assert not user_dir.exists() or not any(user_dir.iterdir())
+
+
 # --- a retry with the same Idempotency-Key returns the first scan -------------
 
 

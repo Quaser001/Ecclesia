@@ -154,7 +154,29 @@ gcloud logging buckets update _Default --location=global --retention-days=365
 
 The logs hold no health data and no user id (see `src/observability.py`), so a year of them is safe to keep. Retention past 30 days is billed per GiB per month; at CalFit's volume that is small.
 
-## 7. Known gaps before shipping
+## 7. Rolling back a bad deploy
+
+Every deploy creates a new Cloud Run **revision** and sends 100% of traffic to it. The old revisions are still there, so a rollback is just pointing traffic back — it takes seconds and needs no rebuild.
+
+```bash
+# 1. List revisions, newest first. Note the one that was good (the row below the bad one).
+gcloud run revisions list --service=calfit-api --region=asia-south1
+
+# 2. Send all traffic back to that revision.
+gcloud run services update-traffic calfit-api \
+  --region=asia-south1 \
+  --to-revisions=calfit-api-00007-abc=100   # <- the good revision's exact name
+```
+
+To confirm: `gcloud run services describe calfit-api --region=asia-south1 --format='value(status.traffic)'`.
+
+**"Does this change touch the database?"** — rolling back the *code* does not undo a *schema* change. So:
+
+- **Keep every migration additive.** Add columns and tables; don't drop or rename in the same deploy as the code that stops using them. Then the previous revision still runs against the new schema, and a rollback is safe. Drop the old column in a later, separate migration once the rollback window has passed.
+- **The consent-version trap.** If a deploy raised `CONSENT_NOTICE_VERSION` (in both the server and the app), rolling the *server* back to the old version will make the newer app builds unable to consent (they send the new version; the old server rejects it with 409). Treat a consent-version bump as a one-way door: fix forward instead of rolling back, or roll back the app build too.
+- A data migration that already ran (rows changed, not just schema) is not undone by a traffic rollback. Have a reverse migration ready before you run a destructive one.
+
+## 8. Known gaps before shipping
 
 - Identity is an anonymous, server-signed token per profile (ADR-004, ADR-008), kept in the Android Keystore. There are no accounts, so a lost phone means a lost profile. Google sign-in is on the candidate list.
 - Scan images are uploaded to Supabase storage. There is no retention policy. Decide one before Play Store.
